@@ -749,57 +749,23 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ── Header ── */}
+      {/* ── Header — single row ── */}
       <header className="bg-white sticky top-0 z-10" style={{boxShadow:'0 1px 0 #e2e8f0'}}>
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto overflow-x-auto scrollbar-none" style={{scrollbarWidth:'none'}}>
+          <div className="flex items-stretch h-12 min-w-max px-4">
 
-          {/* ── ROW 1: Brand + Utilities (all screen sizes) ── */}
-          <div className="flex items-center h-12 px-4 gap-3">
-
-            {/* Brand */}
-            <div className="flex items-center gap-2.5 shrink-0">
-              <div className="bg-slate-900 text-white rounded-md px-2 py-1 font-black text-[11px] tracking-[0.15em] leading-none">
+            {/* EB badge — compact brand anchor */}
+            <div className="flex items-center pr-4 shrink-0">
+              <div className="bg-slate-900 text-white rounded-md px-2.5 py-1 font-black text-[11px] tracking-[0.15em] leading-none">
                 EB
               </div>
-              <div>
-                <p className="text-sm font-bold text-slate-900 leading-none tracking-tight">Priority Date Tracker</p>
-                <p className="text-[10px] text-slate-400 leading-tight font-medium mt-0.5">India · April 2026</p>
-              </div>
             </div>
 
-            {/* Spacer */}
-            <div className="flex-1" />
+            {/* Vertical divider */}
+            <div className="w-px bg-slate-100 my-2.5 shrink-0" />
 
-            {/* Bulletin countdown — hidden on very small screens */}
-            <div className="hidden sm:flex items-center gap-1 text-[10px] text-slate-400">
-              <Calendar className="w-3 h-3" />
-              <span className="font-medium">
-                {nextBulletinDays === 0 ? 'New bulletin today' : nextBulletinDays === 1 ? 'Tomorrow' : `+${nextBulletinDays}d`}
-              </span>
-            </div>
-
-            {/* Share button */}
-            <button
-              onClick={handleShare}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                shareCopied
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-              }`}
-            >
-              {shareCopied ? (
-                <><CheckCircle2 className="w-3 h-3" /><span className="hidden xs:inline">Copied!</span></>
-              ) : (
-                <><Share2 className="w-3 h-3" /><span>Share</span></>
-              )}
-            </button>
-          </div>
-
-          {/* ── ROW 2: Category pills + Nav tabs (scrollable on mobile) ── */}
-          <div className="flex items-stretch border-t border-slate-100 overflow-x-auto scrollbar-none" style={{scrollbarWidth:'none'}}>
-
-            {/* EB Category pills — scrollable group */}
-            <div className="flex items-center gap-1 px-4 py-2 shrink-0">
+            {/* EB Category pills */}
+            <div className="flex items-center gap-1 px-4 shrink-0">
               {(Object.keys(EB_CATEGORIES) as Array<keyof typeof EB_CATEGORIES>).map(c => (
                 <button
                   key={c}
@@ -811,7 +777,7 @@ export default function Home() {
                   }`}
                 >
                   <span className="font-bold">{EB_CATEGORIES[c].label}</span>
-                  <span className={`hidden md:inline font-normal ${
+                  <span className={`hidden lg:inline font-normal ${
                     selectedCategory === c ? 'text-slate-300' : 'text-slate-400'
                   }`}> — {EB_CATEGORIES[c].name.split(' / ')[0]}</span>
                 </button>
@@ -819,9 +785,9 @@ export default function Home() {
             </div>
 
             {/* Vertical divider */}
-            <div className="w-px bg-slate-100 my-2 shrink-0" />
+            <div className="w-px bg-slate-100 my-2.5 shrink-0" />
 
-            {/* Nav tabs — underline style, also scrollable */}
+            {/* Nav tabs — underline style */}
             <nav className="flex items-stretch px-2 shrink-0">
               {tabs.map(t => (
                 <button
@@ -841,8 +807,34 @@ export default function Home() {
               ))}
             </nav>
 
-          </div>
+            {/* Spacer */}
+            <div className="flex-1 min-w-4" />
 
+            {/* Utilities: countdown + share */}
+            <div className="flex items-center gap-2 pl-2 shrink-0">
+              <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                <Calendar className="w-3 h-3" />
+                <span className="font-medium whitespace-nowrap">
+                  {nextBulletinDays === 0 ? 'New bulletin today' : nextBulletinDays === 1 ? 'Tomorrow' : `+${nextBulletinDays}d`}
+                </span>
+              </div>
+              <button
+                onClick={handleShare}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
+                  shareCopied
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                {shareCopied ? (
+                  <><CheckCircle2 className="w-3 h-3" /> Copied!</>
+                ) : (
+                  <><Share2 className="w-3 h-3" /> Share</>
+                )}
+              </button>
+            </div>
+
+          </div>
         </div>
       </header>
 
