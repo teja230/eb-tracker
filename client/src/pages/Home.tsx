@@ -334,6 +334,7 @@ export default function Home() {
   const [lastToastDate, setLastToastDate] = useState("");
   const [shareCopied, setShareCopied] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
+  const [showSimulatorControls, setShowSimulatorControls] = useState(false);
 
   // Simulator controls (affect scenario rates)
   const [spilloverLevel, setSpilloverLevel] = useState<"low" | "moderate" | "high">("moderate");
@@ -529,7 +530,6 @@ export default function Home() {
     { id: "overview",   label: "📊 Overview" },
     { id: "scenarios",  label: "📈 Scenarios" },
     { id: "tracker",    label: "📋 Bulletin Tracker" },
-    { id: "simulator",  label: "🔧 Simulator" },
   ];
 
   return (
@@ -690,23 +690,32 @@ export default function Home() {
               </div>
             )}
 
-            {/* Scenario Range Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {(Object.entries(SCENARIOS) as Array<[keyof typeof SCENARIOS, typeof SCENARIOS[keyof typeof SCENARIOS]]>).map(([key, s]) => {
-                const p = projections[key];
-                return (
-                  <div key={key} className="bg-white rounded-lg border border-slate-200 p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
-                      <span className="text-xs font-semibold text-slate-700">{s.label}</span>
-                    </div>
-                    <p className="text-sm font-bold font-mono text-slate-900">
-                      {p.isAlreadyCurrent ? "Current" : fmtDate(p.fadDate)}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">FAD · {s.probability}</p>
-                  </div>
-                );
-              })}
+            {/* Scenario Range Strip */}
+            <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">FAD Range — All Scenarios</p>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {(Object.entries(SCENARIOS) as Array<[keyof typeof SCENARIOS, typeof SCENARIOS[keyof typeof SCENARIOS]]>).map(([key, s]) => {
+                    const p = projections[key];
+                    return (
+                      <div key={key} className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                        <span className="text-xs text-slate-500">{s.label}:</span>
+                        <span className="text-xs font-bold font-mono text-slate-800">
+                          {p.isAlreadyCurrent ? "Current" : fmtDate(p.fadDate)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab("scenarios")}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-400 hover:bg-white transition-all"
+              >
+                See all scenarios
+                <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+              </button>
             </div>
 
             {/* Historical Chart */}
@@ -799,10 +808,117 @@ export default function Home() {
         ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === "scenarios" && (
           <div className="space-y-6">
+
+            {/* ── Adjust Assumptions (collapsible) ── */}
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setShowSimulatorControls(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-base">&#9881;&#65039;</span>
+                  <span>Adjust Assumptions</span>
+                  <span className="text-xs font-normal text-slate-400 ml-1">
+                    Spillover: {spilloverLevel} · Ban: through {banContinues} · Wastage: {wastageLevel}
+                  </span>
+                </div>
+                {showSimulatorControls
+                  ? <ChevronUp className="w-4 h-4 text-slate-400" />
+                  : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {showSimulatorControls && (
+                <div className="border-t border-slate-100 p-5 space-y-5">
+                  {/* Controls */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">Spillover Level</label>
+                      <div className="space-y-2">
+                        {[
+                          { val: "low" as const,      label: "Low (~30k extra EB visas)",  sub: "Partial ban, limited spillover" },
+                          { val: "moderate" as const, label: "Moderate (~50k extra)",        sub: "Base case assumption" },
+                          { val: "high" as const,     label: "High (~70k+ extra)",           sub: "Full ban, max spillover" },
+                        ].map(o => (
+                          <button key={o.val} onClick={() => setSpilloverLevel(o.val)}
+                            className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${
+                              spilloverLevel === o.val
+                                ? "border-slate-800 bg-slate-800 text-white"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
+                            }`}>
+                            <div className="font-semibold">{o.label}</div>
+                            <div className={spilloverLevel === o.val ? "text-slate-300" : "text-slate-400"}>{o.sub}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">Ban Duration</label>
+                      <div className="space-y-2">
+                        {[
+                          { val: "2027" as const, label: "Ends Oct 2027 (1 FY)",           sub: "Court reversal or expiry" },
+                          { val: "2028" as const, label: "Through Sept 2028 (2 FY)",       sub: "Base case — sustained policy" },
+                          { val: "2029" as const, label: "Through Sept 2029 (3 FY)",       sub: "Full term continuation" },
+                        ].map(o => (
+                          <button key={o.val} onClick={() => setBanContinues(o.val)}
+                            className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${
+                              banContinues === o.val
+                                ? "border-slate-800 bg-slate-800 text-white"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
+                            }`}>
+                            <div className="font-semibold">{o.label}</div>
+                            <div className={banContinues === o.val ? "text-slate-300" : "text-slate-400"}>{o.sub}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">GC Wastage Level</label>
+                      <div className="space-y-2">
+                        {[
+                          { val: "low" as const,      label: "Low (5–10%)",         sub: "Efficient consular processing" },
+                          { val: "moderate" as const, label: "Moderate (15–20%)",    sub: "Historical EB-2 average" },
+                          { val: "high" as const,     label: "High (25–30%)",        sub: "Travel ban consular backlog" },
+                        ].map(o => (
+                          <button key={o.val} onClick={() => setWastageLevel(o.val)}
+                            className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${
+                              wastageLevel === o.val
+                                ? "border-slate-800 bg-slate-800 text-white"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
+                            }`}>
+                            <div className="font-semibold">{o.label}</div>
+                            <div className={wastageLevel === o.val ? "text-slate-300" : "text-slate-400"}>{o.sub}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Explainer cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                    <div className="bg-slate-50 rounded-lg p-4">
+                      <p className="text-xs font-bold text-slate-800 mb-1">75-Country Visa Ban</p>
+                      <p className="text-xs text-slate-600 leading-relaxed">Proclamations 10949 & 10998 (Jan 2026) paused immigrant visas for 75+ countries. India was <strong>exempt</strong>. Unused family-based visas spill over to EB categories under INA §201(d).</p>
+                      <div className="mt-2 text-xs text-slate-500">Est. spillover: <span className="font-semibold text-slate-700">50k–70k extra EB visas</span></div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-4">
+                      <p className="text-xs font-bold text-slate-800 mb-1">Green Card Wastage</p>
+                      <p className="text-xs text-slate-600 leading-relaxed">Visas go unused when applicants miss medical exams, security clearances, or interview windows. FY2021: 25% overall wastage. EB-2 India ~20%, EB-3 India ~49%.</p>
+                      <div className="mt-2 text-xs text-slate-500">During bans: <span className="font-semibold text-amber-600">Higher (consular backlog)</span></div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-4">
+                      <p className="text-xs font-bold text-slate-800 mb-1">How the Model Works</p>
+                      <p className="text-xs text-slate-600 leading-relaxed">Controls modify the FAD advance rate multiplier. Higher spillover → faster advance. Longer ban → sustained spillover. Higher wastage → fewer effective visas → slower advance.</p>
+                      <div className="mt-2 text-xs text-slate-500 font-mono bg-white rounded px-2 py-1">months = gap ÷ (base_rate × spillover × ban × wastage)</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
               <strong>Projections for {fmtDateStr(targetDate)}</strong> — {cat.label} India.
               The critical variable is whether the FY2027 visa spillover materializes at scale.
-              Adjust simulator settings to see how spillover, ban duration, and wastage affect your timeline.
+              Use <strong>Adjust Assumptions</strong> above to see how spillover, ban duration, and wastage affect your timeline.
             </div>
 
             {/* Scenario cards */}
@@ -1000,179 +1116,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            SIMULATOR TAB
-        ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === "simulator" && (
-          <div className="space-y-6">
-            {/* Explainer */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="p-5">
-                <h3 className="text-sm font-bold text-slate-800 mb-2">75-Country Visa Ban</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Presidential Proclamations 10949 & 10998 (Jan 2026) paused immigrant visas for 75+ countries.
-                  India, China, Mexico, and Philippines were <strong>exempt</strong>. Unused family-based visas
-                  from banned countries spill over to employment-based categories under INA §201(d).
-                </p>
-                <div className="mt-3 space-y-1 text-xs">
-                  <div className="flex justify-between"><span className="text-slate-500">Estimated spillover</span><span className="font-semibold text-slate-800">50k–70k extra EB visas</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Fiscal year</span><span className="font-semibold text-slate-800">FY2027 (Oct 2026–Sep 2027)</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Legal challenge</span><span className="font-semibold text-amber-600">CLINIC v. Rubio (active)</span></div>
-                </div>
-              </Card>
-              <Card className="p-5">
-                <h3 className="text-sm font-bold text-slate-800 mb-2">Green Card Wastage</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Visas go unused when applicants fail medical exams, face security clearance issues, or miss
-                  interview windows. FY2021 saw 25% overall wastage (66,781 of 262,288 EB visas).
-                  EB-3 India had 49% wastage; EB-2 India ~20%.
-                </p>
-                <div className="mt-3 space-y-1 text-xs">
-                  <div className="flex justify-between"><span className="text-slate-500">EB-2 normal wastage</span><span className="font-semibold text-slate-800">~20%</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">EB-3 normal wastage</span><span className="font-semibold text-slate-800">~49%</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">During travel bans</span><span className="font-semibold text-amber-600">Higher (consular backlog)</span></div>
-                </div>
-              </Card>
-              <Card className="p-5">
-                <h3 className="text-sm font-bold text-slate-800 mb-2">How the Simulator Works</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Adjusting these controls modifies the FAD advance rate multiplier for each scenario.
-                  Higher spillover → faster advance rate. Longer ban → sustained spillover across more fiscal years.
-                  Higher wastage → fewer effective visas → slower advance rate.
-                </p>
-                <div className="mt-3 text-xs text-slate-500">
-                  Formula: <code className="bg-slate-100 px-1 rounded">months = gap ÷ (base_rate × spillover × ban × wastage)</code>
-                </div>
-              </Card>
-            </div>
 
-            {/* Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="p-5">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">
-                  Spillover Level
-                </label>
-                <div className="space-y-2">
-                  {[
-                    { val: "low" as const, label: "Low (~30k extra EB visas)", sub: "Partial ban, limited spillover" },
-                    { val: "moderate" as const, label: "Moderate (~50k extra)", sub: "Base case assumption" },
-                    { val: "high" as const, label: "High (~70k+ extra)", sub: "Full ban, max spillover" },
-                  ].map(o => (
-                    <button
-                      key={o.val}
-                      onClick={() => setSpilloverLevel(o.val)}
-                      className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${
-                        spilloverLevel === o.val
-                          ? "border-slate-800 bg-slate-800 text-white"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
-                      }`}
-                    >
-                      <div className="font-semibold">{o.label}</div>
-                      <div className={spilloverLevel === o.val ? "text-slate-300" : "text-slate-400"}>{o.sub}</div>
-                    </button>
-                  ))}
-                </div>
-              </Card>
-
-              <Card className="p-5">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">
-                  Ban Duration
-                </label>
-                <div className="space-y-2">
-                  {[
-                    { val: "2027" as const, label: "Ends Oct 2027 (1 FY)", sub: "Court reversal or expiry" },
-                    { val: "2028" as const, label: "Through Sept 2028 (2 FY)", sub: "Base case — sustained policy" },
-                    { val: "2029" as const, label: "Through Sept 2029 (3 FY)", sub: "Full term continuation" },
-                  ].map(o => (
-                    <button
-                      key={o.val}
-                      onClick={() => setBanContinues(o.val)}
-                      className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${
-                        banContinues === o.val
-                          ? "border-slate-800 bg-slate-800 text-white"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
-                      }`}
-                    >
-                      <div className="font-semibold">{o.label}</div>
-                      <div className={banContinues === o.val ? "text-slate-300" : "text-slate-400"}>{o.sub}</div>
-                    </button>
-                  ))}
-                </div>
-              </Card>
-
-              <Card className="p-5">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">
-                  GC Wastage Level
-                </label>
-                <div className="space-y-2">
-                  {[
-                    { val: "low" as const, label: "Low (5–10%)", sub: "Efficient consular processing" },
-                    { val: "moderate" as const, label: "Moderate (15–20%)", sub: "Historical EB-2 average" },
-                    { val: "high" as const, label: "High (25–30%)", sub: "Travel ban consular backlog" },
-                  ].map(o => (
-                    <button
-                      key={o.val}
-                      onClick={() => setWastageLevel(o.val)}
-                      className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${
-                        wastageLevel === o.val
-                          ? "border-slate-800 bg-slate-800 text-white"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
-                      }`}
-                    >
-                      <div className="font-semibold">{o.label}</div>
-                      <div className={wastageLevel === o.val ? "text-slate-300" : "text-slate-400"}>{o.sub}</div>
-                    </button>
-                  ))}
-                </div>
-              </Card>
-            </div>
-
-            {/* Simulator Results */}
-            <div className="bg-gradient-to-br from-slate-800 to-slate-700 rounded-xl p-6 text-white">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-300 mb-1">
-                    Simulator Results — {fmtDateStr(targetDate)}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Spillover: {spilloverLevel} · Ban: through {banContinues} · Wastage: {wastageLevel}
-                  </p>
-                </div>
-                <button
-                  onClick={generateExport}
-                  className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-medium transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Export
-                </button>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {(Object.entries(SCENARIOS) as Array<[keyof typeof SCENARIOS, typeof SCENARIOS[keyof typeof SCENARIOS]]>).map(([key, s]) => {
-                  const p = projections[key];
-                  return (
-                    <div key={key} className="bg-white/10 rounded-lg p-3">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <div className="w-2 h-2 rounded-full" style={{ background: s.color }} />
-                        <span className="text-xs font-semibold text-slate-200">{s.label}</span>
-                      </div>
-                      <p className="text-sm font-bold font-mono">
-                        {p.isAlreadyCurrent ? "Current" : fmtDate(p.fadDate)}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">FAD</p>
-                      <p className="text-xs font-mono text-slate-300 mt-1">
-                        {p.isAlreadyCurrent ? "—" : fmtDate(p.dofDate)}
-                      </p>
-                      <p className="text-xs text-slate-400">DoF</p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {p.isAlreadyCurrent ? "0" : p.monthsFromToday} mo · rate {adjustedRates[key]}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
