@@ -202,24 +202,6 @@ export default function PriorityDatePicker({ value, onChange }: Props) {
             })}
           </div>
 
-          {/* Footer: quick-select common ranges */}
-          <div className="mt-3 pt-3 border-t border-slate-100 flex gap-2 flex-wrap">
-            {[
-              { label: "Jan 2015", val: "2015-01-01" },
-              { label: "Jan 2016", val: "2016-01-01" },
-              { label: "Jan 2017", val: "2017-01-01" },
-              { label: "Jan 2018", val: "2018-01-01" },
-            ].map(q => (
-              <button
-                key={q.val}
-                type="button"
-                onClick={() => { onChange(q.val); setOpen(false); const d = parseYMD(q.val); setViewYear(d.getFullYear()); setViewMonth(d.getMonth()); }}
-                className="text-xs px-2 py-1 rounded border border-slate-200 text-slate-600 hover:border-slate-400 hover:bg-slate-50 transition-colors font-mono"
-              >
-                {q.label}
-              </button>
-            ))}
-          </div>
         </div>
       )}
     </div>
