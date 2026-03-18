@@ -35,7 +35,8 @@
  * Capitol Immigration Law Group, AM22Tech, Manifest Law, Beyondborderglobal, Cato Institute.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+
 import { Card } from '@/components/ui/card';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -43,7 +44,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, Calendar, Clock, Download, CheckCircle2,
-  AlertTriangle, Info, ChevronDown, ChevronUp,
+  AlertTriangle, Info, ChevronDown, ChevronUp, Share2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -284,6 +285,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<keyof typeof EB_CATEGORIES>("EB2");
   const [targetDate, setTargetDate] = useState("2016-08-01");
   const [lastToastDate, setLastToastDate] = useState("");
+  const [shareCopied, setShareCopied] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
 
   // Simulator controls (affect scenario rates)
@@ -292,6 +294,21 @@ export default function Home() {
   const [wastageLevel, setWastageLevel] = useState<"low" | "moderate" | "high">("moderate");
 
   const cat = EB_CATEGORIES[selectedCategory];
+
+  // ── Read URL params on mount ──
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pd  = params.get('pd');
+    const cat = params.get('cat') as keyof typeof EB_CATEGORIES | null;
+    const sp  = params.get('sp') as 'low' | 'moderate' | 'high' | null;
+    const ban = params.get('ban') as '2027' | '2028' | '2029' | null;
+    const wst = params.get('wst') as 'low' | 'moderate' | 'high' | null;
+    if (pd && /^\d{4}-\d{2}-\d{2}$/.test(pd)) setTargetDate(pd);
+    if (cat && cat in EB_CATEGORIES) setSelectedCategory(cat);
+    if (sp && ['low','moderate','high'].includes(sp)) setSpilloverLevel(sp);
+    if (ban && ['2027','2028','2029'].includes(ban)) setBanContinues(ban);
+    if (wst && ['low','moderate','high'].includes(wst)) setWastageLevel(wst);
+  }, []);
 
   const handleDateChange = useCallback((val: string) => {
     setTargetDate(val);
@@ -365,6 +382,35 @@ export default function Home() {
     }));
   }, [projections]);
 
+  const generateShareUrl = useCallback(() => {
+    const params = new URLSearchParams({
+      pd:  targetDate,
+      cat: selectedCategory,
+      sp:  spilloverLevel,
+      ban: banContinues,
+      wst: wastageLevel,
+    });
+    const base = window.location.origin + window.location.pathname;
+    return `${base}?${params.toString()}`;
+  }, [targetDate, selectedCategory, spilloverLevel, banContinues, wastageLevel]);
+
+  const handleShare = useCallback(async () => {
+    const url = generateShareUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      toast.success('Link copied to clipboard!', {
+        description: 'Share this URL to let others see your exact scenario.',
+        duration: 3000,
+        position: 'bottom-right',
+      });
+      setTimeout(() => setShareCopied(false), 3000);
+    } catch {
+      // Fallback: show URL in prompt
+      window.prompt('Copy this link to share your scenario:', url);
+    }
+  }, [generateShareUrl]);
+
   const generateExport = () => {
     const lines = [
       "EB PRIORITY DATE TRACKER — PERSONALIZED ESTIMATE",
@@ -435,9 +481,25 @@ export default function Home() {
               <p className="text-xs text-slate-500">India · EB-1, EB-2, EB-3 · April 2026 Bulletin</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Live data · Apr 2026</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleShare}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                shareCopied
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                  : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400 hover:bg-slate-50'
+              }`}
+            >
+              {shareCopied ? (
+                <><CheckCircle2 className="w-3.5 h-3.5" /> Copied!</>
+              ) : (
+                <><Share2 className="w-3.5 h-3.5" /> Share Estimate</>
+              )}
+            </button>
+            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Live data · Apr 2026</span>
+            </div>
           </div>
         </div>
       </header>
