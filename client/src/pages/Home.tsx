@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PriorityDatePicker from '@/components/PriorityDatePicker';
+import { jsPDF } from 'jspdf';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -479,52 +480,245 @@ export default function Home() {
   }, [generateShareUrl, baseProjection, cat.label, targetDate]);
 
   const generateExport = () => {
-    const lines = [
-      "EB PRIORITY DATE TRACKER — PERSONALIZED ESTIMATE",
-      "=".repeat(50),
-      `Generated: ${fmtDate(TODAY)}`,
-      `Category: ${cat.label} (${cat.name})`,
-      `Target Priority Date: ${fmtDateStr(targetDate)}`,
-      `Current FAD (Apr 2026): ${fmtDateStr(cat.currentFAD)}`,
-      `Gap to Target: ${gapMonths} priority-date months`,
-      "",
-      "SIMULATOR SETTINGS",
-      "-".repeat(30),
-      `Spillover Level: ${spilloverLevel}`,
-      `Ban Duration: through ${banContinues}`,
-      `Wastage Level: ${wastageLevel}`,
-      "",
-      "SCENARIO PROJECTIONS",
-      "-".repeat(30),
-      ...Object.entries(SCENARIOS).map(([key, s]) => {
-        const p = projections[key];
-        return [
-          `${s.label} (${s.probability}):`,
-          `  DoF Estimate: ${p.isAlreadyCurrent ? "Already Current" : fmtDate(p.dofDate)}`,
-          `  FAD Estimate: ${p.isAlreadyCurrent ? "Already Current" : fmtDate(p.fadDate)}`,
-          `  GC Estimate:  ${p.isAlreadyCurrent ? "Already Current" : fmtDate(p.gcDate)}`,
-          `  Months from Today: ${p.monthsFromToday}`,
-          `  FAD Advance Rate: ${adjustedRates[key as keyof typeof adjustedRates]} PD-mo/month`,
-        ].join("\n");
-      }),
-      "",
-      "METHODOLOGY",
-      "-".repeat(30),
-      "Uses FAD Advance Rate Model: months_from_today = gap_PD_months / fad_advance_rate",
-      "Rates calibrated from research documents and historical visa bulletin data.",
-      "DoF leads FAD by ~6 months. GC receipt follows FAD by ~12–18 months.",
-      "",
-      "DISCLAIMER: Estimates are based on historical trends and current policy.",
-      "Actual timelines may vary. Consult an immigration attorney for legal advice.",
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 18;
+    const contentW = pageW - margin * 2;
+    let y = 0;
+
+    // ── Helper: add new page if needed ──
+    const checkPage = (needed = 12) => {
+      if (y + needed > 272) { doc.addPage(); y = 20; }
+    };
+
+    // ── Header band ──
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, pageW, 32, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text("EB Priority Date Tracker", margin, 13);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(148, 163, 184); // slate-400
+    doc.text("India · EB-1, EB-2, EB-3 · Personalized Estimate", margin, 20);
+    doc.text(`Generated: ${fmtDate(new Date())}`, margin, 26);
+    // Site link in header
+    const siteUrl = window.location.origin;
+    doc.setTextColor(99, 179, 237);
+    doc.textWithLink(siteUrl, pageW - margin - doc.getTextWidth(siteUrl), 26, { url: siteUrl });
+    y = 42;
+
+    // ── Section: Your Priority Date ──
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text("YOUR PRIORITY DATE", margin, y);
+    y += 5;
+    doc.setFillColor(248, 250, 252); // slate-50
+    doc.roundedRect(margin, y, contentW, 22, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(15, 23, 42);
+    doc.text(fmtDateStr(targetDate), margin + 6, y + 9);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Category: ${cat.label} — ${cat.name}`, margin + 6, y + 16);
+    // Current FAD / Gap / DoF stats
+    const statX = margin + contentW * 0.45;
+    const statCols = [
+      { label: "CURRENT FAD", val: fmtDateStr(cat.currentFAD) },
+      { label: "GAP", val: `${gapMonths} mo` },
+      { label: "CURRENT DOF", val: fmtDateStr(cat.currentDoF) },
     ];
-    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `EB-Estimate-${fmtDateStr(targetDate).replace(/[, ]/g, "")}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Estimate exported!", { duration: 2000 });
+    statCols.forEach((st, i) => {
+      const sx = statX + i * ((contentW * 0.55) / 3);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text(st.label, sx, y + 7);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text(st.val, sx, y + 14);
+    });
+    y += 30;
+
+    // ── Section: Base Case Projection ──
+    checkPage(38);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text("BASE CASE PROJECTION", margin, y);
+    y += 4;
+    doc.setFillColor(15, 23, 42);
+    doc.roundedRect(margin, y, contentW, 28, 2, 2, "F");
+    const bp = projections.base;
+    const bpCols = [
+      { label: "FILING DATE (DOF)", val: bp.isAlreadyCurrent ? "Current" : fmtDate(bp.dofDate), sub: "Can file I-485" },
+      { label: "FINAL ACTION DATE", val: bp.isAlreadyCurrent ? "Current" : fmtDate(bp.fadDate), sub: "Visa becomes available" },
+      { label: "GC RECEIPT EST.", val: bp.isAlreadyCurrent ? "Current" : fmtDate(bp.gcDate), sub: `~${cat.gcLagMonths}mo after FAD` },
+      { label: "MONTHS TO FAD", val: String(bp.monthsFromToday), sub: "Base case estimate" },
+    ];
+    bpCols.forEach((col, i) => {
+      const cx = margin + 6 + i * (contentW / 4);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text(col.label, cx, y + 8);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
+      doc.text(col.val, cx, y + 16);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text(col.sub, cx, y + 22);
+    });
+    y += 36;
+
+    // ── Section: Assumption Settings ──
+    checkPage(28);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text("ASSUMPTION SETTINGS", margin, y);
+    y += 4;
+    doc.setFillColor(241, 245, 249); // slate-100
+    doc.roundedRect(margin, y, contentW, 16, 2, 2, "F");
+    const assumptions = [
+      { label: "Spillover", val: spilloverLevel.charAt(0).toUpperCase() + spilloverLevel.slice(1) },
+      { label: "Ban Duration", val: `Through ${banContinues}` },
+      { label: "Wastage", val: wastageLevel.charAt(0).toUpperCase() + wastageLevel.slice(1) },
+    ];
+    assumptions.forEach((a, i) => {
+      const ax = margin + 6 + i * (contentW / 3);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text(a.label.toUpperCase(), ax, y + 6);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text(a.val, ax, y + 13);
+    });
+    y += 24;
+
+    // ── Section: All Scenarios ──
+    checkPage(12);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text("SCENARIO RANGE — ALL OUTCOMES", margin, y);
+    y += 5;
+
+    // Table header
+    const cols = ["Scenario", "Probability", "DoF Estimate", "FAD Estimate", "GC Receipt", "Months to FAD"];
+    const colW = [32, 22, 32, 32, 32, 24];
+    let cx2 = margin;
+    doc.setFillColor(30, 41, 59); // slate-800
+    doc.rect(margin, y, contentW, 7, "F");
+    cols.forEach((c, i) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text(c, cx2 + 2, y + 4.8);
+      cx2 += colW[i];
+    });
+    y += 7;
+
+    // Table rows
+    const scenarioColors: Record<string, [number,number,number]> = {
+      optimistic:  [16, 185, 129],
+      base:        [59, 130, 246],
+      conservative:[245, 158, 11],
+      pessimistic: [239, 68, 68],
+    };
+    Object.entries(SCENARIOS).forEach(([key, s], rowIdx) => {
+      checkPage(9);
+      const p = projections[key];
+      const rowBg: [number,number,number] = rowIdx % 2 === 0 ? [248, 250, 252] : [255, 255, 255];
+      doc.setFillColor(...rowBg);
+      doc.rect(margin, y, contentW, 8, "F");
+      // Color accent bar
+      const [r,g,b] = scenarioColors[key] ?? [100,116,139];
+      doc.setFillColor(r, g, b);
+      doc.rect(margin, y, 2.5, 8, "F");
+      const rowData = [
+        s.label,
+        s.probability,
+        p.isAlreadyCurrent ? "Current" : fmtDate(p.dofDate),
+        p.isAlreadyCurrent ? "Current" : fmtDate(p.fadDate),
+        p.isAlreadyCurrent ? "Current" : fmtDate(p.gcDate),
+        p.isAlreadyCurrent ? "0" : String(p.monthsFromToday),
+      ];
+      let rx = margin + 3.5;
+      rowData.forEach((cell, i) => {
+        doc.setFont("helvetica", i === 0 ? "bold" : "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(15, 23, 42);
+        doc.text(cell, rx, y + 5.2);
+        rx += colW[i];
+      });
+      y += 8;
+    });
+    y += 8;
+
+    // ── Section: Methodology ──
+    checkPage(30);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text("METHODOLOGY", margin, y);
+    y += 5;
+    const methodLines = [
+      "Uses the FAD Advance Rate Model: months_to_FAD = gap_PD_months ÷ fad_advance_rate",
+      "Rates are calibrated from research documents and historical visa bulletin data.",
+      "DoF (Date for Filing) leads FAD by approximately 6 months.",
+      "GC receipt follows FAD by approximately 12–18 months.",
+    ];
+    methodLines.forEach(line => {
+      checkPage(6);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      const wrapped = doc.splitTextToSize(line, contentW);
+      doc.text(wrapped, margin, y);
+      y += wrapped.length * 4.5;
+    });
+    y += 6;
+
+    // ── Disclaimer ──
+    checkPage(16);
+    doc.setFillColor(254, 243, 199); // amber-100
+    doc.roundedRect(margin, y, contentW, 14, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(146, 64, 14); // amber-800
+    doc.text("DISCLAIMER", margin + 4, y + 5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(120, 53, 15);
+    const disclaimer = "Estimates are based on historical trends and current policy. Actual timelines may vary significantly. This is not legal advice — consult a licensed immigration attorney for guidance specific to your situation.";
+    const dLines = doc.splitTextToSize(disclaimer, contentW - 8);
+    doc.text(dLines, margin + 4, y + 10);
+    y += 20;
+
+    // ── Footer ──
+    const totalPages = (doc.internal as { getNumberOfPages?: () => number }).getNumberOfPages?.() ?? 1;
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Page ${i} of ${totalPages}`, pageW - margin, 290, { align: "right" });
+      doc.setTextColor(99, 179, 237);
+      doc.textWithLink(siteUrl, margin, 290, { url: siteUrl });
+    }
+
+    doc.save(`EB-Estimate-${fmtDateStr(targetDate).replace(/[, ]/g, "")}.pdf`);
+    toast.success("PDF exported!", { duration: 2000 });
   };
 
   const tabs = [
@@ -826,6 +1020,21 @@ export default function Home() {
         ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === "scenarios" && (
           <div className="space-y-6">
+
+            {/* ── Scenarios header row ── */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-slate-800">Scenario Analysis</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Four outcomes based on current policy assumptions</p>
+              </div>
+              <button
+                onClick={generateExport}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-slate-400 hover:bg-slate-50 transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export PDF
+              </button>
+            </div>
 
             {/* ── Adjust Assumptions (collapsible) ── */}
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
