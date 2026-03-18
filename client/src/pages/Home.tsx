@@ -60,8 +60,25 @@ const CURRENT_BULLETIN = {
   eb3: { fad: "2013-11-15", dof: "2015-01-15" },
 };
 
-// EB Category metadata
+// EB Category metadata — order determines tab display order (EB-1, EB-2, EB-3)
 const EB_CATEGORIES = {
+  EB1: {
+    label: "EB-1",
+    name: "Priority Workers / Multinational Managers",
+    currentFAD: CURRENT_BULLETIN.eb1.fad,
+    currentDoF: CURRENT_BULLETIN.eb1.dof,
+    rates: {
+      optimistic:   2.5,
+      base:         1.5,
+      conservative: 0.8,
+      pessimistic:  0.4,
+    },
+    dofLeadMonths: 8,
+    gcLagMonths: 12,
+    pendingInventory: 8000,
+    annualVisas: 2500,
+    notes: "EB-1 India has a smaller backlog (~8k pending). Current FAD is Apr 2023, significantly more current than EB-2.",
+  },
   EB2: {
     label: "EB-2",
     name: "Advanced Degree / Exceptional Ability",
@@ -80,23 +97,6 @@ const EB_CATEGORIES = {
     pendingInventory: 2183, // USCIS Oct 2025 data
     annualVisas: 100,    // FY2023 actual (pasted_content_2.txt)
     notes: "EB-2 India receives ~2,800–3,000 visas/year under normal conditions. FY2026 acceleration driven by 75-country ban spillover.",
-  },
-  EB1: {
-    label: "EB-1",
-    name: "Priority Workers / Multinational Managers",
-    currentFAD: CURRENT_BULLETIN.eb1.fad,
-    currentDoF: CURRENT_BULLETIN.eb1.dof,
-    rates: {
-      optimistic:   2.5,
-      base:         1.5,
-      conservative: 0.8,
-      pessimistic:  0.4,
-    },
-    dofLeadMonths: 8,
-    gcLagMonths: 12,
-    pendingInventory: 8000,
-    annualVisas: 2500,
-    notes: "EB-1 India has a smaller backlog (~8k pending). Current FAD is Apr 2023, significantly more current than EB-2.",
   },
   EB3: {
     label: "EB-3",
@@ -404,7 +404,7 @@ function getLatestBulletinUrl(): { url: string; month: string } {
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [selectedCategory, setSelectedCategory] = useState<keyof typeof EB_CATEGORIES>("EB2");
+  const [selectedCategory, setSelectedCategory] = useState<keyof typeof EB_CATEGORIES>("EB2"); // default to EB-2
   const [targetDate, setTargetDate] = useState("2016-08-01");
   const [lastToastDate, setLastToastDate] = useState("");
   const [shareCopied, setShareCopied] = useState(false);
@@ -692,16 +692,7 @@ export default function Home() {
                 <><Share2 className="w-3.5 h-3.5" /> Share Estimate</>
               )}
             </button>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => fetchLatestBulletin(true)}
-                disabled={fetchStatus === 'loading'}
-                title="Refresh bulletin data"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${fetchStatus === 'loading' ? 'animate-spin' : ''}`} />
-              </button>
-              <div className="flex items-center gap-1.5 text-xs">
+            <div className="flex items-center gap-1.5 text-xs">
                 {fetchStatus === 'loading' ? (
                   <span className="text-slate-400">Syncing...</span>
                 ) : fetchStatus === 'success' ? (
@@ -710,7 +701,6 @@ export default function Home() {
                   <><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /><span className="text-slate-500">{lastSyncLabel}</span></>
                 )}
               </div>
-            </div>
           </div>
         </div>
       </header>
@@ -1062,11 +1052,11 @@ export default function Home() {
                   <thead>
                     <tr className="bg-slate-800 text-white">
                       <th className="px-4 py-3 text-left font-semibold">Month</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-1 FAD</th>
+                      <th className="px-4 py-3 text-left font-semibold">EB-1</th>
                       <th className="px-4 py-3 text-center font-semibold">Δ</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-2 FAD</th>
+                      <th className="px-4 py-3 text-left font-semibold">EB-2</th>
                       <th className="px-4 py-3 text-center font-semibold">Δ</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-3 FAD</th>
+                      <th className="px-4 py-3 text-left font-semibold">EB-3</th>
                       <th className="px-4 py-3 text-center font-semibold">Δ</th>
                     </tr>
                   </thead>
@@ -1104,11 +1094,11 @@ export default function Home() {
                   <thead>
                     <tr className="bg-slate-700 text-white">
                       <th className="px-4 py-3 text-left font-semibold">Month</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-1 DoF</th>
+                      <th className="px-4 py-3 text-left font-semibold">EB-1</th>
                       <th className="px-4 py-3 text-center font-semibold">Δ</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-2 DoF</th>
+                      <th className="px-4 py-3 text-left font-semibold">EB-2</th>
                       <th className="px-4 py-3 text-center font-semibold">Δ</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-3 DoF</th>
+                      <th className="px-4 py-3 text-left font-semibold">EB-3</th>
                       <th className="px-4 py-3 text-center font-semibold">Δ</th>
                     </tr>
                   </thead>
