@@ -749,22 +749,90 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ── Header — single row ── */}
+      {/* ── Header ── */}
       <header className="bg-white sticky top-0 z-10" style={{boxShadow:'0 1px 0 #e2e8f0'}}>
-        <div className="max-w-7xl mx-auto overflow-x-auto scrollbar-none" style={{scrollbarWidth:'none'}}>
-          <div className="flex items-stretch h-12 min-w-max px-4">
 
-            {/* EB badge — compact brand anchor */}
+        {/* ── MOBILE: two-row layout (< md) ── */}
+        <div className="md:hidden">
+          {/* Row 1: brand + utilities */}
+          <div className="flex items-center h-11 px-4 gap-3">
+            <div className="bg-slate-900 text-white rounded-md px-2.5 py-1 font-black text-[11px] tracking-[0.15em] leading-none shrink-0">
+              EB
+            </div>
+            <div className="flex-1" />
+            <div className="flex items-center gap-1 text-[10px] text-slate-400">
+              <Calendar className="w-3 h-3" />
+              <span className="font-medium">{nextBulletinDays === 0 ? 'Today' : `+${nextBulletinDays}d`}</span>
+            </div>
+            <button
+              onClick={handleShare}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                shareCopied ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {shareCopied ? <><CheckCircle2 className="w-3 h-3" /> Copied!</> : <><Share2 className="w-3 h-3" /> Share</>}
+            </button>
+          </div>
+          {/* Row 2: scrollable controls with fade hint */}
+          <div className="relative border-t border-slate-100">
+            <div
+              className="flex items-stretch overflow-x-auto"
+              style={{scrollbarWidth:'none', WebkitOverflowScrolling:'touch'} as React.CSSProperties}
+            >
+              {/* Category pills */}
+              <div className="flex items-center gap-1.5 px-4 py-2 shrink-0">
+                {(Object.keys(EB_CATEGORIES) as Array<keyof typeof EB_CATEGORIES>).map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setSelectedCategory(c)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all whitespace-nowrap ${
+                      selectedCategory === c
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {EB_CATEGORIES[c].label}
+                  </button>
+                ))}
+              </div>
+              {/* Divider */}
+              <div className="w-px bg-slate-100 my-2 shrink-0" />
+              {/* Nav tabs */}
+              <nav className="flex items-stretch px-2 shrink-0">
+                {tabs.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveTab(t.id)}
+                    className={`relative px-4 text-sm font-semibold transition-colors flex items-center whitespace-nowrap ${
+                      activeTab === t.id ? 'text-slate-900' : 'text-slate-400'
+                    }`}
+                  >
+                    {t.label}
+                    {activeTab === t.id && (
+                      <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-slate-900 rounded-full" />
+                    )}
+                  </button>
+                ))}
+              </nav>
+              {/* Right padding sentinel */}
+              <div className="w-4 shrink-0" />
+            </div>
+            {/* Fade-right scroll hint */}
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent" />
+          </div>
+        </div>
+
+        {/* ── DESKTOP: single row (>= md) ── */}
+        <div className="hidden md:block max-w-7xl mx-auto">
+          <div className="flex items-stretch h-12 px-4">
+            {/* EB badge */}
             <div className="flex items-center pr-4 shrink-0">
               <div className="bg-slate-900 text-white rounded-md px-2.5 py-1 font-black text-[11px] tracking-[0.15em] leading-none">
                 EB
               </div>
             </div>
-
-            {/* Vertical divider */}
             <div className="w-px bg-slate-100 my-2.5 shrink-0" />
-
-            {/* EB Category pills */}
+            {/* Category pills */}
             <div className="flex items-center gap-1 px-4 shrink-0">
               {(Object.keys(EB_CATEGORIES) as Array<keyof typeof EB_CATEGORIES>).map(c => (
                 <button
@@ -783,20 +851,15 @@ export default function Home() {
                 </button>
               ))}
             </div>
-
-            {/* Vertical divider */}
             <div className="w-px bg-slate-100 my-2.5 shrink-0" />
-
-            {/* Nav tabs — underline style */}
-            <nav className="flex items-stretch px-2 shrink-0">
+            {/* Nav tabs */}
+            <nav className="flex items-stretch px-2 flex-1">
               {tabs.map(t => (
                 <button
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
                   className={`relative px-4 text-sm font-semibold transition-colors flex items-center whitespace-nowrap ${
-                    activeTab === t.id
-                      ? 'text-slate-900'
-                      : 'text-slate-400 hover:text-slate-700'
+                    activeTab === t.id ? 'text-slate-900' : 'text-slate-400 hover:text-slate-700'
                   }`}
                 >
                   {t.label}
@@ -806,11 +869,7 @@ export default function Home() {
                 </button>
               ))}
             </nav>
-
-            {/* Spacer */}
-            <div className="flex-1 min-w-4" />
-
-            {/* Utilities: countdown + share */}
+            {/* Utilities */}
             <div className="flex items-center gap-2 pl-2 shrink-0">
               <div className="flex items-center gap-1 text-[10px] text-slate-400">
                 <Calendar className="w-3 h-3" />
@@ -821,21 +880,15 @@ export default function Home() {
               <button
                 onClick={handleShare}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
-                  shareCopied
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                  shareCopied ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
-                {shareCopied ? (
-                  <><CheckCircle2 className="w-3 h-3" /> Copied!</>
-                ) : (
-                  <><Share2 className="w-3 h-3" /> Share</>
-                )}
+                {shareCopied ? <><CheckCircle2 className="w-3 h-3" /> Copied!</> : <><Share2 className="w-3 h-3" /> Share</>}
               </button>
             </div>
-
           </div>
         </div>
+
       </header>
 
       <div className="max-w-7xl mx-auto px-4 pt-4 pb-8 space-y-4">
