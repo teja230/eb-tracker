@@ -695,7 +695,7 @@ export default function Home() {
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Scenario Range — All Outcomes</p>
                 <button
-                  onClick={() => setActiveTab("scenarios")}
+                  onClick={() => { setActiveTab("scenarios"); setShowSimulatorControls(true); }}
                   className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
                 >
                   Adjust assumptions
