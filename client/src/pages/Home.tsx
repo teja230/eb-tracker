@@ -44,7 +44,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, Calendar, Clock, Download, CheckCircle2,
-  AlertTriangle, Info, ChevronDown, ChevronUp, Share2, RefreshCw,
+  AlertTriangle, Info, ChevronDown, ChevronUp, Share2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -301,105 +301,30 @@ function computeProjection(
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-// ─── BULLETIN AUTO-FETCH TYPES ──────────────────────────────────────────────
-
-interface LiveBulletin {
-  month: string;
-  eb1: { fad: string; dof: string };
-  eb2: { fad: string; dof: string };
-  eb3: { fad: string; dof: string };
-  fetchedAt: string; // ISO date string
-}
-
-const CACHE_KEY = 'eb_tracker_live_bulletin';
-const CACHE_TTL_DAYS = 28; // Refresh roughly once per month
-
 /**
- * Parse a date string from visa bulletin HTML.
- * Handles formats like: "01JAN26", "15JUL14", "C" (current), "U" (unavailable)
+ * Returns the next visa bulletin release date (second Tuesday of next month).
+ * Bulletins for month M are released in month M-1 on the second Tuesday.
  */
-function parseBulletinDate(raw: string): string | null {
-  const s = raw.trim().toUpperCase();
-  if (s === 'C' || s === 'CURRENT') return 'C';
-  if (s === 'U' || s === 'UNAVAILABLE') return null;
-  // Format: DDMMMYY e.g. "01JAN26" or "15JUL14"
-  const m = s.match(/^(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})$/);
-  if (!m) return null;
-  const day = parseInt(m[1]);
-  const monthMap: Record<string, number> = {
-    JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12
-  };
-  const month = monthMap[m[2]];
-  const year = parseInt(m[3]) + (parseInt(m[3]) >= 50 ? 1900 : 2000);
-  return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-}
-
-/**
- * Extract India EB-1/2/3 FAD and DoF from the bulletin HTML text.
- * The tables use a consistent row format with country columns.
- */
-function extractBulletinData(html: string, bulletinMonth: string): LiveBulletin | null {
-  try {
-    // Look for the employment-based FAD table (Table A) and DoF table (Table B)
-    // Split HTML into two halves: FAD section and DoF section
-    // Note: use [\.\s\S] instead of /s flag for ES2017 compatibility
-    const fadSectionMatch = html.match(/FINAL ACTION DATES?([\s\S]*?)(?:DATES FOR FILING|$)/i);
-    const dofSectionMatch = html.match(/DATES FOR FILING([\s\S]*?)(?:FINAL ACTION|$)/i);
-    
-    if (!fadSectionMatch) return null;
-    
-    const fadSection = fadSectionMatch[1];
-    const dofSection = dofSectionMatch ? dofSectionMatch[1] : '';
-    
-    // Find India rows in each section
-    // India appears as a column in the employment-based tables
-    // Look for rows containing India employment-based data
-    const indiaFADMatch = fadSection.match(/India[^<]*?([\d]{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\d]{2})[^<]*?([\d]{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\d]{2})[^<]*?([\d]{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\d]{2})/i);
-    const indiaDoFMatch = dofSection.match(/India[^<]*?([\d]{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\d]{2})[^<]*?([\d]{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\d]{2})[^<]*?([\d]{2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\d]{2})/i);
-    
-    if (!indiaFADMatch) return null;
-    
-    const eb1Fad = parseBulletinDate(indiaFADMatch[1]) || CURRENT_BULLETIN.eb1.fad;
-    const eb2Fad = parseBulletinDate(indiaFADMatch[2]) || CURRENT_BULLETIN.eb2.fad;
-    const eb3Fad = parseBulletinDate(indiaFADMatch[3]) || CURRENT_BULLETIN.eb3.fad;
-    
-    const eb1Dof = indiaDoFMatch ? (parseBulletinDate(indiaDoFMatch[1]) || CURRENT_BULLETIN.eb1.dof) : CURRENT_BULLETIN.eb1.dof;
-    const eb2Dof = indiaDoFMatch ? (parseBulletinDate(indiaDoFMatch[2]) || CURRENT_BULLETIN.eb2.dof) : CURRENT_BULLETIN.eb2.dof;
-    const eb3Dof = indiaDoFMatch ? (parseBulletinDate(indiaDoFMatch[3]) || CURRENT_BULLETIN.eb3.dof) : CURRENT_BULLETIN.eb3.dof;
-    
-    return {
-      month: bulletinMonth,
-      eb1: { fad: eb1Fad, dof: eb1Dof },
-      eb2: { fad: eb2Fad, dof: eb2Dof },
-      eb3: { fad: eb3Fad, dof: eb3Dof },
-      fetchedAt: new Date().toISOString(),
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Determine the URL of the latest visa bulletin based on current date.
- * Bulletins are released the second Tuesday of each month for the following month.
- */
-function getLatestBulletinUrl(): { url: string; month: string } {
+function getNextBulletinDate(): Date {
   const now = new Date();
-  // The bulletin for month M is released in month M-1
-  // If we're past the 8th of the month, the current month's bulletin is likely out
-  const targetMonth = now.getDate() >= 8 ? now.getMonth() + 2 : now.getMonth() + 1;
-  const targetYear = targetMonth > 12 ? now.getFullYear() + 1 : now.getFullYear();
-  const adjustedMonth = targetMonth > 12 ? targetMonth - 12 : targetMonth;
-  
-  const monthNames = ['january','february','march','april','may','june','july','august','september','october','november','december'];
-  const monthLabels = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const monthName = monthNames[adjustedMonth - 1];
-  const monthLabel = monthLabels[adjustedMonth - 1];
-  
-  return {
-    url: `https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin/${targetYear}/visa-bulletin-for-${monthName}-${targetYear}.html`,
-    month: `${monthLabel} ${targetYear}`,
-  };
+  // The next bulletin covers the month after the one it's released in.
+  // We look for the second Tuesday of the current month; if it's already past,
+  // we look at next month instead.
+  function secondTuesdayOf(year: number, month: number): Date {
+    // month is 0-indexed
+    const d = new Date(year, month, 1);
+    // Find first Tuesday
+    const dayOfWeek = d.getDay(); // 0=Sun, 2=Tue
+    const daysUntilTue = (2 - dayOfWeek + 7) % 7;
+    d.setDate(1 + daysUntilTue + 7); // second Tuesday = first Tuesday + 7
+    return d;
+  }
+  const thisMonthRelease = secondTuesdayOf(now.getFullYear(), now.getMonth());
+  if (now < thisMonthRelease) return thisMonthRelease;
+  // Already past — next release is second Tuesday of next month
+  const nextMonth = now.getMonth() === 11 ? 0 : now.getMonth() + 1;
+  const nextYear = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
+  return secondTuesdayOf(nextYear, nextMonth);
 }
 
 export default function Home() {
@@ -415,81 +340,14 @@ export default function Home() {
   const [banContinues, setBanContinues] = useState<"2027" | "2028" | "2029">("2028");
   const [wastageLevel, setWastageLevel] = useState<"low" | "moderate" | "high">("moderate");
 
-  // Live bulletin state — starts with hardcoded April 2026 data, may be updated by auto-fetch
-  const [liveBulletin, setLiveBulletin] = useState<LiveBulletin>({
-    month: CURRENT_BULLETIN.month,
-    eb1: CURRENT_BULLETIN.eb1,
-    eb2: CURRENT_BULLETIN.eb2,
-    eb3: CURRENT_BULLETIN.eb3,
-    fetchedAt: '',
-  });
-  const [fetchStatus, setFetchStatus] = useState<'idle' | 'loading' | 'success' | 'fallback'>('idle');
-  const [lastSyncLabel, setLastSyncLabel] = useState(`${CURRENT_BULLETIN.month} Bulletin`);
+  const cat = EB_CATEGORIES[selectedCategory];
 
-  // Derive live category data from liveBulletin
-  const liveCatData = useMemo(() => ({
-    EB1: { currentFAD: liveBulletin.eb1.fad, currentDoF: liveBulletin.eb1.dof },
-    EB2: { currentFAD: liveBulletin.eb2.fad, currentDoF: liveBulletin.eb2.dof },
-    EB3: { currentFAD: liveBulletin.eb3.fad, currentDoF: liveBulletin.eb3.dof },
-  }), [liveBulletin]);
-
-  const cat = { ...EB_CATEGORIES[selectedCategory], ...liveCatData[selectedCategory] };
-
-  // ── Auto-fetch latest bulletin (monthly TTL via localStorage) ──
-  const fetchLatestBulletin = useCallback(async (force = false) => {
-    try {
-      // Check cache
-      if (!force) {
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const parsed: LiveBulletin = JSON.parse(cached);
-          const fetchedAt = new Date(parsed.fetchedAt);
-          const daysSince = (Date.now() - fetchedAt.getTime()) / 86400000;
-          if (daysSince < CACHE_TTL_DAYS) {
-            setLiveBulletin(parsed);
-            setLastSyncLabel(`${parsed.month} (cached ${Math.round(daysSince)}d ago)`);
-            setFetchStatus('success');
-            return;
-          }
-        }
-      }
-
-      setFetchStatus('loading');
-      const { url, month } = getLatestBulletinUrl();
-      
-      // Use allorigins.win CORS proxy to fetch the bulletin HTML
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-      const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
-      
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      const data = await response.json();
-      const html: string = data.contents || '';
-      
-      if (!html) throw new Error('Empty response');
-      
-      const extracted = extractBulletinData(html, month);
-      
-      if (extracted) {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(extracted));
-        setLiveBulletin(extracted);
-        setLastSyncLabel(`${extracted.month} (live)`);
-        setFetchStatus('success');
-      } else {
-        // Parsing failed — use hardcoded data
-        throw new Error('Parse failed');
-      }
-    } catch {
-      // Fallback to hardcoded April 2026 data
-      setFetchStatus('fallback');
-      setLastSyncLabel(`${CURRENT_BULLETIN.month} Bulletin`);
-    }
+  // ── Next bulletin countdown (pure computation, no fetch) ──
+  const nextBulletinDays = useMemo(() => {
+    const next = getNextBulletinDate();
+    const diff = Math.ceil((next.getTime() - Date.now()) / 86400000);
+    return Math.max(0, diff);
   }, []);
-
-  // ── Auto-fetch latest bulletin on mount (monthly TTL) ──
-  useEffect(() => {
-    fetchLatestBulletin(false);
-  }, [fetchLatestBulletin]);
 
   // ── Read URL params on mount ──
   useEffect(() => {
@@ -596,7 +454,13 @@ export default function Home() {
     const fadMonthYear = baseFadDate
       ? `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][baseFadDate.getMonth()]} ${baseFadDate.getFullYear()}`
       : "unknown";
-    const sentence = `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) is estimated to become current around ${fadMonthYear} (base case). ${url}`;
+    const baseDofDate = baseProjection?.dofDate;
+    const dofMonthYear = baseDofDate
+      ? `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][baseDofDate.getMonth()]} ${baseDofDate.getFullYear()}`
+      : null;
+    const sentence = dofMonthYear
+      ? `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) — can file I-485 around ${dofMonthYear}, become current around ${fadMonthYear} (base case). ${url}`
+      : `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) is estimated to become current around ${fadMonthYear} (base case). ${url}`;
     try {
       await navigator.clipboard.writeText(sentence);
       setShareCopied(true);
@@ -697,14 +561,15 @@ export default function Home() {
                 <><Share2 className="w-3.5 h-3.5" /> Share Estimate</>
               )}
             </button>
-            <div className="flex items-center gap-1.5 text-xs">
-                {fetchStatus === 'loading' ? (
-                  <span className="text-slate-400">Syncing...</span>
-                ) : fetchStatus === 'success' ? (
-                  <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /><span className="text-slate-500">{lastSyncLabel}</span></>
-                ) : (
-                  <span className="text-slate-500">{lastSyncLabel}</span>
-                )}
+            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span>
+                  {nextBulletinDays === 0
+                    ? 'New bulletin today'
+                    : nextBulletinDays === 1
+                    ? 'Next bulletin tomorrow'
+                    : `Next bulletin in ${nextBulletinDays}d`}
+                </span>
               </div>
           </div>
         </div>
