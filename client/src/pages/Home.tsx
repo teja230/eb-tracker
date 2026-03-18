@@ -334,6 +334,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<keyof typeof EB_CATEGORIES>("EB2"); // default to EB-2
   const [targetDate, setTargetDate] = useState("2016-08-01");
   const [lastToastDate, setLastToastDate] = useState("");
+  const [dateFlash, setDateFlash] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
   const [showSimulatorControls, setShowSimulatorControls] = useState(false);
@@ -371,8 +372,14 @@ export default function Home() {
     setTargetDate(val);
     if (val !== lastToastDate && val) {
       const d = parseDateStr(val);
-      toast.success(`Target date: ${fmtDate(d)}`, { duration: 2000, position: "bottom-right" });
+      toast.success(`Projections updated for ${fmtDate(d)}`, {
+        description: "All scenarios and estimates have been recalculated.",
+        duration: 3000,
+        position: "bottom-right",
+      });
       setLastToastDate(val);
+      setDateFlash(true);
+      setTimeout(() => setDateFlash(false), 800);
     }
   }, [lastToastDate]);
 
@@ -799,7 +806,7 @@ export default function Home() {
               <PriorityDatePicker value={targetDate} onChange={handleDateChange} />
               <p className="text-xs text-slate-400 mt-1.5">Change to see updated projections for any priority date.</p>
             </div>
-            <div className="flex items-center gap-0 divide-x divide-slate-200 border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+            <div className={`flex items-center gap-0 divide-x divide-slate-200 border rounded-lg overflow-hidden transition-all duration-300 ${dateFlash ? "border-blue-400 bg-blue-50 shadow-md shadow-blue-100" : "border-slate-200 bg-slate-50"}`}>
               <div className="flex flex-col justify-center px-5 py-2.5 text-center">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap mb-1">Current FAD</p>
                 <p className="font-mono font-bold text-slate-800 whitespace-nowrap">{fmtDateStr(cat.currentFAD)}</p>
@@ -1029,7 +1036,7 @@ export default function Home() {
               </div>
               <button
                 onClick={generateExport}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-slate-400 hover:bg-slate-50 transition-all"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-800 border border-slate-800 rounded-lg shadow-sm hover:bg-slate-700 hover:border-slate-700 active:scale-95 transition-all"
               >
                 <Download className="w-3.5 h-3.5" />
                 Export PDF
