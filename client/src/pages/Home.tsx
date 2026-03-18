@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { AlertCircle, TrendingUp, Calendar, Users } from 'lucide-react';
+import { AlertCircle, TrendingUp, Calendar, Users, Download } from 'lucide-react';
 
 // ─── EB Categories Data ────────────────────────────────────────────────────────
 
@@ -119,6 +119,48 @@ export default function Home() {
   const [wastageScenario, setWastageScenario] = useState("base");
   const [lastRefreshMonth, setLastRefreshMonth] = useState("");
   const [apiStatus, setApiStatus] = useState("idle");
+
+  const generatePDFExport = () => {
+    const content = `EB-2 INDIA PRIORITY DATE TRACKER
+Personalized Scenario Estimate
+
+Target Priority Date: ${formatDateDisplay(targetDate)}
+Generated: ${new Date().toLocaleDateString()}
+
+=== CURRENT SETTINGS ===
+Spillover Estimate: ${spilloverEstimate === 50000 ? '50k' : '70k'}
+Ban Duration: ${banDuration === '2027' ? 'Ends Oct 2027' : banDuration === '2028' ? 'Continues to Sept 2028' : 'Continues to Sept 2029'}
+GC Wastage Scenario: ${wastageScenario === 'optimistic' ? 'Optimistic (5%)' : wastageScenario === 'base' ? 'Base Case (15%)' : wastageScenario === 'conservative' ? 'Conservative (25%)' : 'Pessimistic (30%)'}
+
+=== ESTIMATED TIMELINE ===
+Final Action Date: ${currentProjection.estimatedFAD}
+Filing Date: ${currentProjection.estimatedDoF}
+Months from Today: ${currentProjection.monthsNeeded}
+
+=== ALLOCATION DETAILS ===
+Base Allocation: ${currentProjection.baseAllocation.toLocaleString()} visas/year
+Spillover Benefit: +${currentProjection.additionalSpillover.toLocaleString()} visas
+After Wastage (${currentProjection.wastageRate}%): ${currentProjection.totalAllocation.toLocaleString()} visas/year
+Monthly Processing Rate: ${currentProjection.monthlyRate} visas/month
+
+=== METHODOLOGY ===
+This estimate is based on:
+- Current FAD: ${formatDateDisplay(categoryData.currentFAD)}
+- Pending I-485 Applications: ${categoryData.pending.india.toLocaleString()}
+- 7% Per-Country Cap allocation
+- Family-based visa spillover from 75-country ban
+- Green card wastage factor
+
+Disclaimer: This is an estimate based on historical trends and current policy. Actual timelines may vary.`;
+    
+    const element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
+    element.setAttribute('download', `EB2-India-Estimate-${formatDateDisplay(targetDate).replace(/[, ]/g, '')}.txt`);
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
 
   const calculateSpilloverBenefit = (spillover: number, category: string) => {
     if (spillover === 0) return 0;
@@ -605,6 +647,60 @@ export default function Home() {
               <p className="text-slate-600 text-sm mt-2">Adjust parameters to see how different scenarios affect your timeline</p>
             </div>
 
+            {/* Information Sections */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="p-6 border-l-4 border-amber-500">
+                <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                  75-Country Ban Impact
+                </h3>
+                <div className="text-sm text-slate-700 space-y-2">
+                  <p>The 75-country travel ban creates a temporary visa spillover as family-based applications from these countries are paused. Unused family-based visas (estimated 50k–70k) flow to employment-based categories.</p>
+                  <p className="font-semibold text-slate-900 mt-3">Impact on EB-2 India:</p>
+                  <p>Since EB-1 ROW and EB-2 ROW are now current, spillover reaches backlogged countries like India. EB-2 India receives approximately 500–840 additional visas during the ban period (FY 2027–2029).</p>
+                  <p className="text-xs text-slate-600 mt-2">Legal Status: CLINIC v. Rubio lawsuit ongoing. Ban may continue through 2029 depending on court decisions.</p>
+                </div>
+              </Card>
+
+              <Card className="p-6 border-l-4 border-red-500">
+                <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600" />
+                  Green Card Wastage
+                </h3>
+                <div className="text-sm text-slate-700 space-y-2">
+                  <p>Not all allocated visas are used each fiscal year. Wastage occurs due to:</p>
+                  <ul className="list-disc list-inside space-y-1 mt-2">
+                    <li>Consular processing delays</li>
+                    <li>Medical exam failures</li>
+                    <li>Security clearance issues</li>
+                    <li>Visa interview denials</li>
+                  </ul>
+                  <p className="font-semibold text-slate-900 mt-3">Historical Rates:</p>
+                  <p className="text-xs">EB-2: ~20% wastage | EB-3: ~49% wastage (FY 2021 data)</p>
+                  <p className="text-xs text-slate-600 mt-2">Higher wastage during travel bans due to consular backlogs.</p>
+                </div>
+              </Card>
+            </div>
+
+            {/* Simulator Explanation */}
+            <Card className="p-6 bg-blue-50 border border-blue-200">
+              <h3 className="text-sm font-semibold text-slate-900 mb-3">How the Simulator Works</h3>
+              <div className="text-sm text-slate-700 space-y-3">
+                <div>
+                  <p className="font-semibold text-slate-900">Spillover Estimate (50k vs 70k)</p>
+                  <p>Adjusts the total family-based visa pool available for spillover. Higher estimates mean more visas reach EB-2 India.</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900">Ban Duration</p>
+                  <p>Determines how long the spillover benefit lasts. Longer bans mean more fiscal years of enhanced allocation.</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900">GC Wastage Scenario</p>
+                  <p>Reduces annual allocation by 5–30% to account for unused visas. Conservative scenarios assume higher wastage.</p>
+                </div>
+              </div>
+            </Card>
+
             {/* Controls */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="p-6">
@@ -659,7 +755,18 @@ export default function Home() {
 
             {/* Results */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Estimated Timeline with Current Settings</h3>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Estimated Timeline with Current Settings</h3>
+                </div>
+                <button
+                  onClick={generatePDFExport}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                </button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <p className="text-xs font-semibold text-slate-600 uppercase mb-1">Final Action Date</p>
