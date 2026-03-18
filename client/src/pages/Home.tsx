@@ -35,7 +35,7 @@
  * Capitol Immigration Law Group, AM22Tech, Manifest Law, Beyondborderglobal, Cato Institute.
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
 import { Card } from '@/components/ui/card';
 import {
@@ -338,6 +338,8 @@ export default function Home() {
   const [shareCopied, setShareCopied] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
   const [showSimulatorControls, setShowSimulatorControls] = useState(false);
+  const fadStarRowRef = useRef<HTMLTableRowElement>(null);
+  const dofStarRowRef = useRef<HTMLTableRowElement>(null);
 
   // Simulator controls (affect scenario rates)
   const [spilloverLevel, setSpilloverLevel] = useState<"low" | "moderate" | "high">("moderate");
@@ -1262,19 +1264,34 @@ export default function Home() {
             {(() => {
               const fadKey = selectedCategory === "EB1" ? "eb1_fad" : selectedCategory === "EB3" ? "eb3_fad" : "eb2_fad";
               const dofKey = selectedCategory === "EB1" ? "eb1_dof" : selectedCategory === "EB3" ? "eb3_dof" : "eb2_dof";
-              // Compute 6-month avg advancement for FAD and DoF (use first 6 consecutive pairs)
+              // Compute deltas for up to 12 consecutive pairs
               const fadDeltas: number[] = [];
               const dofDeltas: number[] = [];
-              for (let i = 0; i < Math.min(6, HISTORICAL_BULLETINS.length - 1); i++) {
+              for (let i = 0; i < Math.min(12, HISTORICAL_BULLETINS.length - 1); i++) {
                 const curr = HISTORICAL_BULLETINS[i];
                 const prev = HISTORICAL_BULLETINS[i + 1];
                 fadDeltas.push(Math.round((parseDateStr(curr[fadKey as keyof typeof curr] as string).getTime() - parseDateStr(prev[fadKey as keyof typeof prev] as string).getTime()) / 86400000));
                 dofDeltas.push(Math.round((parseDateStr(curr[dofKey as keyof typeof curr] as string).getTime() - parseDateStr(prev[dofKey as keyof typeof prev] as string).getTime()) / 86400000));
               }
-              const avgFad = fadDeltas.length ? Math.round(fadDeltas.reduce((a, b) => a + b, 0) / fadDeltas.length) : 0;
-              const avgDof = dofDeltas.length ? Math.round(dofDeltas.reduce((a, b) => a + b, 0) / dofDeltas.length) : 0;
+              const avg = (arr: number[], n: number) => arr.length >= n ? Math.round(arr.slice(0, n).reduce((a, b) => a + b, 0) / n) : null;
+              const fad6 = avg(fadDeltas, 6); const fad12 = avg(fadDeltas, 12);
+              const dof6 = avg(dofDeltas, 6); const dof12 = avg(dofDeltas, 12);
               const paceColor = (v: number) => v > 10 ? "text-emerald-600" : v < -10 ? "text-red-600" : "text-amber-600";
               const paceLabel = (v: number) => v > 0 ? `+${v}d/mo` : `${v}d/mo`;
+              const PaceTile = ({ label, v6, v12 }: { label: string; v6: number | null; v12: number | null }) => (
+                <div className="flex flex-col bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 min-w-[140px]">
+                  <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide whitespace-nowrap">{label}</p>
+                  {v6 !== null && (
+                    <p className={`text-base font-bold font-mono mt-0.5 ${paceColor(v6)}`}>
+                      6mo: {paceLabel(v6)}
+                      {v12 !== null && (
+                        <span className={`ml-2 text-sm font-normal ${paceColor(v12)}`}>· 12mo: {paceLabel(v12)}</span>
+                      )}
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-400">{cat.label} avg</p>
+                </div>
+              );
               return (
                 <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
                   <div className="flex-1 text-sm text-slate-600">
@@ -1282,17 +1299,9 @@ export default function Home() {
                     <span className="text-emerald-600 font-semibold"> Green = advancement</span>,
                     <span className="text-red-600 font-semibold"> Red = retrogression</span>.
                   </div>
-                  <div className="flex gap-3 shrink-0">
-                    <div className="flex flex-col items-center bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 min-w-[110px]">
-                      <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide whitespace-nowrap">FAD Pace (6mo)</p>
-                      <p className={`text-lg font-bold font-mono mt-0.5 ${paceColor(avgFad)}`}>{paceLabel(avgFad)}</p>
-                      <p className="text-xs text-slate-400">{cat.label} avg</p>
-                    </div>
-                    <div className="flex flex-col items-center bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 min-w-[110px]">
-                      <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide whitespace-nowrap">DoF Pace (6mo)</p>
-                      <p className={`text-lg font-bold font-mono mt-0.5 ${paceColor(avgDof)}`}>{paceLabel(avgDof)}</p>
-                      <p className="text-xs text-slate-400">{cat.label} avg</p>
-                    </div>
+                  <div className="flex gap-3 shrink-0 flex-wrap">
+                    <PaceTile label="FAD Pace" v6={fad6} v12={fad12} />
+                    <PaceTile label="DoF Pace" v6={dof6} v12={dof12} />
                   </div>
                 </div>
               );
@@ -1328,12 +1337,22 @@ export default function Home() {
 
               return (
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                     <h3 className="text-sm font-semibold text-slate-800">Final Action Dates (FAD)</h3>
-                    <span className="text-xs text-slate-500">
-                      Highlighted column: <span className="font-semibold text-slate-700">{cat.label}</span>
-                      {firstCurrentIdx !== null && <span className="ml-2 text-amber-600 font-semibold">★ = your date first became current</span>}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      {firstCurrentIdx !== null && (
+                        <button
+                          onClick={() => fadStarRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                          className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1 hover:bg-amber-100 transition-colors font-semibold"
+                        >
+                          <span>★</span> Jump to your row
+                        </button>
+                      )}
+                      <span className="text-xs text-slate-500">
+                        Highlighted: <span className="font-semibold text-slate-700">{cat.label}</span>
+                        {firstCurrentIdx !== null && <span className="ml-2 text-amber-600">★ = first current</span>}
+                      </span>
+                    </div>
                   </div>
                   <div className="overflow-x-auto rounded-lg border border-slate-200">
                     <table className="w-full text-xs">
@@ -1373,7 +1392,7 @@ export default function Home() {
                               ? <td className={`px-4 py-2.5 text-center font-mono ${mvClass(m)}`}>{m?.label ?? "—"}</td>
                               : <td className="px-4 py-2.5 text-center font-mono text-slate-300">{m?.label ?? "—"}</td>;
                           return (
-                            <tr key={b.month} className={rowBase}>
+                            <tr key={b.month} className={rowBase} ref={isFirstCurrent ? fadStarRowRef : undefined}>
                               <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">
                                 {isFirstCurrent && <span className="mr-1 text-amber-500">★</span>}
                                 {b.month}
@@ -1422,12 +1441,22 @@ export default function Home() {
 
               return (
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                     <h3 className="text-sm font-semibold text-slate-800">Dates for Filing (DoF)</h3>
-                    <span className="text-xs text-slate-500">
-                      Highlighted column: <span className="font-semibold text-slate-700">{cat.label}</span>
-                      {firstCurrentIdx !== null && <span className="ml-2 text-amber-600 font-semibold">★ = your date first became fileable</span>}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      {firstCurrentIdx !== null && (
+                        <button
+                          onClick={() => dofStarRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                          className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1 hover:bg-amber-100 transition-colors font-semibold"
+                        >
+                          <span>★</span> Jump to your row
+                        </button>
+                      )}
+                      <span className="text-xs text-slate-500">
+                        Highlighted: <span className="font-semibold text-slate-700">{cat.label}</span>
+                        {firstCurrentIdx !== null && <span className="ml-2 text-amber-600">★ = first fileable</span>}
+                      </span>
+                    </div>
                   </div>
                   <div className="overflow-x-auto rounded-lg border border-slate-200">
                     <table className="w-full text-xs">
@@ -1467,7 +1496,7 @@ export default function Home() {
                               ? <td className={`px-4 py-2.5 text-center font-mono ${mvClass(m)}`}>{m?.label ?? "—"}</td>
                               : <td className="px-4 py-2.5 text-center font-mono text-slate-300">{m?.label ?? "—"}</td>;
                           return (
-                            <tr key={b.month} className={rowBase}>
+                            <tr key={b.month} className={rowBase} ref={isFirstCurrent ? dofStarRowRef : undefined}>
                               <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">
                                 {isFirstCurrent && <span className="mr-1 text-amber-500">★</span>}
                                 {b.month}
