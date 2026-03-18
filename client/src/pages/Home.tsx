@@ -592,20 +592,25 @@ export default function Home() {
 
   const handleShare = useCallback(async () => {
     const url = generateShareUrl();
+    const baseFadDate = baseProjection?.fadDate;
+    const fadMonthYear = baseFadDate
+      ? `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][baseFadDate.getMonth()]} ${baseFadDate.getFullYear()}`
+      : "unknown";
+    const sentence = `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) is estimated to become current around ${fadMonthYear} (base case). ${url}`;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(sentence);
       setShareCopied(true);
-      toast.success('Link copied to clipboard!', {
-        description: 'Share this URL to let others see your exact scenario.',
-        duration: 3000,
+      toast.success('Estimate copied to clipboard!', {
+        description: sentence.length > 80 ? sentence.slice(0, 80) + '…' : sentence,
+        duration: 4000,
         position: 'bottom-right',
       });
       setTimeout(() => setShareCopied(false), 3000);
     } catch {
-      // Fallback: show URL in prompt
-      window.prompt('Copy this link to share your scenario:', url);
+      // Fallback: show in prompt
+      window.prompt('Copy this to share your estimate:', sentence);
     }
-  }, [generateShareUrl]);
+  }, [generateShareUrl, baseProjection, cat.label, targetDate]);
 
   const generateExport = () => {
     const lines = [
