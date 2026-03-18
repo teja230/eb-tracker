@@ -750,72 +750,74 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* ── Header ── */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center h-14 gap-4">
+      <header className="bg-white sticky top-0 z-10" style={{boxShadow:'0 1px 0 #e2e8f0'}}>
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="flex items-stretch h-14 gap-0">
 
-            {/* LEFT: Brand */}
-            <div className="flex items-center gap-2.5 shrink-0">
-              <div className="bg-slate-800 text-white rounded-lg px-2.5 py-1 font-bold text-xs tracking-widest">
-                EB TRACKER
+            {/* LEFT: Brand — compact wordmark + subtitle */}
+            <div className="flex items-center gap-3 pr-5 shrink-0 border-r border-slate-100">
+              <div className="bg-slate-900 text-white rounded-md px-2.5 py-1 font-black text-[11px] tracking-[0.15em] leading-none">
+                EB
               </div>
-              <div className="hidden sm:block">
-                <p className="text-xs font-semibold text-slate-700 leading-tight">India Priority Date</p>
-                <p className="text-[10px] text-slate-400 leading-tight">April 2026 Bulletin</p>
-              </div>
-            </div>
-
-            {/* CENTER: EB Category pill switcher */}
-            <div className="flex-1 flex justify-center">
-              <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0">
-                {(Object.keys(EB_CATEGORIES) as Array<keyof typeof EB_CATEGORIES>).map(c => (
-                  <button
-                    key={c}
-                    onClick={() => setSelectedCategory(c)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all whitespace-nowrap ${
-                      selectedCategory === c
-                        ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    {EB_CATEGORIES[c].label}
-                    <span className="hidden md:inline text-slate-400 font-normal"> — {EB_CATEGORIES[c].name.split(' / ')[0]}</span>
-                  </button>
-                ))}
+              <div>
+                <p className="text-sm font-bold text-slate-900 leading-tight tracking-tight">Priority Date Tracker</p>
+                <p className="text-[10px] text-slate-400 leading-tight font-medium">India · April 2026</p>
               </div>
             </div>
 
-            {/* RIGHT: Nav tabs + actions */}
-            <div className="flex items-center gap-1 shrink-0">
-              {/* Nav tabs */}
-              <nav className="hidden sm:flex items-center">
-                {tabs.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setActiveTab(t.id)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                      activeTab === t.id
-                        ? 'bg-slate-800 text-white'
-                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </nav>
-              <div className="w-px h-5 bg-slate-200 mx-1 hidden sm:block" />
-              {/* Bulletin countdown */}
-              <div className="hidden md:flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 border border-slate-200 rounded-md px-2 py-1">
+            {/* CENTER: EB Category segmented control — the primary data selector */}
+            <div className="flex items-center px-5 gap-1 border-r border-slate-100">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mr-1 hidden lg:block">Category</span>
+              {(Object.keys(EB_CATEGORIES) as Array<keyof typeof EB_CATEGORIES>).map(c => (
+                <button
+                  key={c}
+                  onClick={() => setSelectedCategory(c)}
+                  className={`relative px-3 py-1.5 text-xs font-semibold rounded-full transition-all whitespace-nowrap ${
+                    selectedCategory === c
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="font-bold">{EB_CATEGORIES[c].label}</span>
+                  <span className={`hidden lg:inline font-normal ${
+                    selectedCategory === c ? 'text-slate-300' : 'text-slate-400'
+                  }`}> — {EB_CATEGORIES[c].name.split(' / ')[0]}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* NAV: Underline-style tab navigation — secondary control */}
+            <nav className="hidden sm:flex items-stretch flex-1 px-2">
+              {tabs.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  className={`relative px-4 text-sm font-semibold transition-colors flex items-center gap-1.5 ${
+                    activeTab === t.id
+                      ? 'text-slate-900'
+                      : 'text-slate-400 hover:text-slate-700'
+                  }`}
+                >
+                  {t.label}
+                  {activeTab === t.id && (
+                    <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-slate-900 rounded-full" />
+                  )}
+                </button>
+              ))}
+            </nav>
+
+            {/* RIGHT: Utility items — lowest visual weight */}
+            <div className="flex items-center gap-2 pl-3 border-l border-slate-100 shrink-0">
+              <div className="hidden md:flex items-center gap-1 text-[10px] text-slate-400">
                 <Calendar className="w-3 h-3" />
-                <span>{nextBulletinDays === 0 ? 'New bulletin today' : nextBulletinDays === 1 ? 'Tomorrow' : `+${nextBulletinDays}d`}</span>
+                <span className="font-medium">{nextBulletinDays === 0 ? 'New bulletin today' : nextBulletinDays === 1 ? 'Tomorrow' : `+${nextBulletinDays}d`}</span>
               </div>
-              {/* Share */}
               <button
                 onClick={handleShare}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   shareCopied
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400 hover:bg-slate-50'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
                 {shareCopied ? (
@@ -829,15 +831,15 @@ export default function Home() {
           </div>
 
           {/* Mobile-only tab row */}
-          <div className="flex sm:hidden border-t border-slate-100 -mx-4 px-4 gap-0">
+          <div className="flex sm:hidden border-t border-slate-100 -mx-5 px-5 gap-0">
             {tabs.map(t => (
               <button
                 key={t.id}
                 onClick={() => setActiveTab(t.id)}
-                className={`flex-1 py-2 text-xs font-semibold text-center border-b-2 transition-colors ${
+                className={`flex-1 py-2.5 text-xs font-semibold text-center border-b-2 transition-colors ${
                   activeTab === t.id
-                    ? 'border-slate-800 text-slate-900'
-                    : 'border-transparent text-slate-500'
+                    ? 'border-slate-900 text-slate-900'
+                    : 'border-transparent text-slate-400'
                 }`}
               >
                 {t.label}
