@@ -83,11 +83,13 @@ const SCENARIO_CONFIGS = {
 };
 
 const historicalBulletins = [
-  { month: "Apr 2026", eb1_fad: "2023-04-01", eb1_dof: "2023-12-01", eb2_fad: "2014-07-15", eb2_dof: "2015-01-15", eb3_fad: "2013-11-15", eb3_dof: "2015-01-15", movement: "EB-2: +10mo, EB-2 ROW: CURRENT" },
-  { month: "Mar 2026", eb1_fad: "2023-03-01", eb1_dof: "2023-11-01", eb2_fad: "2013-09-15", eb2_dof: "2015-01-01", eb3_fad: "2013-10-01", eb3_dof: "2015-01-01", movement: "EB-2: +2mo" },
-  { month: "Feb 2026", eb1_fad: "2023-03-01", eb1_dof: "2023-11-01", eb2_fad: "2013-07-15", eb2_dof: "2014-12-15", eb3_fad: "2013-10-01", eb3_dof: "2015-01-01", movement: "Stable" },
-  { month: "Jan 2026", eb1_fad: "2023-02-01", eb1_dof: "2023-10-01", eb2_fad: "2013-05-15", eb2_dof: "2014-12-01", eb3_fad: "2013-09-15", eb3_dof: "2014-12-15", movement: "EB-3: +0.5mo" },
-  { month: "Dec 2025", eb1_fad: "2023-02-01", eb1_dof: "2023-10-01", eb2_fad: "2013-05-15", eb2_dof: "2014-12-01", eb3_fad: "2013-09-15", eb3_dof: "2014-12-15", movement: "EB-1: +1mo" },
+  { month: "Apr 2026", eb1_fad: "2023-04-01", eb1_dof: "2023-12-01", eb2_fad: "2014-07-15", eb2_dof: "2015-01-15", eb3_fad: "2013-11-15", eb3_dof: "2015-01-15" },
+  { month: "Mar 2026", eb1_fad: "2023-03-01", eb1_dof: "2023-11-01", eb2_fad: "2013-09-15", eb2_dof: "2015-01-01", eb3_fad: "2013-10-01", eb3_dof: "2015-01-01" },
+  { month: "Feb 2026", eb1_fad: "2023-03-01", eb1_dof: "2023-11-01", eb2_fad: "2013-07-15", eb2_dof: "2014-12-15", eb3_fad: "2013-10-01", eb3_dof: "2015-01-01" },
+  { month: "Jan 2026", eb1_fad: "2023-02-01", eb1_dof: "2023-10-01", eb2_fad: "2013-05-15", eb2_dof: "2014-12-01", eb3_fad: "2013-09-15", eb3_dof: "2014-12-15" },
+  { month: "Dec 2025", eb1_fad: "2023-02-01", eb1_dof: "2023-10-01", eb2_fad: "2013-05-15", eb2_dof: "2014-12-01", eb3_fad: "2013-09-15", eb3_dof: "2014-12-15" },
+  { month: "Nov 2025", eb1_fad: "2023-01-01", eb1_dof: "2023-09-01", eb2_fad: "2013-03-15", eb2_dof: "2014-11-15", eb3_fad: "2013-08-15", eb3_dof: "2014-11-15" },
+  { month: "Oct 2025", eb1_fad: "2023-01-01", eb1_dof: "2023-09-01", eb2_fad: "2013-03-15", eb2_dof: "2014-11-15", eb3_fad: "2013-08-15", eb3_dof: "2014-11-15" },
 ];
 
 // ─── Utility Functions ────────────────────────────────────────────────────────
@@ -108,6 +110,22 @@ function addMonthsToDate(dateStr: string, months: number): Date {
   const d = new Date(dateStr);
   d.setMonth(d.getMonth() + months);
   return d;
+}
+
+function calculateMonthMovement(prevDateStr: string, currDateStr: string): { months: number; days: number; label: string; type: "advancement" | "retrogression" | "stable" } {
+  const prev = new Date(prevDateStr);
+  const curr = new Date(currDateStr);
+  const diffMs = curr.getTime() - prev.getTime();
+  const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const months = Math.round(days / 30.44);
+
+  let type: "advancement" | "retrogression" | "stable" = "stable";
+  if (months > 0) type = "advancement";
+  if (months < 0) type = "retrogression";
+
+  const label = months === 0 ? "Stable" : `${months > 0 ? "+" : ""}${months}mo`;
+
+  return { months, days, label, type };
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -550,26 +568,57 @@ export default function Home() {
 
             {/* Final Action Dates Table */}
             <div>
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">Final Action Dates (FAD)</h3>
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Final Action Dates (FAD) - Month-over-Month Movement</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50">
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">Month</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-1 FAD</th>
+                      <th className="px-4 py-3 text-center font-semibold text-slate-700 text-xs">Δ</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-2 FAD</th>
+                      <th className="px-4 py-3 text-center font-semibold text-slate-700 text-xs">Δ</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-3 FAD</th>
+                      <th className="px-4 py-3 text-center font-semibold text-slate-700 text-xs">Δ</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {historicalBulletins.map((b) => (
-                      <tr key={b.month} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3 font-mono font-semibold text-slate-800">{b.month}</td>
-                        <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb1_fad)}</td>
-                        <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb2_fad)}</td>
-                        <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb3_fad)}</td>
-                      </tr>
-                    ))}
+                    {historicalBulletins.map((b, idx) => {
+                      const prevBulletin = idx < historicalBulletins.length - 1 ? historicalBulletins[idx + 1] : null;
+                      const eb1Movement = prevBulletin ? calculateMonthMovement(prevBulletin.eb1_fad, b.eb1_fad) : null;
+                      const eb2Movement = prevBulletin ? calculateMonthMovement(prevBulletin.eb2_fad, b.eb2_fad) : null;
+                      const eb3Movement = prevBulletin ? calculateMonthMovement(prevBulletin.eb3_fad, b.eb3_fad) : null;
+
+                      return (
+                        <tr key={b.month} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 font-mono font-semibold text-slate-800">{b.month}</td>
+                          <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb1_fad)}</td>
+                          <td className={`px-4 py-3 text-center font-mono font-semibold text-xs ${
+                            eb1Movement?.type === "advancement" ? "text-green-600" :
+                            eb1Movement?.type === "retrogression" ? "text-red-600" :
+                            "text-slate-400"
+                          }`}>
+                            {eb1Movement ? eb1Movement.label : "—"}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb2_fad)}</td>
+                          <td className={`px-4 py-3 text-center font-mono font-semibold text-xs ${
+                            eb2Movement?.type === "advancement" ? "text-green-600" :
+                            eb2Movement?.type === "retrogression" ? "text-red-600" :
+                            "text-slate-400"
+                          }`}>
+                            {eb2Movement ? eb2Movement.label : "—"}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb3_fad)}</td>
+                          <td className={`px-4 py-3 text-center font-mono font-semibold text-xs ${
+                            eb3Movement?.type === "advancement" ? "text-green-600" :
+                            eb3Movement?.type === "retrogression" ? "text-red-600" :
+                            "text-slate-400"
+                          }`}>
+                            {eb3Movement ? eb3Movement.label : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -577,26 +626,57 @@ export default function Home() {
 
             {/* Dates for Filing Table */}
             <div>
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">Dates for Filing (DoF)</h3>
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Dates for Filing (DoF) - Month-over-Month Movement</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50">
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">Month</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-1 DoF</th>
+                      <th className="px-4 py-3 text-center font-semibold text-slate-700 text-xs">Δ</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-2 DoF</th>
+                      <th className="px-4 py-3 text-center font-semibold text-slate-700 text-xs">Δ</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-3 DoF</th>
+                      <th className="px-4 py-3 text-center font-semibold text-slate-700 text-xs">Δ</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {historicalBulletins.map((b) => (
-                      <tr key={b.month} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3 font-mono font-semibold text-slate-800">{b.month}</td>
-                        <td className="px-4 py-3 font-mono text-slate-600 text-xs">{formatDateDisplay(b.eb1_dof)}</td>
-                        <td className="px-4 py-3 font-mono text-slate-600 text-xs">{formatDateDisplay(b.eb2_dof)}</td>
-                        <td className="px-4 py-3 font-mono text-slate-600 text-xs">{formatDateDisplay(b.eb3_dof)}</td>
-                      </tr>
-                    ))}
+                    {historicalBulletins.map((b, idx) => {
+                      const prevBulletin = idx < historicalBulletins.length - 1 ? historicalBulletins[idx + 1] : null;
+                      const eb1Movement = prevBulletin ? calculateMonthMovement(prevBulletin.eb1_dof, b.eb1_dof) : null;
+                      const eb2Movement = prevBulletin ? calculateMonthMovement(prevBulletin.eb2_dof, b.eb2_dof) : null;
+                      const eb3Movement = prevBulletin ? calculateMonthMovement(prevBulletin.eb3_dof, b.eb3_dof) : null;
+
+                      return (
+                        <tr key={b.month} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 font-mono font-semibold text-slate-800">{b.month}</td>
+                          <td className="px-4 py-3 font-mono text-slate-600 text-xs">{formatDateDisplay(b.eb1_dof)}</td>
+                          <td className={`px-4 py-3 text-center font-mono font-semibold text-xs ${
+                            eb1Movement?.type === "advancement" ? "text-green-600" :
+                            eb1Movement?.type === "retrogression" ? "text-red-600" :
+                            "text-slate-400"
+                          }`}>
+                            {eb1Movement ? eb1Movement.label : "—"}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-slate-600 text-xs">{formatDateDisplay(b.eb2_dof)}</td>
+                          <td className={`px-4 py-3 text-center font-mono font-semibold text-xs ${
+                            eb2Movement?.type === "advancement" ? "text-green-600" :
+                            eb2Movement?.type === "retrogression" ? "text-red-600" :
+                            "text-slate-400"
+                          }`}>
+                            {eb2Movement ? eb2Movement.label : "—"}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-slate-600 text-xs">{formatDateDisplay(b.eb3_dof)}</td>
+                          <td className={`px-4 py-3 text-center font-mono font-semibold text-xs ${
+                            eb3Movement?.type === "advancement" ? "text-green-600" :
+                            eb3Movement?.type === "retrogression" ? "text-red-600" :
+                            "text-slate-400"
+                          }`}>
+                            {eb3Movement ? eb3Movement.label : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
