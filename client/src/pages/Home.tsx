@@ -1258,11 +1258,45 @@ export default function Home() {
         ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === "tracker" && (
           <div className="space-y-6">
-            <div className="text-sm text-slate-600 bg-white border border-slate-200 rounded-lg p-4">
-              Historical visa bulletins for India. Δ columns show month-over-month movement in priority-date months and days.
-              <span className="text-emerald-600 font-semibold"> Green = advancement</span>,
-              <span className="text-red-600 font-semibold"> Red = retrogression</span>.
-            </div>
+            {/* ── Tracker header: legend + pace stats ── */}
+            {(() => {
+              const fadKey = selectedCategory === "EB1" ? "eb1_fad" : selectedCategory === "EB3" ? "eb3_fad" : "eb2_fad";
+              const dofKey = selectedCategory === "EB1" ? "eb1_dof" : selectedCategory === "EB3" ? "eb3_dof" : "eb2_dof";
+              // Compute 6-month avg advancement for FAD and DoF (use first 6 consecutive pairs)
+              const fadDeltas: number[] = [];
+              const dofDeltas: number[] = [];
+              for (let i = 0; i < Math.min(6, HISTORICAL_BULLETINS.length - 1); i++) {
+                const curr = HISTORICAL_BULLETINS[i];
+                const prev = HISTORICAL_BULLETINS[i + 1];
+                fadDeltas.push(Math.round((parseDateStr(curr[fadKey as keyof typeof curr] as string).getTime() - parseDateStr(prev[fadKey as keyof typeof prev] as string).getTime()) / 86400000));
+                dofDeltas.push(Math.round((parseDateStr(curr[dofKey as keyof typeof curr] as string).getTime() - parseDateStr(prev[dofKey as keyof typeof prev] as string).getTime()) / 86400000));
+              }
+              const avgFad = fadDeltas.length ? Math.round(fadDeltas.reduce((a, b) => a + b, 0) / fadDeltas.length) : 0;
+              const avgDof = dofDeltas.length ? Math.round(dofDeltas.reduce((a, b) => a + b, 0) / dofDeltas.length) : 0;
+              const paceColor = (v: number) => v > 10 ? "text-emerald-600" : v < -10 ? "text-red-600" : "text-amber-600";
+              const paceLabel = (v: number) => v > 0 ? `+${v}d/mo` : `${v}d/mo`;
+              return (
+                <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex-1 text-sm text-slate-600">
+                    Historical visa bulletins for India. Δ columns show month-over-month movement.
+                    <span className="text-emerald-600 font-semibold"> Green = advancement</span>,
+                    <span className="text-red-600 font-semibold"> Red = retrogression</span>.
+                  </div>
+                  <div className="flex gap-3 shrink-0">
+                    <div className="flex flex-col items-center bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 min-w-[110px]">
+                      <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide whitespace-nowrap">FAD Pace (6mo)</p>
+                      <p className={`text-lg font-bold font-mono mt-0.5 ${paceColor(avgFad)}`}>{paceLabel(avgFad)}</p>
+                      <p className="text-xs text-slate-400">{cat.label} avg</p>
+                    </div>
+                    <div className="flex flex-col items-center bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 min-w-[110px]">
+                      <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide whitespace-nowrap">DoF Pace (6mo)</p>
+                      <p className={`text-lg font-bold font-mono mt-0.5 ${paceColor(avgDof)}`}>{paceLabel(avgDof)}</p>
+                      <p className="text-xs text-slate-400">{cat.label} avg</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Final Action Dates Table */}
             {(() => {
