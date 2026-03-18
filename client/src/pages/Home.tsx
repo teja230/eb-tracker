@@ -50,7 +50,7 @@ import { toast } from 'sonner';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
-const TODAY = new Date(2026, 2, 18); // Mar 18, 2026
+const TODAY = new Date(); // Always the current date — do NOT hardcode this
 
 // April 2026 Visa Bulletin data (most recent)
 const CURRENT_BULLETIN = {
