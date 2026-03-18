@@ -696,10 +696,11 @@ export default function Home() {
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Scenario Range — All Outcomes</p>
                 <button
                   onClick={() => { setActiveTab("scenarios"); setShowSimulatorControls(true); }}
-                  className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:border-slate-500 hover:bg-slate-50 transition-all shadow-sm"
                 >
+                  <span className="text-sm">&#9881;&#65039;</span>
                   Adjust assumptions
-                  <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+                  <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-slate-400" />
                 </button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
