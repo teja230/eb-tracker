@@ -202,6 +202,10 @@ const HISTORICAL_BULLETINS = [
   { month: "Feb 2025", eb1_fad: "2022-02-01", eb1_dof: "2022-04-15", eb2_fad: "2012-10-15", eb2_dof: "2013-01-01", eb3_fad: "2012-12-15", eb3_dof: "2013-06-08" },
   // Jan 2025: Verified from travel.state.gov.
   { month: "Jan 2025", eb1_fad: "2022-02-01", eb1_dof: "2022-04-15", eb2_fad: "2012-10-01", eb2_dof: "2013-01-01", eb3_fad: "2012-12-01", eb3_dof: "2013-06-08" },
+  // Dec 2024: Verified from travel.state.gov.
+  { month: "Dec 2024", eb1_fad: "2022-02-01", eb1_dof: "2022-04-15", eb2_fad: "2012-08-01", eb2_dof: "2013-01-01", eb3_fad: "2012-11-08", eb3_dof: "2013-06-08" },
+  // Nov 2024: Verified from travel.state.gov.
+  { month: "Nov 2024", eb1_fad: "2022-02-01", eb1_dof: "2022-04-15", eb2_fad: "2012-07-15", eb2_dof: "2013-01-01", eb3_fad: "2012-11-01", eb3_dof: "2013-06-08" },
   // Oct 2024: Verified from travel.state.gov.
   { month: "Oct 2024", eb1_fad: "2022-02-01", eb1_dof: "2022-04-15", eb2_fad: "2012-07-15", eb2_dof: "2013-01-01", eb3_fad: "2012-11-01", eb3_dof: "2013-06-08" },
   // Jan 2024: estimated from historical trend
@@ -739,88 +743,86 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* ── Header ── */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-800 text-white rounded-lg px-3 py-1.5 font-bold text-sm tracking-wide">
-              EB TRACKER
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4">
+          {/* Top row: brand + actions */}
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-3">
+              <div className="bg-slate-800 text-white rounded-lg px-3 py-1.5 font-bold text-sm tracking-wide">
+                EB TRACKER
+              </div>
+              <div>
+                <h1 className="text-base font-bold text-slate-900 leading-tight">EB Priority Date Tracker</h1>
+                <p className="text-xs text-slate-400">India · April 2026 Bulletin</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-slate-900 leading-tight">EB Priority Date Tracker</h1>
-              <p className="text-xs text-slate-500">India · EB-1, EB-2, EB-3 · April 2026 Bulletin</p>
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                <Calendar className="w-3 h-3" />
+                <span>{nextBulletinDays === 0 ? 'New bulletin today' : nextBulletinDays === 1 ? 'Next bulletin tomorrow' : `Next bulletin in ${nextBulletinDays}d`}</span>
+              </div>
+              <button
+                onClick={handleShare}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                  shareCopied
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400 hover:bg-slate-50'
+                }`}
+              >
+                {shareCopied ? (
+                  <><CheckCircle2 className="w-3.5 h-3.5" /> Copied!</>
+                ) : (
+                  <><Share2 className="w-3.5 h-3.5" /> Share Estimate</>
+                )}
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleShare}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                shareCopied
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400 hover:bg-slate-50'
-              }`}
-            >
-              {shareCopied ? (
-                <><CheckCircle2 className="w-3.5 h-3.5" /> Copied!</>
-              ) : (
-                <><Share2 className="w-3.5 h-3.5" /> Share Estimate</>
-              )}
-            </button>
-            <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                <span>
-                  {nextBulletinDays === 0
-                    ? 'New bulletin today'
-                    : nextBulletinDays === 1
-                    ? 'Next bulletin tomorrow'
-                    : `Next bulletin in ${nextBulletinDays}d`}
-                </span>
-              </div>
+          {/* Bottom row: category tabs */}
+          <div className="flex gap-1">
+            {(Object.keys(EB_CATEGORIES) as Array<keyof typeof EB_CATEGORIES>).map(c => (
+              <button
+                key={c}
+                onClick={() => setSelectedCategory(c)}
+                className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                  selectedCategory === c
+                    ? 'border-slate-800 text-slate-900'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                {EB_CATEGORIES[c].label} — {EB_CATEGORIES[c].name.split(' / ')[0]}
+              </button>
+            ))}
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-
-        {/* ── Category Selector ── */}
-        <div className="flex gap-2 flex-wrap">
-          {(Object.keys(EB_CATEGORIES) as Array<keyof typeof EB_CATEGORIES>).map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all border ${
-                selectedCategory === cat
-                  ? "bg-slate-800 text-white border-slate-800 shadow-md"
-                  : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
-              }`}
-            >
-              {EB_CATEGORIES[cat].label} — {EB_CATEGORIES[cat].name.split(" / ")[0]}
-            </button>
-          ))}
-        </div>
+      <div className="max-w-7xl mx-auto px-4 py-5 space-y-5">
 
         {/* ── Target Date Picker ── */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-stretch gap-4">
-            <div className="flex-1">
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-stretch">
+            {/* Date input side */}
+            <div className="flex-1 px-5 py-4">
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                 Your Priority Date
               </label>
               <PriorityDatePicker value={targetDate} onChange={handleDateChange} />
               <p className="text-xs text-slate-400 mt-1.5">Change to see updated projections for any priority date.</p>
             </div>
-            <div className={`flex items-center gap-0 divide-x divide-slate-200 border rounded-lg overflow-hidden transition-all duration-300 ${dateFlash ? "border-blue-400 bg-blue-50 shadow-md shadow-blue-100" : "border-slate-200 bg-slate-50"}`}>
-              <div className="flex flex-col justify-center px-5 py-2.5 text-center">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap mb-1">Current FAD</p>
-                <p className="font-mono font-bold text-slate-800 whitespace-nowrap">{fmtDateStr(cat.currentFAD)}</p>
-              </div>
-              <div className="flex flex-col justify-center px-5 py-2.5 text-center">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap mb-1">Gap</p>
-                <p className="font-mono font-bold text-slate-800 whitespace-nowrap">{gapMonths > 0 ? `${gapMonths} mo` : "Current"}</p>
-              </div>
-              <div className="flex flex-col justify-center px-5 py-2.5 text-center">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap mb-1">Current DoF</p>
-                <p className="font-mono font-bold text-slate-800 whitespace-nowrap">{fmtDateStr(cat.currentDoF)}</p>
-              </div>
+            {/* Stats side */}
+            <div className={`flex items-stretch divide-x divide-slate-200 border-t md:border-t-0 md:border-l transition-all duration-300 ${
+              dateFlash ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-slate-50'
+            }`}>
+              {[
+                { label: 'Current FAD', value: fmtDateStr(cat.currentFAD) },
+                { label: 'Gap', value: gapMonths > 0 ? `${gapMonths} mo` : 'Current' },
+                { label: 'Current DoF', value: fmtDateStr(cat.currentDoF) },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex flex-col justify-center items-center px-5 py-4 min-w-[100px]">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest whitespace-nowrap mb-1">{label}</p>
+                  <p className="font-mono font-bold text-slate-800 text-sm whitespace-nowrap">{value}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
