@@ -841,7 +841,7 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 pt-4 pb-8 space-y-4">
 
         {/* ── Target Date Picker ── */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-stretch">
             {/* Date input side */}
             <div className="flex-1 px-5 py-4">
