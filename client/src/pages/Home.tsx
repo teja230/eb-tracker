@@ -2,9 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { AlertCircle, TrendingUp, Calendar, Users, Download } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { AlertCircle, TrendingUp, Calendar, Users, Download, CheckCircle } from 'lucide-react';
 
 // ─── EB Categories Data ────────────────────────────────────────────────────────
 
@@ -41,24 +40,32 @@ const SCENARIO_CONFIGS = {
     banDuration: "2029",
     wastage: 0.05,
     description: "70k spillover, ban through 2029, 5% wastage",
+    allocation: 3462,
+    monthlyRate: 288,
   },
   base: {
     spillover: 50000,
     banDuration: "2028",
     wastage: 0.15,
     description: "50k spillover, ban through Sept 2028, 15% wastage",
+    allocation: 3176,
+    monthlyRate: 265,
   },
   conservative: {
     spillover: 50000,
     banDuration: "2027",
     wastage: 0.25,
     description: "50k spillover, ban ends Oct 2027, 25% wastage",
+    allocation: 2452,
+    monthlyRate: 204,
   },
   pessimistic: {
     spillover: 0,
     banDuration: "2026",
     wastage: 0.30,
     description: "No spillover benefit, 30% wastage",
+    allocation: 1962,
+    monthlyRate: 164,
   },
 };
 
@@ -103,7 +110,7 @@ function calculateMonthMovement(prevDateStr: string, currDateStr: string): { mon
   if (months > 0) type = "advancement";
   if (months < 0) type = "retrogression";
 
-  const label = months === 0 ? "Stable" : `${months > 0 ? "+" : ""}${months}mo (${days}d)`;
+  const label = months === 0 ? "—" : `${months > 0 ? "+" : ""}${months}mo`;
 
   return { months, days, label, type };
 }
@@ -117,8 +124,6 @@ export default function Home() {
   const [spilloverEstimate, setSpilloverEstimate] = useState(50000);
   const [banDuration, setBanDuration] = useState("2028");
   const [wastageScenario, setWastageScenario] = useState("base");
-  const [lastRefreshMonth, setLastRefreshMonth] = useState("");
-  const [apiStatus, setApiStatus] = useState("idle");
 
   const generatePDFExport = () => {
     const content = `EB-2 INDIA PRIORITY DATE TRACKER
@@ -138,18 +143,8 @@ Filing Date: ${currentProjection.estimatedDoF}
 Months from Today: ${currentProjection.monthsNeeded}
 
 === ALLOCATION DETAILS ===
-Base Allocation: ${currentProjection.baseAllocation.toLocaleString()} visas/year
-Spillover Benefit: +${currentProjection.additionalSpillover.toLocaleString()} visas
-After Wastage (${currentProjection.wastageRate}%): ${currentProjection.totalAllocation.toLocaleString()} visas/year
+Annual Allocation: ${currentProjection.totalAllocation.toLocaleString()} visas/year
 Monthly Processing Rate: ${currentProjection.monthlyRate} visas/month
-
-=== METHODOLOGY ===
-This estimate is based on:
-- Current FAD: ${formatDateDisplay(categoryData.currentFAD)}
-- Pending I-485 Applications: ${categoryData.pending.india.toLocaleString()}
-- 7% Per-Country Cap allocation
-- Family-based visa spillover from 75-country ban
-- Green card wastage factor
 
 Disclaimer: This is an estimate based on historical trends and current policy. Actual timelines may vary.`;
     
@@ -162,158 +157,97 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
     document.body.removeChild(element);
   };
 
-  const calculateSpilloverBenefit = (spillover: number, category: string) => {
-    if (spillover === 0) return 0;
-    if (category !== "EB2") return 0;
-    return spillover * 0.5 * 0.286 / 7;
-  };
+  // ─── Calculate Projection ───────────────────────────────────────────────────────
 
-  // ─── Calculate Projection for Each Scenario ───────────────────────────────────
+  const categoryData = EB_CATEGORIES[selectedCategory as keyof typeof EB_CATEGORIES];
+  const targetDateObj = new Date(targetDate);
+  const currentFADDate = new Date(categoryData.currentFAD);
 
-  const calculateScenarioProjection = (scenarioKey: string, category: string) => {
-    const config = SCENARIO_CONFIGS[scenarioKey as keyof typeof SCENARIO_CONFIGS];
-    const categoryData = EB_CATEGORIES[category as keyof typeof EB_CATEGORIES];
-    const targetDateObj = new Date(targetDate);
-    const currentFADDate = new Date(categoryData.currentFAD);
-
-    // If target date is before or equal to current FAD, it's already current
+  const currentProjection = useMemo(() => {
+    const config = SCENARIO_CONFIGS[wastageScenario as keyof typeof SCENARIO_CONFIGS];
+    
+    // If target is before or equal to current FAD, it's already current
     if (targetDateObj <= currentFADDate) {
       return {
-        baseAllocation: Math.round(categoryData.allocation * categoryData.perCountryCap),
-        additionalSpillover: 0,
-        totalAllocation: Math.round(categoryData.allocation * categoryData.perCountryCap * (1 - config.wastage)),
-        monthlyRate: ((categoryData.allocation * categoryData.perCountryCap) / 12).toFixed(0),
-        wastageRate: (config.wastage * 100).toFixed(0),
+        totalAllocation: config.allocation,
+        monthlyRate: config.monthlyRate,
         estimatedFAD: formatDateDisplay(categoryData.currentFAD),
         estimatedDoF: formatDateDisplay(categoryData.currentDoF),
         estimatedYear: currentFADDate.getFullYear(),
         monthsNeeded: 0,
+        isAlreadyCurrent: true,
       };
     }
 
-    // Calculate base allocation
-    const baseAllocation = categoryData.allocation * categoryData.perCountryCap;
-    const additionalSpillover = calculateSpilloverBenefit(config.spillover, category);
-    const totalAllocation = (baseAllocation + additionalSpillover) * (1 - config.wastage);
-    const monthlyRate = totalAllocation / 12;
-
     // Calculate months from current FAD to target date
-    const monthsFromFADToTarget = calculateMonthsDifference(categoryData.currentFAD, targetDate);
+    const monthsToTarget = calculateMonthsDifference(categoryData.currentFAD, targetDate);
+    
+    // Calculate months to clear pending inventory
+    const monthsToClear = categoryData.pending.india / config.monthlyRate;
+    
+    // Total months from current FAD
+    const totalMonths = monthsToTarget + monthsToClear;
 
-    // Calculate months to clear pending inventory AFTER reaching target date
-    const pendingInventory = categoryData.pending.india;
-    const monthsToClearAfterTarget = pendingInventory / monthlyRate;
-
-    // Total months from current FAD to when target becomes current
-    const totalMonthsNeeded = monthsFromFADToTarget + monthsToClearAfterTarget;
-
-    // Estimate when target date will become current
-    const estimatedFADDate = addMonthsToDate(categoryData.currentFAD, Math.round(totalMonthsNeeded));
+    // Estimate when target becomes current
+    const estimatedFADDate = addMonthsToDate(categoryData.currentFAD, Math.round(totalMonths));
     const estimatedDoFDate = new Date(estimatedFADDate);
     estimatedDoFDate.setMonth(estimatedDoFDate.getMonth() - 1);
 
     const fadString = estimatedFADDate.toISOString().split('T')[0];
     const dofString = estimatedDoFDate.toISOString().split('T')[0];
 
+    // Months from today
+    const today = new Date();
+    const monthsFromToday = (estimatedFADDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+
     return {
-      baseAllocation: Math.round(baseAllocation),
-      additionalSpillover: Math.round(additionalSpillover),
-      totalAllocation: Math.round(totalAllocation),
-      monthlyRate: (monthlyRate).toFixed(0),
-      wastageRate: (config.wastage * 100).toFixed(0),
+      totalAllocation: config.allocation,
+      monthlyRate: config.monthlyRate,
       estimatedFAD: formatDateDisplay(fadString),
       estimatedDoF: formatDateDisplay(dofString),
       estimatedYear: estimatedFADDate.getFullYear(),
-      monthsNeeded: Math.round(totalMonthsNeeded),
+      monthsNeeded: Math.round(monthsFromToday),
+      isAlreadyCurrent: false,
     };
-  };
+  }, [selectedCategory, targetDate, wastageScenario]);
 
   // Calculate all scenarios
   const allScenarios = useMemo(() => {
-    return {
-      optimistic: calculateScenarioProjection("optimistic", selectedCategory),
-      base: calculateScenarioProjection("base", selectedCategory),
-      conservative: calculateScenarioProjection("conservative", selectedCategory),
-      pessimistic: calculateScenarioProjection("pessimistic", selectedCategory),
-    };
+    const results: Record<string, any> = {};
+    
+    for (const [key, config] of Object.entries(SCENARIO_CONFIGS)) {
+      if (targetDateObj <= currentFADDate) {
+        results[key] = {
+          estimatedFAD: formatDateDisplay(categoryData.currentFAD),
+          monthsNeeded: 0,
+          allocation: config.allocation,
+        };
+      } else {
+        const monthsToTarget = calculateMonthsDifference(categoryData.currentFAD, targetDate);
+        const monthsToClear = categoryData.pending.india / config.monthlyRate;
+        const totalMonths = monthsToTarget + monthsToClear;
+        const estimatedFADDate = addMonthsToDate(categoryData.currentFAD, Math.round(totalMonths));
+        const today = new Date();
+        const monthsFromToday = (estimatedFADDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+        
+        results[key] = {
+          estimatedFAD: formatDateDisplay(estimatedFADDate.toISOString().split('T')[0]),
+          monthsNeeded: Math.round(monthsFromToday),
+          allocation: config.allocation,
+        };
+      }
+    }
+    
+    return results;
   }, [selectedCategory, targetDate]);
 
-  // Current projection based on selected inputs
-  const currentProjection = useMemo(() => {
-    const config = {
-      spillover: spilloverEstimate,
-      banDuration,
-      wastage: wastageScenario === "optimistic" ? 0.05 : wastageScenario === "base" ? 0.15 : wastageScenario === "conservative" ? 0.25 : 0.30,
-    };
-    const categoryData = EB_CATEGORIES[selectedCategory as keyof typeof EB_CATEGORIES];
-    const targetDateObj = new Date(targetDate);
-    const currentFADDate = new Date(categoryData.currentFAD);
-
-    if (targetDateObj <= currentFADDate) {
-      return {
-        baseAllocation: Math.round(categoryData.allocation * categoryData.perCountryCap),
-        additionalSpillover: 0,
-        totalAllocation: Math.round(categoryData.allocation * categoryData.perCountryCap * (1 - config.wastage)),
-        monthlyRate: ((categoryData.allocation * categoryData.perCountryCap) / 12).toFixed(0),
-        wastageRate: (config.wastage * 100).toFixed(0),
-        estimatedFAD: formatDateDisplay(categoryData.currentFAD),
-        estimatedDoF: formatDateDisplay(categoryData.currentDoF),
-        estimatedYear: currentFADDate.getFullYear(),
-        monthsNeeded: 0,
-      };
-    }
-
-    const baseAllocation = categoryData.allocation * categoryData.perCountryCap;
-    const additionalSpillover = calculateSpilloverBenefit(config.spillover, selectedCategory);
-    const totalAllocation = (baseAllocation + additionalSpillover) * (1 - config.wastage);
-    const monthlyRate = totalAllocation / 12;
-
-    const monthsFromFADToTarget = calculateMonthsDifference(categoryData.currentFAD, targetDate);
-    const pendingInventory = categoryData.pending.india;
-    const monthsToClearAfterTarget = pendingInventory / monthlyRate;
-    const totalMonthsNeeded = monthsFromFADToTarget + monthsToClearAfterTarget;
-
-    const estimatedFADDate = addMonthsToDate(categoryData.currentFAD, Math.round(totalMonthsNeeded));
-    const estimatedDoFDate = new Date(estimatedFADDate);
-    estimatedDoFDate.setMonth(estimatedDoFDate.getMonth() - 1);
-
-    const fadString = estimatedFADDate.toISOString().split('T')[0];
-    const dofString = estimatedDoFDate.toISOString().split('T')[0];
-
-    return {
-      baseAllocation: Math.round(baseAllocation),
-      additionalSpillover: Math.round(additionalSpillover),
-      totalAllocation: Math.round(totalAllocation),
-      monthlyRate: (monthlyRate).toFixed(0),
-      wastageRate: (config.wastage * 100).toFixed(0),
-      estimatedFAD: formatDateDisplay(fadString),
-      estimatedDoF: formatDateDisplay(dofString),
-      estimatedYear: estimatedFADDate.getFullYear(),
-      monthsNeeded: Math.round(totalMonthsNeeded),
-    };
-  }, [selectedCategory, targetDate, spilloverEstimate, banDuration, wastageScenario]);
-
-  const fetchVisaBulletin = async () => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    
-    if (lastRefreshMonth === currentMonth) {
-      setApiStatus("idle");
-      return;
-    }
-
-    setApiStatus("loading");
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setLastRefreshMonth(currentMonth);
-      setApiStatus("success");
-    } catch (error) {
-      setApiStatus("error");
-    }
-  };
-
-  const categoryData = EB_CATEGORIES[selectedCategory as keyof typeof EB_CATEGORIES];
   const gapMonths = calculateMonthsDifference(categoryData.currentFAD, targetDate);
-  const gapDays = Math.round(gapMonths * 30.44);
+
+  // Historical movement chart data
+  const chartData = historicalBulletins.map((b) => ({
+    month: b.month,
+    eb2_fad: new Date(b.eb2_fad).getTime() / (1000 * 60 * 60 * 24),
+  })).reverse();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -331,7 +265,7 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
 
         {/* Live Data Status */}
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-          <div className="text-green-600 mt-0.5">✓</div>
+          <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
           <div>
             <p className="font-semibold text-green-900">Live Data Loaded</p>
             <p className="text-sm text-green-800">April 2026 Visa Bulletin: EB-1 ROW CURRENT, EB-2 ROW CURRENT, EB-3 ROW CURRENT</p>
@@ -389,9 +323,7 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
               <input
                 type="date"
                 value={targetDate}
-                onChange={(e) => {
-                  setTargetDate(e.target.value);
-                }}
+                onChange={(e) => setTargetDate(e.target.value)}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-xs text-slate-500 mt-2">Defaults to August 2016. Change to see updated projections.</p>
@@ -412,64 +344,90 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
                 <div className="text-lg font-bold text-slate-900">{gapMonths} mo</div>
               </Card>
               <Card className="p-4">
-                <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Allocation (after wastage)</div>
-                <div className="text-lg font-bold text-slate-900">{currentProjection.totalAllocation.toLocaleString()} visas/yr</div>
+                <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Monthly Rate</div>
+                <div className="text-lg font-bold text-slate-900">{currentProjection.monthlyRate} visas</div>
               </Card>
             </div>
 
             {/* Estimated Timeline */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
               <h3 className="text-lg font-semibold text-slate-900 mb-4">When Will {formatDateDisplay(targetDate)} Become Current?</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <p className="text-xs font-semibold text-slate-600 uppercase mb-1">Final Action Date</p>
-                  <p className="text-2xl font-bold text-blue-600">{currentProjection.estimatedFAD}</p>
+              {currentProjection.isAlreadyCurrent ? (
+                <div className="text-center py-4">
+                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
+                  <p className="text-lg font-bold text-green-600">Already Current!</p>
+                  <p className="text-sm text-slate-600 mt-2">This priority date is already current as of {formatDateDisplay(categoryData.currentFAD)}</p>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-600 uppercase mb-1">Filing Date</p>
-                  <p className="text-2xl font-bold text-blue-600">{currentProjection.estimatedDoF}</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 uppercase mb-1">Final Action Date</p>
+                    <p className="text-2xl font-bold text-blue-600">{currentProjection.estimatedFAD}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 uppercase mb-1">Filing Date</p>
+                    <p className="text-2xl font-bold text-blue-600">{currentProjection.estimatedDoF}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 uppercase mb-1">Months from Today</p>
+                    <p className="text-2xl font-bold text-blue-600">{currentProjection.monthsNeeded} months</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-600 uppercase mb-1">Months from Today</p>
-                  <p className="text-2xl font-bold text-blue-600">{currentProjection.monthsNeeded} months</p>
-                </div>
-              </div>
+              )}
             </div>
+
+            {/* Historical Movement Chart */}
+            <Card className="p-6">
+              <h3 className="text-sm font-semibold text-slate-700 mb-4">EB-2 India FAD Movement (Oct 2025 - Apr 2026)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="eb2_fad" stroke="#3b82f6" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </Card>
 
             {/* Allocation Breakdown */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="p-6">
-                <h3 className="text-sm font-semibold text-slate-700 mb-4">Allocation Breakdown</h3>
-                <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-700 mb-4">Current Settings</h3>
+                <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Base Allocation</span>
-                    <span className="font-semibold text-slate-900">{currentProjection.baseAllocation.toLocaleString()}</span>
+                    <span className="text-slate-600">Spillover Estimate</span>
+                    <span className="font-semibold text-slate-900">{spilloverEstimate === 50000 ? '50k' : '70k'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Spillover Benefit</span>
-                    <span className="font-semibold text-green-600">+{currentProjection.additionalSpillover.toLocaleString()}</span>
+                    <span className="text-slate-600">Ban Duration</span>
+                    <span className="font-semibold text-slate-900">{banDuration === '2027' ? 'Oct 2027' : banDuration === '2028' ? 'Sept 2028' : 'Sept 2029'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Wastage Scenario</span>
+                    <span className="font-semibold text-slate-900">{wastageScenario === 'optimistic' ? '5%' : wastageScenario === 'base' ? '15%' : wastageScenario === 'conservative' ? '25%' : '30%'}</span>
                   </div>
                   <div className="border-t border-slate-200 pt-3 flex justify-between">
-                    <span className="text-slate-600">Wastage ({currentProjection.wastageRate}%)</span>
-                    <span className="font-semibold text-slate-900">{currentProjection.totalAllocation.toLocaleString()}</span>
+                    <span className="text-slate-600">Annual Allocation</span>
+                    <span className="font-semibold text-slate-900">{currentProjection.totalAllocation.toLocaleString()} visas/yr</span>
                   </div>
                 </div>
               </Card>
 
               <Card className="p-6">
-                <h3 className="text-sm font-semibold text-slate-700 mb-4">Processing Rate</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Monthly Rate</span>
-                    <span className="font-semibold text-slate-900">{currentProjection.monthlyRate} visas/mo</span>
-                  </div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-4">Pending Inventory</h3>
+                <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-slate-600">Pending I-485s</span>
                     <span className="font-semibold text-slate-900">{categoryData.pending.india.toLocaleString()}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Monthly Rate</span>
+                    <span className="font-semibold text-slate-900">{currentProjection.monthlyRate} visas/mo</span>
+                  </div>
                   <div className="border-t border-slate-200 pt-3 flex justify-between">
                     <span className="text-slate-600">Months to Clear</span>
-                    <span className="font-semibold text-slate-900">{Math.round(categoryData.pending.india / parseInt(currentProjection.monthlyRate))} months</span>
+                    <span className="font-semibold text-slate-900">{Math.round(categoryData.pending.india / currentProjection.monthlyRate)} months</span>
                   </div>
                 </div>
               </Card>
@@ -481,7 +439,7 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
         {activeTab === "scenarios" && (
           <section className="space-y-8">
             <div className="section-header">
-              <h2 className="text-lg font-semibold text-slate-800">Scenario Projections</h2>
+              <h2 className="text-lg font-semibold text-slate-800">Scenario Projections for {formatDateDisplay(targetDate)}</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -504,13 +462,38 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
                       <p className="text-slate-600">{SCENARIO_CONFIGS[key as keyof typeof SCENARIO_CONFIGS].description}</p>
                       <div className="border-t border-slate-200 pt-3 mt-3">
                         <p className="font-semibold text-slate-900">{scenario.estimatedFAD}</p>
-                        <p className="text-xs text-slate-500">Allocation: {scenario.totalAllocation.toLocaleString()} visas/yr</p>
+                        <p className="text-xs text-slate-500 mt-1">{scenario.monthsNeeded} months from today</p>
+                        <p className="text-xs text-slate-500">Allocation: {scenario.allocation.toLocaleString()} visas/yr</p>
                       </div>
                     </div>
                   </Card>
                 );
               })}
             </div>
+
+            {/* Scenario Comparison Chart */}
+            <Card className="p-6">
+              <h3 className="text-sm font-semibold text-slate-700 mb-4">Months from Today by Scenario</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={[
+                  { name: "Optimistic", months: allScenarios.optimistic.monthsNeeded },
+                  { name: "Base Case", months: allScenarios.base.monthsNeeded },
+                  { name: "Conservative", months: allScenarios.conservative.monthsNeeded },
+                  { name: "Pessimistic", months: allScenarios.pessimistic.monthsNeeded },
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="months" fill="#3b82f6">
+                    <Cell fill="#10b981" />
+                    <Cell fill="#3b82f6" />
+                    <Cell fill="#f59e0b" />
+                    <Cell fill="#ef4444" />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
           </section>
         )}
 
@@ -781,45 +764,6 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
                   <p className="text-2xl font-bold text-blue-600">{currentProjection.monthsNeeded} months</p>
                 </div>
               </div>
-            </div>
-
-            {/* Allocation Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="p-6">
-                <h3 className="text-sm font-semibold text-slate-700 mb-4">Allocation Breakdown</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Base Allocation</span>
-                    <span className="font-semibold text-slate-900">{currentProjection.baseAllocation.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Spillover Benefit</span>
-                    <span className="font-semibold text-green-600">+{currentProjection.additionalSpillover.toLocaleString()}</span>
-                  </div>
-                  <div className="border-t border-slate-200 pt-3 flex justify-between">
-                    <span className="text-slate-600">After Wastage ({currentProjection.wastageRate}%)</span>
-                    <span className="font-semibold text-slate-900">{currentProjection.totalAllocation.toLocaleString()}</span>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-6">
-                <h3 className="text-sm font-semibold text-slate-700 mb-4">Processing Rate</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Monthly Rate</span>
-                    <span className="font-semibold text-slate-900">{currentProjection.monthlyRate} visas/mo</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Pending I-485s</span>
-                    <span className="font-semibold text-slate-900">{categoryData.pending.india.toLocaleString()}</span>
-                  </div>
-                  <div className="border-t border-slate-200 pt-3 flex justify-between">
-                    <span className="text-slate-600">Months to Clear</span>
-                    <span className="font-semibold text-slate-900">{Math.round(categoryData.pending.india / parseInt(currentProjection.monthlyRate))} months</span>
-                  </div>
-                </div>
-              </Card>
             </div>
           </section>
         )}
