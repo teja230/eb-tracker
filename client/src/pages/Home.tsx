@@ -342,6 +342,13 @@ export default function Home() {
   const [shareCopied, setShareCopied] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
   const [showSimulatorControls, setShowSimulatorControls] = useState(false);
+  // Bulletin Tracker: fiscal year groups — FY2026 expanded by default
+  const [expandedFYs, setExpandedFYs] = useState<Set<string>>(new Set(["FY2026"]));
+  const toggleFY = (fy: string) => setExpandedFYs(prev => {
+    const next = new Set(prev);
+    if (next.has(fy)) next.delete(fy); else next.add(fy);
+    return next;
+  });
   const fadStarRowRef = useRef<HTMLTableRowElement>(null);
   const dofStarRowRef = useRef<HTMLTableRowElement>(null);
 
@@ -828,20 +835,22 @@ export default function Home() {
         </div>
 
         {/* ── Tab Navigation ── */}
-        <div className="flex gap-1 border-b border-slate-200">
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === t.id
-                  ? "border-slate-800 text-slate-900"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="border-b-2 border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 flex gap-0">
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`px-5 py-3 text-sm font-semibold transition-all border-b-2 -mb-0.5 ${
+                  activeTab === t.id
+                    ? "border-slate-800 text-slate-900 bg-white"
+                    : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════════
@@ -1337,6 +1346,21 @@ export default function Home() {
                   ? "px-4 py-3 text-center font-bold bg-slate-600 text-white"
                   : "px-4 py-3 text-center font-semibold text-slate-300";
 
+              // Group bulletins by fiscal year
+              const fyOf = (m: string) => {
+                const parts = m.split(' ');
+                const yr = parseInt(parts[parts.length - 1]);
+                const mo = parts[0];
+                const isOctNovDec = ['Oct','Nov','Dec'].includes(mo);
+                return `FY${isOctNovDec ? yr + 1 : yr}`;
+              };
+              const fyGroups: { fy: string; indices: number[] }[] = [];
+              HISTORICAL_BULLETINS.forEach((b, idx) => {
+                const fy = fyOf(b.month);
+                const g = fyGroups.find(x => x.fy === fy);
+                if (g) g.indices.push(idx); else fyGroups.push({ fy, indices: [idx] });
+              });
+
               return (
                 <div>
                   <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
@@ -1344,7 +1368,11 @@ export default function Home() {
                     <div className="flex items-center gap-3">
                       {firstCurrentIdx !== null && (
                         <button
-                          onClick={() => fadStarRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                          onClick={() => {
+                            const fy = fyOf(HISTORICAL_BULLETINS[firstCurrentIdx!].month);
+                            setExpandedFYs(prev => { const n = new Set(prev); n.add(fy); return n; });
+                            setTimeout(() => fadStarRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+                          }}
                           className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1 hover:bg-amber-100 transition-colors font-semibold"
                         >
                           <span>★</span> Jump to your row
@@ -1356,61 +1384,89 @@ export default function Home() {
                       </span>
                     </div>
                   </div>
-                  <div className="overflow-x-auto rounded-lg border border-slate-200">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-slate-800 text-white">
-                          <th className="px-4 py-3 text-left font-semibold">Month</th>
-                          <th className={hdrCellCls(0)}>EB-1</th>
-                          <th className={hdrDeltaCls(0)}>Δ</th>
-                          <th className={hdrCellCls(1)}>EB-2</th>
-                          <th className={hdrDeltaCls(1)}>Δ</th>
-                          <th className={hdrCellCls(2)}>EB-3</th>
-                          <th className={hdrDeltaCls(2)}>Δ</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {HISTORICAL_BULLETINS.map((b, idx) => {
-                          const prev = idx < HISTORICAL_BULLETINS.length - 1 ? HISTORICAL_BULLETINS[idx + 1] : null;
-                          const eb1m = prev ? movementLabel(prev.eb1_fad, b.eb1_fad) : null;
-                          const eb2m = prev ? movementLabel(prev.eb2_fad, b.eb2_fad) : null;
-                          const eb3m = prev ? movementLabel(prev.eb3_fad, b.eb3_fad) : null;
-                          const mvClass = (m: typeof eb1m) =>
-                            m?.type === "advancement" ? "text-emerald-600 font-semibold" :
-                            m?.type === "retrogression" ? "text-red-600 font-semibold" : "text-slate-400";
-                          const isFirstCurrent = idx === firstCurrentIdx;
-                          const isLatest = idx === 0;
-                          const rowBase = isFirstCurrent
-                            ? "bg-amber-50 border-b border-amber-200"
-                            : isLatest
-                            ? "bg-blue-50 border-b border-slate-100"
-                            : "border-b border-slate-100 hover:bg-slate-50";
-                          const selCellCls = "px-4 py-2.5 font-mono font-bold text-slate-900 bg-slate-50";
-                          const otherCellCls = "px-4 py-2.5 font-mono text-slate-400";
-                          const c = (colIdx: number, val: string) =>
-                            colIdx === selColIdx ? <td className={selCellCls}>{val}</td> : <td className={otherCellCls}>{val}</td>;
-                          const d = (colIdx: number, m: typeof eb1m) =>
-                            colIdx === selColIdx
-                              ? <td className={`px-4 py-2.5 text-center font-mono ${mvClass(m)}`}>{m?.label ?? "—"}</td>
-                              : <td className="px-4 py-2.5 text-center font-mono text-slate-300">{m?.label ?? "—"}</td>;
-                          return (
-                            <tr key={b.month} className={rowBase} ref={isFirstCurrent ? fadStarRowRef : undefined}>
-                              <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">
-                                {isFirstCurrent && <span className="mr-1 text-amber-500">★</span>}
-                                {b.month}
-                                {isLatest && <span className="ml-1 text-blue-600 text-xs">(latest)</span>}
-                              </td>
-                              {c(0, fmtDateStr(b.eb1_fad))}
-                              {d(0, eb1m)}
-                              {c(1, fmtDateStr(b.eb2_fad))}
-                              {d(1, eb2m)}
-                              {c(2, fmtDateStr(b.eb3_fad))}
-                              {d(2, eb3m)}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div className="space-y-2">
+                    {fyGroups.map(({ fy, indices }) => {
+                      const isOpen = expandedFYs.has(fy);
+                      const startMo = HISTORICAL_BULLETINS[indices[indices.length - 1]].month;
+                      const endMo = HISTORICAL_BULLETINS[indices[0]].month;
+                      const hasStarRow = firstCurrentIdx !== null && indices.includes(firstCurrentIdx);
+                      return (
+                        <div key={fy} className="rounded-lg border border-slate-200 overflow-hidden">
+                          <button
+                            onClick={() => toggleFY(fy)}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${
+                              isOpen ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-sm">{fy}</span>
+                              <span className={`text-xs ${isOpen ? 'text-slate-300' : 'text-slate-500'}`}>{startMo} – {endMo} · {indices.length} bulletins</span>
+                              {hasStarRow && <span className="text-amber-400 text-xs font-semibold">★ your row</span>}
+                            </div>
+                            <span className={`text-xs font-bold transition-transform ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+                          </button>
+                          {isOpen && (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="bg-slate-700 text-white">
+                                    <th className="px-4 py-2.5 text-left font-semibold">Month</th>
+                                    <th className={hdrCellCls(0)}>EB-1</th>
+                                    <th className={hdrDeltaCls(0)}>Δ</th>
+                                    <th className={hdrCellCls(1)}>EB-2</th>
+                                    <th className={hdrDeltaCls(1)}>Δ</th>
+                                    <th className={hdrCellCls(2)}>EB-3</th>
+                                    <th className={hdrDeltaCls(2)}>Δ</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {indices.map(idx => {
+                                    const b = HISTORICAL_BULLETINS[idx];
+                                    const prev = idx < HISTORICAL_BULLETINS.length - 1 ? HISTORICAL_BULLETINS[idx + 1] : null;
+                                    const eb1m = prev ? movementLabel(prev.eb1_fad, b.eb1_fad) : null;
+                                    const eb2m = prev ? movementLabel(prev.eb2_fad, b.eb2_fad) : null;
+                                    const eb3m = prev ? movementLabel(prev.eb3_fad, b.eb3_fad) : null;
+                                    const mvClass = (m: typeof eb1m) =>
+                                      m?.type === 'advancement' ? 'text-emerald-600 font-semibold' :
+                                      m?.type === 'retrogression' ? 'text-red-600 font-semibold' : 'text-slate-400';
+                                    const isFirstCurrent = idx === firstCurrentIdx;
+                                    const isLatest = idx === 0;
+                                    const rowBase = isFirstCurrent
+                                      ? 'bg-amber-50 border-b border-amber-200'
+                                      : isLatest
+                                      ? 'bg-blue-50 border-b border-slate-100'
+                                      : 'border-b border-slate-100 hover:bg-slate-50';
+                                    const selCellCls = 'px-4 py-2 font-mono font-bold text-slate-900 bg-white/60';
+                                    const otherCellCls = 'px-4 py-2 font-mono text-slate-400';
+                                    const c = (colIdx: number, val: string) =>
+                                      colIdx === selColIdx ? <td className={selCellCls}>{val}</td> : <td className={otherCellCls}>{val}</td>;
+                                    const d = (colIdx: number, m: typeof eb1m) =>
+                                      colIdx === selColIdx
+                                        ? <td className={`px-4 py-2 text-center font-mono ${mvClass(m)}`}>{m?.label ?? '—'}</td>
+                                        : <td className="px-4 py-2 text-center font-mono text-slate-300">{m?.label ?? '—'}</td>;
+                                    return (
+                                      <tr key={b.month} className={rowBase} ref={isFirstCurrent ? fadStarRowRef : undefined}>
+                                        <td className="px-4 py-2 font-mono font-semibold text-slate-800">
+                                          {isFirstCurrent && <span className="mr-1 text-amber-500">★</span>}
+                                          {b.month}
+                                          {isLatest && <span className="ml-1 text-blue-600 text-xs">(latest)</span>}
+                                        </td>
+                                        {c(0, fmtDateStr(b.eb1_fad))}
+                                        {d(0, eb1m)}
+                                        {c(1, fmtDateStr(b.eb2_fad))}
+                                        {d(1, eb2m)}
+                                        {c(2, fmtDateStr(b.eb3_fad))}
+                                        {d(2, eb3m)}
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -1441,6 +1497,20 @@ export default function Home() {
                   ? "px-4 py-3 text-center font-bold bg-slate-500 text-white"
                   : "px-4 py-3 text-center font-semibold text-slate-300";
 
+              // Group bulletins by fiscal year (reuse fyOf from FAD block scope is not available here, redefine)
+              const fyOfD = (m: string) => {
+                const parts = m.split(' ');
+                const yr = parseInt(parts[parts.length - 1]);
+                const mo = parts[0];
+                return `FY${['Oct','Nov','Dec'].includes(mo) ? yr + 1 : yr}`;
+              };
+              const fyGroupsD: { fy: string; indices: number[] }[] = [];
+              HISTORICAL_BULLETINS.forEach((b, idx) => {
+                const fy = fyOfD(b.month);
+                const g = fyGroupsD.find(x => x.fy === fy);
+                if (g) g.indices.push(idx); else fyGroupsD.push({ fy, indices: [idx] });
+              });
+
               return (
                 <div>
                   <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
@@ -1448,7 +1518,11 @@ export default function Home() {
                     <div className="flex items-center gap-3">
                       {firstCurrentIdx !== null && (
                         <button
-                          onClick={() => dofStarRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                          onClick={() => {
+                            const fy = fyOfD(HISTORICAL_BULLETINS[firstCurrentIdx!].month);
+                            setExpandedFYs(prev => { const n = new Set(prev); n.add(fy); return n; });
+                            setTimeout(() => dofStarRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+                          }}
                           className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1 hover:bg-amber-100 transition-colors font-semibold"
                         >
                           <span>★</span> Jump to your row
@@ -1460,61 +1534,89 @@ export default function Home() {
                       </span>
                     </div>
                   </div>
-                  <div className="overflow-x-auto rounded-lg border border-slate-200">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-slate-700 text-white">
-                          <th className="px-4 py-3 text-left font-semibold">Month</th>
-                          <th className={hdrCellCls(0)}>EB-1</th>
-                          <th className={hdrDeltaCls(0)}>Δ</th>
-                          <th className={hdrCellCls(1)}>EB-2</th>
-                          <th className={hdrDeltaCls(1)}>Δ</th>
-                          <th className={hdrCellCls(2)}>EB-3</th>
-                          <th className={hdrDeltaCls(2)}>Δ</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {HISTORICAL_BULLETINS.map((b, idx) => {
-                          const prev = idx < HISTORICAL_BULLETINS.length - 1 ? HISTORICAL_BULLETINS[idx + 1] : null;
-                          const eb1m = prev ? movementLabel(prev.eb1_dof, b.eb1_dof) : null;
-                          const eb2m = prev ? movementLabel(prev.eb2_dof, b.eb2_dof) : null;
-                          const eb3m = prev ? movementLabel(prev.eb3_dof, b.eb3_dof) : null;
-                          const mvClass = (m: typeof eb1m) =>
-                            m?.type === "advancement" ? "text-emerald-600 font-semibold" :
-                            m?.type === "retrogression" ? "text-red-600 font-semibold" : "text-slate-400";
-                          const isFirstCurrent = idx === firstCurrentIdx;
-                          const isLatest = idx === 0;
-                          const rowBase = isFirstCurrent
-                            ? "bg-amber-50 border-b border-amber-200"
-                            : isLatest
-                            ? "bg-blue-50 border-b border-slate-100"
-                            : "border-b border-slate-100 hover:bg-slate-50";
-                          const selCellCls = "px-4 py-2.5 font-mono font-bold text-slate-900 bg-slate-50";
-                          const otherCellCls = "px-4 py-2.5 font-mono text-slate-400";
-                          const c = (colIdx: number, val: string) =>
-                            colIdx === selColIdx ? <td className={selCellCls}>{val}</td> : <td className={otherCellCls}>{val}</td>;
-                          const d = (colIdx: number, m: typeof eb1m) =>
-                            colIdx === selColIdx
-                              ? <td className={`px-4 py-2.5 text-center font-mono ${mvClass(m)}`}>{m?.label ?? "—"}</td>
-                              : <td className="px-4 py-2.5 text-center font-mono text-slate-300">{m?.label ?? "—"}</td>;
-                          return (
-                            <tr key={b.month} className={rowBase} ref={isFirstCurrent ? dofStarRowRef : undefined}>
-                              <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">
-                                {isFirstCurrent && <span className="mr-1 text-amber-500">★</span>}
-                                {b.month}
-                                {isLatest && <span className="ml-1 text-blue-600 text-xs">(latest)</span>}
-                              </td>
-                              {c(0, fmtDateStr(b.eb1_dof))}
-                              {d(0, eb1m)}
-                              {c(1, fmtDateStr(b.eb2_dof))}
-                              {d(1, eb2m)}
-                              {c(2, fmtDateStr(b.eb3_dof))}
-                              {d(2, eb3m)}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div className="space-y-2">
+                    {fyGroupsD.map(({ fy, indices }) => {
+                      const isOpen = expandedFYs.has(fy);
+                      const startMo = HISTORICAL_BULLETINS[indices[indices.length - 1]].month;
+                      const endMo = HISTORICAL_BULLETINS[indices[0]].month;
+                      const hasStarRow = firstCurrentIdx !== null && indices.includes(firstCurrentIdx);
+                      return (
+                        <div key={fy} className="rounded-lg border border-slate-200 overflow-hidden">
+                          <button
+                            onClick={() => toggleFY(fy)}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${
+                              isOpen ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-sm">{fy}</span>
+                              <span className={`text-xs ${isOpen ? 'text-slate-300' : 'text-slate-500'}`}>{startMo} – {endMo} · {indices.length} bulletins</span>
+                              {hasStarRow && <span className="text-amber-400 text-xs font-semibold">★ your row</span>}
+                            </div>
+                            <span className={`text-xs font-bold transition-transform ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+                          </button>
+                          {isOpen && (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="bg-slate-600 text-white">
+                                    <th className="px-4 py-2.5 text-left font-semibold">Month</th>
+                                    <th className={hdrCellCls(0)}>EB-1</th>
+                                    <th className={hdrDeltaCls(0)}>Δ</th>
+                                    <th className={hdrCellCls(1)}>EB-2</th>
+                                    <th className={hdrDeltaCls(1)}>Δ</th>
+                                    <th className={hdrCellCls(2)}>EB-3</th>
+                                    <th className={hdrDeltaCls(2)}>Δ</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {indices.map(idx => {
+                                    const b = HISTORICAL_BULLETINS[idx];
+                                    const prev = idx < HISTORICAL_BULLETINS.length - 1 ? HISTORICAL_BULLETINS[idx + 1] : null;
+                                    const eb1m = prev ? movementLabel(prev.eb1_dof, b.eb1_dof) : null;
+                                    const eb2m = prev ? movementLabel(prev.eb2_dof, b.eb2_dof) : null;
+                                    const eb3m = prev ? movementLabel(prev.eb3_dof, b.eb3_dof) : null;
+                                    const mvClass = (m: typeof eb1m) =>
+                                      m?.type === 'advancement' ? 'text-emerald-600 font-semibold' :
+                                      m?.type === 'retrogression' ? 'text-red-600 font-semibold' : 'text-slate-400';
+                                    const isFirstCurrent = idx === firstCurrentIdx;
+                                    const isLatest = idx === 0;
+                                    const rowBase = isFirstCurrent
+                                      ? 'bg-amber-50 border-b border-amber-200'
+                                      : isLatest
+                                      ? 'bg-blue-50 border-b border-slate-100'
+                                      : 'border-b border-slate-100 hover:bg-slate-50';
+                                    const selCellCls = 'px-4 py-2 font-mono font-bold text-slate-900 bg-white/60';
+                                    const otherCellCls = 'px-4 py-2 font-mono text-slate-400';
+                                    const c = (colIdx: number, val: string) =>
+                                      colIdx === selColIdx ? <td className={selCellCls}>{val}</td> : <td className={otherCellCls}>{val}</td>;
+                                    const d = (colIdx: number, m: typeof eb1m) =>
+                                      colIdx === selColIdx
+                                        ? <td className={`px-4 py-2 text-center font-mono ${mvClass(m)}`}>{m?.label ?? '—'}</td>
+                                        : <td className="px-4 py-2 text-center font-mono text-slate-300">{m?.label ?? '—'}</td>;
+                                    return (
+                                      <tr key={b.month} className={rowBase} ref={isFirstCurrent ? dofStarRowRef : undefined}>
+                                        <td className="px-4 py-2 font-mono font-semibold text-slate-800">
+                                          {isFirstCurrent && <span className="mr-1 text-amber-500">★</span>}
+                                          {b.month}
+                                          {isLatest && <span className="ml-1 text-blue-600 text-xs">(latest)</span>}
+                                        </td>
+                                        {c(0, fmtDateStr(b.eb1_dof))}
+                                        {d(0, eb1m)}
+                                        {c(1, fmtDateStr(b.eb2_dof))}
+                                        {d(1, eb2m)}
+                                        {c(2, fmtDateStr(b.eb3_dof))}
+                                        {d(2, eb3m)}
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
