@@ -124,6 +124,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"overview" | "comparison" | "tracker" | "simulator">("overview");
   const [apiStatus, setApiStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [lastUpdated, setLastUpdated] = useState<string>("2026-03-18T12:00:00Z");
+  const [lastRefreshMonth, setLastRefreshMonth] = useState<string>("");
 
   const prevTargetRef = useRef(targetDate);
 
@@ -172,7 +173,23 @@ export default function Home() {
   const calculateScenarioProjection = (scenarioKey: string, category: string) => {
     const config = SCENARIO_CONFIGS[scenarioKey as keyof typeof SCENARIO_CONFIGS];
     const categoryData = EB_CATEGORIES[category as keyof typeof EB_CATEGORIES];
-    const gapMonths = calculateMonthsDifference(categoryData.currentFAD, targetDate);
+    const currentFADDate = new Date(categoryData.currentFAD);
+    const targetDateObj = new Date(targetDate);
+
+    // If target date is before or equal to current FAD, it's already current
+    if (targetDateObj <= currentFADDate) {
+      return {
+        baseAllocation: Math.round(categoryData.allocation * categoryData.perCountryCap),
+        additionalSpillover: 0,
+        totalAllocation: Math.round(categoryData.allocation * categoryData.perCountryCap * (1 - config.wastage)),
+        monthlyRate: ((categoryData.allocation * categoryData.perCountryCap) / 12).toFixed(0),
+        wastageRate: (config.wastage * 100).toFixed(0),
+        estimatedFAD: formatDateDisplay(categoryData.currentFAD),
+        estimatedDoF: formatDateDisplay(categoryData.currentDoF),
+        estimatedYear: currentFADDate.getFullYear(),
+        monthsNeeded: 0,
+      };
+    }
 
     // Calculate allocation
     let baseAllocation = categoryData.allocation * categoryData.perCountryCap;
@@ -182,15 +199,18 @@ export default function Home() {
     const totalAllocation = (baseAllocation + additionalSpillover) * (1 - config.wastage);
     const monthlyRate = totalAllocation / 12;
 
-    // Calculate months to clear pending inventory
+    // Calculate months from current FAD to target date
+    const monthsToTargetDate = calculateMonthsDifference(categoryData.currentFAD, targetDate);
+
+    // Calculate months to clear pending inventory at current rate
     const pendingInventory = categoryData.pending.india;
     const monthsToClearPending = pendingInventory / monthlyRate;
 
-    // Total months needed
-    const totalMonthsNeeded = gapMonths + monthsToClearPending;
+    // Total months from current FAD
+    const totalMonthsFromCurrentFAD = monthsToTargetDate + monthsToClearPending;
 
-    // Estimate FAD date
-    const estimatedFADDate = addMonthsToDate(categoryData.currentFAD, Math.round(totalMonthsNeeded));
+    // Estimate FAD date (always in future)
+    const estimatedFADDate = addMonthsToDate(categoryData.currentFAD, Math.round(totalMonthsFromCurrentFAD));
 
     // DoF is typically 1-2 months behind FAD
     const estimatedDoFDate = new Date(estimatedFADDate);
@@ -208,7 +228,7 @@ export default function Home() {
       estimatedFAD: formatDateDisplay(fadString),
       estimatedDoF: formatDateDisplay(dofString),
       estimatedYear: estimatedFADDate.getFullYear(),
-      monthsNeeded: Math.round(totalMonthsNeeded),
+      monthsNeeded: Math.round(totalMonthsFromCurrentFAD),
     };
   };
 
@@ -227,12 +247,23 @@ export default function Home() {
     return calculateScenarioProjection("base", selectedCategory);
   }, [selectedCategory, targetDate]);
 
-  // Fetch Real-Time Visa Bulletin
+  // Fetch Real-Time Visa Bulletin (monthly only)
   const fetchVisaBulletin = async () => {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    
+    if (lastRefreshMonth === currentMonth) {
+      setApiStatus("idle");
+      return;
+    }
+
     setApiStatus("loading");
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      setLastUpdated(new Date().toISOString());
+      const now = new Date().toISOString();
+      setLastUpdated(now);
+      setLastRefreshMonth(currentMonth);
+      localStorage.setItem("lastBulletinRefresh", now);
+      localStorage.setItem("lastRefreshMonth", currentMonth);
       setApiStatus("success");
       toast.success("Visa Bulletin data refreshed (April 2026 data loaded)");
     } catch (error) {
@@ -241,10 +272,21 @@ export default function Home() {
     }
   };
 
-  // Auto-fetch on mount
+  // Auto-fetch on mount (only if not refreshed this month)
   useEffect(() => {
-    fetchVisaBulletin();
-  }, []);
+    const storedMonth = localStorage.getItem("lastRefreshMonth");
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    
+    if (storedMonth !== currentMonth) {
+      fetchVisaBulletin();
+    } else {
+      const storedDate = localStorage.getItem("lastBulletinRefresh");
+      if (storedDate) {
+        setLastUpdated(storedDate);
+        setLastRefreshMonth(currentMonth);
+      }
+    }
+  }, [lastRefreshMonth]);
 
   return (
     <div className="min-h-screen" style={{ background: "oklch(0.975 0.005 240)" }}>
