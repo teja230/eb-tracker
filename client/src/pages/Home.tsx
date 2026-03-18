@@ -463,7 +463,7 @@ export default function Home() {
 
         {/* ── Target Date Picker ── */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-end gap-4">
+          <div className="flex flex-col md:flex-row md:items-stretch gap-4">
             <div className="flex-1">
               <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
                 Your Priority Date
@@ -476,18 +476,18 @@ export default function Home() {
               />
               <p className="text-xs text-slate-400 mt-1.5">Change to see updated projections for any priority date.</p>
             </div>
-            <div className="flex gap-4 text-sm">
-              <div className="text-center">
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Current FAD</p>
-                <p className="font-mono font-bold text-slate-800">{fmtDateStr(cat.currentFAD)}</p>
+            <div className="flex items-end gap-0 divide-x divide-slate-200 border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+              <div className="flex flex-col justify-center px-5 py-2.5 text-center">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap mb-1">Current FAD</p>
+                <p className="font-mono font-bold text-slate-800 whitespace-nowrap">{fmtDateStr(cat.currentFAD)}</p>
               </div>
-              <div className="text-center">
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Gap</p>
-                <p className="font-mono font-bold text-slate-800">{gapMonths > 0 ? `${gapMonths} mo` : "Current"}</p>
+              <div className="flex flex-col justify-center px-5 py-2.5 text-center">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap mb-1">Gap</p>
+                <p className="font-mono font-bold text-slate-800 whitespace-nowrap">{gapMonths > 0 ? `${gapMonths} mo` : "Current"}</p>
               </div>
-              <div className="text-center">
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Current DoF</p>
-                <p className="font-mono font-bold text-slate-800">{fmtDateStr(cat.currentDoF)}</p>
+              <div className="flex flex-col justify-center px-5 py-2.5 text-center">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap mb-1">Current DoF</p>
+                <p className="font-mono font-bold text-slate-800 whitespace-nowrap">{fmtDateStr(cat.currentDoF)}</p>
               </div>
             </div>
           </div>
