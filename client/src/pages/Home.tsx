@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
-import { AlertCircle, TrendingUp, Calendar, Users, Download, CheckCircle } from 'lucide-react';
+import { AlertCircle, TrendingUp, Calendar, Users, Download, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // ─── EB Categories Data ────────────────────────────────────────────────────────
 
@@ -124,6 +125,19 @@ export default function Home() {
   const [spilloverEstimate, setSpilloverEstimate] = useState(50000);
   const [banDuration, setBanDuration] = useState("2028");
   const [wastageScenario, setWastageScenario] = useState("base");
+  const [lastToastDate, setLastToastDate] = useState("");
+
+  const handleDateChange = (newDate: string) => {
+    setTargetDate(newDate);
+    if (newDate !== lastToastDate) {
+      const formatted = formatDateDisplay(newDate);
+      toast.success(`Target date updated to ${formatted}`, {
+        duration: 2000,
+        position: 'bottom-right',
+      });
+      setLastToastDate(newDate);
+    }
+  };
 
   const generatePDFExport = () => {
     const content = `EB-2 INDIA PRIORITY DATE TRACKER
@@ -263,14 +277,10 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
           <p className="text-slate-600">EB-1, EB-2, EB-3 India with Live Data Feed</p>
         </div>
 
-        {/* Live Data Status */}
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-          <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-semibold text-green-900">Live Data Loaded</p>
-            <p className="text-sm text-green-800">April 2026 Visa Bulletin: EB-1 ROW CURRENT, EB-2 ROW CURRENT, EB-3 ROW CURRENT</p>
-            <p className="text-xs text-green-700 mt-1">Last updated: 3/18/2026, 4:27 PM</p>
-          </div>
+        {/* Live Data Status - Subtle */}
+        <div className="mb-6 p-2 bg-slate-50 border border-slate-200 rounded flex items-center gap-2 text-xs text-slate-600">
+          <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+          <span>Live data loaded (April 2026)</span>
         </div>
 
         {/* Category Selector */}
@@ -323,7 +333,7 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
               <input
                 type="date"
                 value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
+                onChange={(e) => handleDateChange(e.target.value)}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-xs text-slate-500 mt-2">Defaults to August 2016. Change to see updated projections.</p>
@@ -354,7 +364,7 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
               <h3 className="text-lg font-semibold text-slate-900 mb-4">When Will {formatDateDisplay(targetDate)} Become Current?</h3>
               {currentProjection.isAlreadyCurrent ? (
                 <div className="text-center py-4">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
+                  <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-2" />
                   <p className="text-lg font-bold text-green-600">Already Current!</p>
                   <p className="text-sm text-slate-600 mt-2">This priority date is already current as of {formatDateDisplay(categoryData.currentFAD)}</p>
                 </div>
@@ -580,10 +590,10 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
                   </thead>
                   <tbody>
                     {historicalBulletins.map((b, idx) => {
-                      const prevBulletin = idx < historicalBulletins.length - 1 ? historicalBulletins[idx + 1] : null;
-                      const eb1Movement = prevBulletin ? calculateMonthMovement(prevBulletin.eb1_dof, b.eb1_dof) : null;
-                      const eb2Movement = prevBulletin ? calculateMonthMovement(prevBulletin.eb2_dof, b.eb2_dof) : null;
-                      const eb3Movement = prevBulletin ? calculateMonthMovement(prevBulletin.eb3_dof, b.eb3_dof) : null;
+                      const prevBulletin = idx > 0 ? historicalBulletins[idx - 1] : null;
+                      const eb1Movement = prevBulletin ? calculateMonthMovement(b.eb1_dof, prevBulletin.eb1_dof) : null;
+                      const eb2Movement = prevBulletin ? calculateMonthMovement(b.eb2_dof, prevBulletin.eb2_dof) : null;
+                      const eb3Movement = prevBulletin ? calculateMonthMovement(b.eb3_dof, prevBulletin.eb3_dof) : null;
 
                       return (
                         <tr key={b.month} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
