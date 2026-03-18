@@ -679,7 +679,7 @@ export default function Home() {
                     <p className="text-xs text-slate-400 mt-1">~{cat.gcLagMonths}mo after FAD</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Months from Today</p>
+                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Months to FAD</p>
                     <p className="text-xl font-bold font-mono">{baseProjection.monthsFromToday}</p>
                     <p className="text-xs text-slate-400 mt-1">Base case estimate</p>
                   </div>
@@ -984,7 +984,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="mt-2 text-xs text-slate-400">
-                      {p.isAlreadyCurrent ? "Already current" : `${p.monthsFromToday} months from today`}
+                      {p.isAlreadyCurrent ? "Already current" : `FAD in ${p.monthsFromToday} months`}
                     </div>
                   </div>
                 );
