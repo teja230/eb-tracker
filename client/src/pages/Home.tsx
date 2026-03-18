@@ -690,32 +690,53 @@ export default function Home() {
               </div>
             )}
 
-            {/* Scenario Range Strip */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">FAD Range — All Scenarios</p>
-                <div className="flex items-center gap-3 flex-wrap">
-                  {(Object.entries(SCENARIOS) as Array<[keyof typeof SCENARIOS, typeof SCENARIOS[keyof typeof SCENARIOS]]>).map(([key, s]) => {
-                    const p = projections[key];
-                    return (
-                      <div key={key} className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
-                        <span className="text-xs text-slate-500">{s.label}:</span>
-                        <span className="text-xs font-bold font-mono text-slate-800">
-                          {p.isAlreadyCurrent ? "Current" : fmtDate(p.fadDate)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+            {/* Scenario Range — 4 tiles */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Scenario Range — All Outcomes</p>
+                <button
+                  onClick={() => setActiveTab("scenarios")}
+                  className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  Adjust assumptions
+                  <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+                </button>
               </div>
-              <button
-                onClick={() => setActiveTab("scenarios")}
-                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-400 hover:bg-white transition-all"
-              >
-                See all scenarios
-                <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
-              </button>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {(Object.entries(SCENARIOS) as Array<[keyof typeof SCENARIOS, typeof SCENARIOS[keyof typeof SCENARIOS]]>).map(([key, s]) => {
+                  const p = projections[key];
+                  const isBase = key === "base";
+                  return (
+                    <div
+                      key={key}
+                      className={`bg-white rounded-xl border border-slate-200 border-l-4 p-4 ${
+                        isBase ? "ring-1 ring-slate-300" : ""
+                      }`}
+                      style={{ borderLeftColor: s.color }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-slate-700">{s.label}</span>
+                        {isBase && (
+                          <span className="text-xs bg-slate-800 text-white px-1.5 py-0.5 rounded font-semibold">Base</span>
+                        )}
+                      </div>
+                      <p className="text-sm font-bold font-mono text-slate-900 leading-tight">
+                        {p.isAlreadyCurrent ? "Current" : fmtDate(p.fadDate)}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">FAD</p>
+                      {!p.isAlreadyCurrent && (
+                        <>
+                          <p className="text-xs font-mono text-slate-600 mt-1.5">{fmtDate(p.dofDate)}</p>
+                          <p className="text-xs text-slate-400">DoF (file I-485)</p>
+                        </>
+                      )}
+                      <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
+                        {s.probability} probability
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Historical Chart */}
