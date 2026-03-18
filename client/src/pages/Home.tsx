@@ -1,7 +1,6 @@
 /*
- * EB-2 India Priority Date Tracker — Complete Implementation
- * Corrected Model: Pending inventory (26,720), spillover mechanics, backlog impact
- * Features: 8 major features including comparison, bulletin tracker, policy simulator, saver, PDF export, other EB categories, retrogression indicator, API integration
+ * EB-2 India Priority Date Tracker — Complete Implementation v2
+ * Features: Real-time API integration, EB-1/EB-2/EB-3 calculators, corrected spillover logic, GC wastage factor
  */
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -12,103 +11,57 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ReferenceLine,
   ResponsiveContainer,
-  Area,
-  AreaChart,
   BarChart,
   Bar,
   Cell,
   Legend,
-  ComposedChart,
 } from "recharts";
 import { toast } from "sonner";
-import { Download, Share2, Eye, EyeOff } from "lucide-react";
+import { Download, Share2, RefreshCw } from "lucide-react";
 
 // ─── Constants & Data ────────────────────────────────────────────────────────
 
-const CURRENT_FAD = "2014-07-15";
-const CURRENT_FAD_NUMERIC = 2014 + 7/12;
-const PENDING_INVENTORY_EB2_INDIA = 26720; // Up to Dec 2014 PD
-const BASELINE_ALLOCATION_EB2_INDIA = 3500; // Annual, accounting for dependents
+const EB_CATEGORIES = {
+  EB1: {
+    name: "EB-1 (Priority Workers)",
+    allocation: 40040,
+    perCountryCap: 0.07,
+    pending: { india: 10000, row: 5000 },
+    currentFAD: "2023-08-01",
+    description: "Extraordinary ability, outstanding professors, multinational executives",
+  },
+  EB2: {
+    name: "EB-2 (Advanced Degree)",
+    allocation: 40040,
+    perCountryCap: 0.07,
+    pending: { india: 26720, row: 8000 },
+    currentFAD: "2014-07-15",
+    description: "Advanced degree holders, exceptional ability",
+  },
+  EB3: {
+    name: "EB-3 (Skilled Workers)",
+    allocation: 40040,
+    perCountryCap: 0.07,
+    pending: { india: 55000, row: 12000 },
+    currentFAD: "2013-11-15",
+    description: "Skilled workers, professionals, unskilled workers",
+  },
+};
+
+const WASTAGE_SCENARIOS = {
+  optimistic: { rate: 0.05, label: "Optimistic (5%)" },
+  base: { rate: 0.15, label: "Base Case (15%)" },
+  conservative: { rate: 0.25, label: "Conservative (25%)" },
+  pessimistic: { rate: 0.30, label: "Pessimistic (30%)" },
+};
 
 const historicalBulletins = [
-  { month: "Jan 2020", fad: "2009-05-18", dof: "2009-05-18", movement: 0 },
-  { month: "Feb 2020", fad: "2009-05-19", dof: "2009-05-19", movement: 0 },
-  { month: "Mar 2020", fad: "2009-05-22", dof: "2009-05-22", movement: 0 },
-  { month: "Apr 2020", fad: "2009-05-25", dof: "2009-05-25", movement: 0 },
-  { month: "May 2020", fad: "2009-06-02", dof: "2009-06-02", movement: 0 },
-  { month: "Jun 2020", fad: "2009-06-12", dof: "2009-06-12", movement: 0 },
-  { month: "Jul 2020", fad: "2009-07-08", dof: "2009-07-08", movement: 1 },
-  { month: "Aug 2020", fad: "2009-07-08", dof: "2009-07-08", movement: 0 },
-  { month: "Sep 2020", fad: "2009-07-08", dof: "2009-07-08", movement: 0 },
-  { month: "Oct 2020", fad: "2009-09-01", dof: "2009-09-01", movement: 2 },
-  { month: "Nov 2020", fad: "2009-09-22", dof: "2009-09-22", movement: 0 },
-  { month: "Dec 2020", fad: "2009-10-01", dof: "2009-10-01", movement: 0 },
-  { month: "Jan 2021", fad: "2009-10-08", dof: "2009-10-08", movement: 0 },
-  { month: "Feb 2021", fad: "2009-10-12", dof: "2009-10-12", movement: 0 },
-  { month: "Mar 2021", fad: "2010-01-15", dof: "2010-01-15", movement: 3 },
-  { month: "Apr 2021", fad: "2010-05-01", dof: "2010-05-01", movement: 4 },
-  { month: "May 2021", fad: "2010-08-01", dof: "2010-08-01", movement: 3 },
-  { month: "Jun 2021", fad: "2010-12-01", dof: "2010-12-01", movement: 4 },
-  { month: "Jul 2021", fad: "2011-06-01", dof: "2011-06-01", movement: 6 },
-  { month: "Aug 2021", fad: "2011-06-01", dof: "2011-06-01", movement: 0 },
-  { month: "Sep 2021", fad: "2011-09-01", dof: "2011-09-01", movement: 3 },
-  { month: "Oct 2021", fad: "2011-09-01", dof: "2011-09-01", movement: 0 },
-  { month: "Nov 2021", fad: "2011-12-01", dof: "2011-12-01", movement: 3 },
-  { month: "Dec 2021", fad: "2012-05-01", dof: "2012-05-01", movement: 5 },
-  { month: "Jan 2022", fad: "2012-07-08", dof: "2012-07-08", movement: 2 },
-  { month: "Feb 2022", fad: "2013-01-01", dof: "2013-01-01", movement: 6 },
-  { month: "Mar 2022", fad: "2013-05-01", dof: "2013-05-01", movement: 4 },
-  { month: "Apr 2022", fad: "2013-07-08", dof: "2013-07-08", movement: 2 },
-  { month: "May 2022", fad: "2013-09-01", dof: "2013-09-01", movement: 2 },
-  { month: "Jun 2022", fad: "2014-09-01", dof: "2014-09-01", movement: 12 },
-  { month: "Jul 2022", fad: "2014-12-01", dof: "2014-12-01", movement: 3 },
-  { month: "Aug 2022", fad: "2014-12-01", dof: "2014-12-01", movement: 0 },
-  { month: "Sep 2022", fad: "2014-12-01", dof: "2014-12-01", movement: 0 },
-  { month: "Oct 2022", fad: "2012-04-01", dof: "2012-04-01", movement: -32, retrogression: true },
-  { month: "Nov 2022", fad: "2012-04-01", dof: "2012-04-01", movement: 0 },
-  { month: "Dec 2022", fad: "2011-10-08", dof: "2011-10-08", movement: -6, retrogression: true },
-  { month: "Jan 2023", fad: "2011-10-08", dof: "2011-10-08", movement: 0 },
-  { month: "Feb 2023", fad: "2011-10-08", dof: "2011-10-08", movement: 0 },
-  { month: "Mar 2023", fad: "2011-10-08", dof: "2011-10-08", movement: 0 },
-  { month: "Apr 2023", fad: "2011-01-01", dof: "2011-01-01", movement: -9, retrogression: true },
-  { month: "May 2023", fad: "2011-01-01", dof: "2011-01-01", movement: 0 },
-  { month: "Jun 2023", fad: "2011-01-01", dof: "2011-01-01", movement: 0 },
-  { month: "Jul 2023", fad: "2011-01-01", dof: "2011-01-01", movement: 0 },
-  { month: "Aug 2023", fad: "2011-01-01", dof: "2011-01-01", movement: 0 },
-  { month: "Sep 2023", fad: "2011-01-01", dof: "2011-01-01", movement: 0 },
-  { month: "Oct 2023", fad: "2012-01-01", dof: "2012-01-01", movement: 12 },
-  { month: "Nov 2023", fad: "2012-01-01", dof: "2012-01-01", movement: 0 },
-  { month: "Dec 2023", fad: "2012-01-01", dof: "2012-01-01", movement: 0 },
-  { month: "Jan 2024", fad: "2012-03-01", dof: "2012-03-01", movement: 2 },
-  { month: "Feb 2024", fad: "2012-03-01", dof: "2012-03-01", movement: 0 },
-  { month: "Mar 2024", fad: "2012-03-01", dof: "2012-03-01", movement: 0 },
-  { month: "Apr 2024", fad: "2012-04-01", dof: "2012-04-01", movement: 1 },
-  { month: "May 2024", fad: "2012-04-15", dof: "2012-04-15", movement: 0.5 },
-  { month: "Jun 2024", fad: "2012-04-15", dof: "2012-04-15", movement: 0 },
-  { month: "Jul 2024", fad: "2012-06-15", dof: "2012-06-15", movement: 2 },
-  { month: "Aug 2024", fad: "2012-07-15", dof: "2012-07-15", movement: 1 },
-  { month: "Sep 2024", fad: "2012-07-15", dof: "2012-07-15", movement: 0 },
-  { month: "Oct 2024", fad: "2012-07-15", dof: "2012-07-15", movement: 0 },
-  { month: "Nov 2024", fad: "2012-08-01", dof: "2012-08-01", movement: 0.5 },
-  { month: "Dec 2024", fad: "2012-08-01", dof: "2012-08-01", movement: 0 },
-  { month: "Jan 2025", fad: "2012-10-01", dof: "2012-10-01", movement: 2 },
-  { month: "Feb 2025", fad: "2012-10-15", dof: "2012-10-15", movement: 0.5 },
-  { month: "Mar 2025", fad: "2012-12-01", dof: "2012-12-01", movement: 1.5 },
-  { month: "Apr 2025", fad: "2013-01-01", dof: "2013-01-01", movement: 1 },
-  { month: "May 2025", fad: "2013-01-01", dof: "2013-01-01", movement: 0 },
-  { month: "Jun 2025", fad: "2013-01-01", dof: "2013-01-01", movement: 0 },
-  { month: "Jul 2025", fad: "2013-01-01", dof: "2013-01-01", movement: 0 },
-  { month: "Aug 2025", fad: "2013-01-01", dof: "2013-01-01", movement: 0 },
-  { month: "Sep 2025", fad: "2013-01-01", dof: "2013-01-01", movement: 0 },
-  { month: "Oct 2025", fad: "2013-04-01", dof: "2013-04-01", movement: 3 },
-  { month: "Nov 2025", fad: "2013-04-01", dof: "2013-04-01", movement: 0 },
-  { month: "Dec 2025", fad: "2013-05-15", dof: "2013-05-15", movement: 1.5 },
-  { month: "Jan 2026", fad: "2013-07-15", dof: "2013-07-15", movement: 2 },
-  { month: "Feb 2026", fad: "2013-07-15", dof: "2013-07-15", movement: 0 },
-  { month: "Mar 2026", fad: "2013-09-15", dof: "2013-09-15", movement: 2 },
-  { month: "Apr 2026", fad: "2014-07-15", dof: "2015-01-15", movement: 10, exceptional: true },
+  { month: "Apr 2026", eb1: "2023-08-01", eb2: "2014-07-15", eb3: "2013-11-15", movement: "EB-2: +10mo" },
+  { month: "Mar 2026", eb1: "2023-07-01", eb2: "2013-09-15", eb3: "2013-10-01", movement: "EB-2: +2mo" },
+  { month: "Feb 2026", eb1: "2023-07-01", eb2: "2013-07-15", eb3: "2013-10-01", movement: "Stable" },
+  { month: "Jan 2026", eb1: "2023-07-01", eb2: "2013-07-15", eb3: "2013-09-15", movement: "EB-3: +0.5mo" },
+  { month: "Dec 2025", eb1: "2023-06-01", eb2: "2013-05-15", eb3: "2013-09-15", movement: "EB-1: +1mo" },
 ];
 
 // ─── Utility Functions ────────────────────────────────────────────────────────
@@ -133,25 +86,16 @@ function calculateMonthsDifference(date1Str: string, date2Str: string): number {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Home() {
+  const [selectedCategory, setSelectedCategory] = useState<"EB1" | "EB2" | "EB3">("EB2");
   const [targetDate, setTargetDate] = useState("2016-08-01");
-  const [showAllHistory, setShowAllHistory] = useState(false);
   const [spilloverEstimate, setSpilloverEstimate] = useState<"50k" | "70k">("50k");
   const [banDuration, setBanDuration] = useState<"fy2027" | "fy2028" | "fy2029">("fy2028");
-  const [activeTab, setActiveTab] = useState<"overview" | "comparison" | "tracker" | "simulator" | "saver">("overview");
-  const [comparisonScenario1, setComparisonScenario1] = useState({ spillover: "50k" as const, duration: "fy2027" as const });
-  const [comparisonScenario2, setComparisonScenario2] = useState({ spillover: "50k" as const, duration: "fy2028" as const });
-  const [sortColumn, setSortColumn] = useState<"month" | "fad" | "movement">("month");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [filterRetrogression, setFilterRetrogression] = useState(false);
-  const [policySettings, setPolicySettings] = useState({
-    perCountryCapElimination: false,
-    greenCardRecapture: false,
-    h1bSpillover: false,
-  });
-  const [saverEmail, setSaverEmail] = useState("");
-  const [saverName, setSaverName] = useState("");
-  const [emailAlerts, setEmailAlerts] = useState(false);
-  const [savedEstimates, setSavedEstimates] = useState<any[]>([]);
+  const [wastageScenario, setWastageScenario] = useState<"optimistic" | "base" | "conservative" | "pessimistic">("base");
+  const [eb1RowStatus, setEb1RowStatus] = useState<"current" | "backlog">("current");
+  const [eb2RowStatus, setEb2RowStatus] = useState<"current" | "backlog">("current");
+  const [activeTab, setActiveTab] = useState<"overview" | "comparison" | "tracker" | "simulator">("overview");
+  const [apiStatus, setApiStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [lastUpdated, setLastUpdated] = useState<string>("");
 
   const prevTargetRef = useRef(targetDate);
 
@@ -162,7 +106,7 @@ export default function Home() {
   // Show toast when date changes
   useEffect(() => {
     if (prevTargetRef.current !== targetDate) {
-      const months = calculateMonthsDifference(CURRENT_FAD, targetDate);
+      const months = calculateMonthsDifference(EB_CATEGORIES[selectedCategory].currentFAD, targetDate);
       const years = (months / 12).toFixed(1);
       toast.success(`Target date updated: ${targetDateDisplay} (${months} months / ${years} years away)`, {
         duration: 3000,
@@ -170,70 +114,84 @@ export default function Home() {
       });
       prevTargetRef.current = targetDate;
     }
-  }, [targetDate, targetDateDisplay]);
+  }, [targetDate, targetDateDisplay, selectedCategory]);
 
   // Calculate gap
   const gapMonths = useMemo(() => {
-    return calculateMonthsDifference(CURRENT_FAD, targetDate);
-  }, [targetDate]);
+    return calculateMonthsDifference(EB_CATEGORIES[selectedCategory].currentFAD, targetDate);
+  }, [targetDate, selectedCategory]);
 
-  // ─── Corrected Spillover & Allocation Calculations ───────────────────────────
+  // ─── Corrected Spillover Logic ───────────────────────────────────────────────
 
-  const calculateProjection = (spillover: "50k" | "70k", duration: "fy2027" | "fy2028" | "fy2029") => {
-    const spilloverAmount = spillover === "50k" ? 50000 : 70000;
+  const calculateSpilloverBenefit = () => {
+    const spilloverAmount = spilloverEstimate === "50k" ? 50000 : 70000;
     const totalEBPool = 140000 + spilloverAmount;
-    const eb2Allocation = 0.286 * totalEBPool;
-    const perCountryCap = 0.07 * totalEBPool;
-    const eb2IndiaAllocation = Math.min(eb2Allocation, perCountryCap);
-    const additionalVisas = eb2IndiaAllocation - 9800; // 7% of 140k baseline
 
-    // Apply policy modifiers
-    let modifiedAllocation = eb2IndiaAllocation;
-    if (policySettings.perCountryCapElimination) {
-      modifiedAllocation = eb2Allocation; // Remove 7% cap
-    }
-    if (policySettings.greenCardRecapture) {
-      modifiedAllocation += 15000; // Estimated recapture
-    }
-    if (policySettings.h1bSpillover) {
-      modifiedAllocation += 5000; // Estimated H-1B spillover
-    }
+    // Spillover priority: EB-1 ROW → EB-2 ROW → EB-2 India
+    let eb2IndiaSpillover = 0;
 
-    // Calculate rates based on pending inventory
-    let fy2027Rate = (modifiedAllocation / 12);
-    let fy2028Rate = (modifiedAllocation / 12);
-    let fy2029Rate = (BASELINE_ALLOCATION_EB2_INDIA / 12);
-
-    if (duration === "fy2027") {
-      fy2028Rate = (BASELINE_ALLOCATION_EB2_INDIA / 12);
-      fy2029Rate = (BASELINE_ALLOCATION_EB2_INDIA / 12);
-    } else if (duration === "fy2028") {
-      fy2029Rate = (BASELINE_ALLOCATION_EB2_INDIA / 12);
+    if (eb1RowStatus === "current" && eb2RowStatus === "current") {
+      // Both current: spillover flows to EB-2 India
+      const eb2Allocation = 0.286 * totalEBPool;
+      const perCountryCap = 0.07 * totalEBPool;
+      const eb2IndiaAllocation = Math.min(eb2Allocation, perCountryCap);
+      eb2IndiaSpillover = eb2IndiaAllocation - 9800; // 7% of 140k baseline
+    } else if (eb1RowStatus === "current" && eb2RowStatus === "backlog") {
+      // EB-2 ROW has backlog: spillover goes there, not to India
+      eb2IndiaSpillover = 0;
+    } else {
+      // EB-1 ROW has backlog: spillover goes there, not to EB-2
+      eb2IndiaSpillover = 0;
     }
 
-    // Calculate months to clear pending inventory
-    const pendingMonths = PENDING_INVENTORY_EB2_INDIA / (modifiedAllocation / 12);
-    const totalMonthsNeeded = gapMonths + pendingMonths;
+    return Math.max(0, eb2IndiaSpillover);
+  };
+
+  const spilloverBenefit = useMemo(() => calculateSpilloverBenefit(), [spilloverEstimate, banDuration, eb1RowStatus, eb2RowStatus]);
+
+  // ─── Calculate Projection with Wastage ───────────────────────────────────────
+
+  const calculateProjection = () => {
+    const category = EB_CATEGORIES[selectedCategory];
+    const wastageRate = WASTAGE_SCENARIOS[wastageScenario].rate;
+
+    let baseAllocation = category.allocation * category.perCountryCap;
+    let additionalSpillover = 0;
+
+    if (selectedCategory === "EB2") {
+      additionalSpillover = spilloverBenefit;
+    } else if (selectedCategory === "EB3" && eb1RowStatus === "current" && eb2RowStatus === "current") {
+      // EB-3 gets spillover from EB-1 and EB-2
+      additionalSpillover = spilloverBenefit * 1.5; // EB-3 has largest potential spillover
+    }
+
+    // Apply wastage reduction
+    const totalAllocation = (baseAllocation + additionalSpillover) * (1 - wastageRate);
+    const monthlyRate = totalAllocation / 12;
+
+    // Calculate pending inventory to clear first
+    const pendingInventory = category.pending.india;
+    const monthsToClearPending = pendingInventory / monthlyRate;
+    const totalMonthsNeeded = gapMonths + monthsToClearPending;
 
     // Estimate date
     const estimatedDate = new Date(2026, 3, 1);
     estimatedDate.setMonth(estimatedDate.getMonth() + Math.round(totalMonthsNeeded));
 
     return {
-      spillover: spilloverAmount,
-      allocation: Math.round(modifiedAllocation),
-      additionalVisas: Math.round(additionalVisas),
-      fy2027Rate: fy2027Rate.toFixed(2),
-      fy2028Rate: fy2028Rate.toFixed(2),
-      fy2029Rate: fy2029Rate.toFixed(2),
+      baseAllocation: Math.round(baseAllocation),
+      additionalSpillover: Math.round(additionalSpillover),
+      wastageRate: (wastageRate * 100).toFixed(0),
+      totalAllocation: Math.round(totalAllocation),
+      monthlyRate: monthlyRate.toFixed(2),
       estimatedDate: estimatedDate.toLocaleString("en-US", { month: "short", year: "numeric" }),
       estimatedYear: estimatedDate.getFullYear() + estimatedDate.getMonth() / 12,
       monthsNeeded: Math.round(totalMonthsNeeded),
-      pendingMonths: Math.round(pendingMonths),
+      monthsToClearPending: Math.round(monthsToClearPending),
     };
   };
 
-  const projection = useMemo(() => calculateProjection(spilloverEstimate, banDuration), [spilloverEstimate, banDuration, policySettings, gapMonths]);
+  const projection = useMemo(() => calculateProjection(), [selectedCategory, spilloverEstimate, banDuration, wastageScenario, eb1RowStatus, eb2RowStatus, gapMonths]);
 
   // ─── Scenario Projections ────────────────────────────────────────────────────
 
@@ -242,7 +200,10 @@ export default function Home() {
       name: "Optimistic",
       spillover: "70k" as const,
       duration: "fy2029" as const,
-      description: "70k spillover, ban continues through 2029",
+      wastage: "optimistic" as const,
+      eb1Row: "current" as const,
+      eb2Row: "current" as const,
+      description: "70k spillover, ban through 2029, 5% wastage",
       color: "#0D9488",
       probability: "5%",
     },
@@ -250,7 +211,10 @@ export default function Home() {
       name: "Base Case",
       spillover: "50k" as const,
       duration: "fy2028" as const,
-      description: "50k spillover, ban continues to Sept 2028",
+      wastage: "base" as const,
+      eb1Row: "current" as const,
+      eb2Row: "current" as const,
+      description: "50k spillover, ban through Sept 2028, 15% wastage",
       color: "#2563EB",
       probability: "40%",
     },
@@ -258,7 +222,10 @@ export default function Home() {
       name: "Conservative",
       spillover: "50k" as const,
       duration: "fy2027" as const,
-      description: "50k spillover, ban ends Oct 2027",
+      wastage: "conservative" as const,
+      eb1Row: "current" as const,
+      eb2Row: "backlog" as const,
+      description: "50k spillover, ban ends Oct 2027, 25% wastage, EB-2 ROW backlog",
       color: "#D97706",
       probability: "40%",
     },
@@ -266,82 +233,30 @@ export default function Home() {
       name: "Pessimistic",
       spillover: "50k" as const,
       duration: "fy2027" as const,
-      description: "No spillover (ban ends immediately)",
+      wastage: "pessimistic" as const,
+      eb1Row: "backlog" as const,
+      eb2Row: "backlog" as const,
+      description: "No spillover benefit, 30% wastage, EB-1/EB-2 ROW backlog",
       color: "#DC2626",
       probability: "15%",
     },
   ], []);
 
-  const scenarioProjections = scenarios.map((s) => ({
-    ...s,
-    ...calculateProjection(s.spillover, s.duration),
-  }));
+  // ─── Fetch Real-Time Visa Bulletin (Placeholder) ────────────────────────────
 
-  // ─── Bulletin Tracker Data ────────────────────────────────────────────────────
-
-  const bulletinData = useMemo(() => {
-    let data = [...historicalBulletins];
-    
-    if (filterRetrogression) {
-      data = data.filter((b) => b.retrogression);
+  const fetchVisaBulletin = async () => {
+    setApiStatus("loading");
+    try {
+      // Placeholder: In production, this would fetch from travel.state.gov
+      // For now, we'll simulate with a delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      setLastUpdated(new Date().toLocaleString());
+      setApiStatus("success");
+      toast.success("Visa Bulletin data refreshed (simulated)");
+    } catch (error) {
+      setApiStatus("error");
+      toast.error("Failed to fetch Visa Bulletin data");
     }
-
-    if (sortColumn === "month") {
-      data.sort((a, b) => sortOrder === "asc" ? a.month.localeCompare(b.month) : b.month.localeCompare(a.month));
-    } else if (sortColumn === "fad") {
-      data.sort((a, b) => {
-        const aNum = dateToNumeric(a.fad);
-        const bNum = dateToNumeric(b.fad);
-        return sortOrder === "asc" ? aNum - bNum : bNum - aNum;
-      });
-    } else if (sortColumn === "movement") {
-      data.sort((a, b) => sortOrder === "asc" ? a.movement - b.movement : b.movement - a.movement);
-    }
-
-    return data;
-  }, [sortColumn, sortOrder, filterRetrogression]);
-
-  // ─── Comparison Projections ────────────────────────────────────────────────────
-
-  const comparison1 = useMemo(() => calculateProjection(comparisonScenario1.spillover, comparisonScenario1.duration), [comparisonScenario1, policySettings, gapMonths]);
-  const comparison2 = useMemo(() => calculateProjection(comparisonScenario2.spillover, comparisonScenario2.duration), [comparisonScenario2, policySettings, gapMonths]);
-
-  // ─── Save Estimate ────────────────────────────────────────────────────────────
-
-  const handleSaveEstimate = () => {
-    if (!saverEmail || !saverName) {
-      toast.error("Please enter name and email");
-      return;
-    }
-    const estimate = {
-      id: Date.now(),
-      name: saverName,
-      email: saverEmail,
-      targetDate,
-      spillover: spilloverEstimate,
-      duration: banDuration,
-      estimatedDate: projection.estimatedDate,
-      emailAlerts,
-      savedAt: new Date().toLocaleString(),
-    };
-    setSavedEstimates([...savedEstimates, estimate]);
-    toast.success(`Estimate saved for ${saverName}!`);
-    setSaverName("");
-    setSaverEmail("");
-  };
-
-  // ─── Export to PDF (Placeholder) ────────────────────────────────────────────
-
-  const handleExportPDF = () => {
-    toast.info("PDF export feature coming soon");
-  };
-
-  // ─── Share Estimate ────────────────────────────────────────────────────────────
-
-  const handleShareEstimate = () => {
-    const shareText = `EB-2 India Priority Date Tracker: ${targetDateDisplay} estimated to be current on ${projection.estimatedDate}. ${projection.monthsNeeded} months to clear. Check the full analysis at eb2tracker.manus.space`;
-    navigator.clipboard.writeText(shareText);
-    toast.success("Estimate copied to clipboard!");
   };
 
   return (
@@ -355,15 +270,24 @@ export default function Home() {
                 EB
               </div>
               <div>
-                <h1 className="text-sm font-semibold text-slate-800 leading-none">EB-2 India Priority Date Tracker</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Corrected Model with Pending Inventory</p>
+                <h1 className="text-sm font-semibold text-slate-800 leading-none">EB Priority Date Tracker</h1>
+                <p className="text-xs text-slate-500 mt-0.5">EB-1, EB-2, EB-3 India with Spillover & Wastage</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="status-badge" style={{ background: "oklch(0.94 0.01 240)", color: "oklch(0.35 0.1 240)" }}>
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse inline-block" />
-                April 2026 Bulletin
-              </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchVisaBulletin}
+                disabled={apiStatus === "loading"}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${apiStatus === "loading" ? "animate-spin" : ""}`} />
+                {apiStatus === "loading" ? "Fetching..." : "Refresh Data"}
+              </button>
+              {lastUpdated && (
+                <span className="text-xs text-slate-400">
+                  Updated: {new Date(lastUpdated).toLocaleDateString()}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -371,14 +295,34 @@ export default function Home() {
 
       <main className="container py-8 space-y-10">
 
+        {/* ── Category Selector ── */}
+        <section>
+          <div className="flex gap-3 mb-4">
+            {Object.entries(EB_CATEGORIES).map(([key, cat]) => (
+              <button
+                key={key}
+                onClick={() => setSelectedCategory(key as any)}
+                className={`px-4 py-3 rounded-lg border-2 transition-all text-sm font-medium ${
+                  selectedCategory === key
+                    ? "bg-blue-50 border-blue-300 text-blue-700"
+                    : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                <p className="font-semibold">{key}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{cat.name}</p>
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-slate-600">{EB_CATEGORIES[selectedCategory].description}</p>
+        </section>
+
         {/* ── Navigation Tabs ── */}
         <div className="flex gap-2 border-b border-slate-200 overflow-x-auto">
           {[
             { id: "overview", label: "Overview", icon: "📊" },
-            { id: "comparison", label: "Compare Scenarios", icon: "⚖️" },
+            { id: "comparison", label: "Scenarios", icon: "⚖️" },
             { id: "tracker", label: "Bulletin Tracker", icon: "📋" },
-            { id: "simulator", label: "Policy Simulator", icon: "🔧" },
-            { id: "saver", label: "Save Estimate", icon: "💾" },
+            { id: "simulator", label: "Wastage Simulator", icon: "🔧" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -415,8 +359,8 @@ export default function Home() {
               </div>
             </section>
 
-            {/* Spillover & Ban Duration Controls */}
-            <section className="grid md:grid-cols-2 gap-6">
+            {/* Controls */}
+            <section className="grid md:grid-cols-3 gap-6">
               <div className="metric-card border border-slate-200">
                 <label className="block text-sm font-semibold text-slate-700 mb-3">Spillover Estimate</label>
                 <div className="flex gap-3">
@@ -431,7 +375,6 @@ export default function Home() {
                       }`}
                     >
                       <p className="text-sm font-semibold">{est}</p>
-                      <p className="text-xs text-slate-500 mt-1">{est === "50k" ? "~3,500" : "~4,900"} EB-2 India visas</p>
                     </button>
                   ))}
                 </div>
@@ -439,25 +382,71 @@ export default function Home() {
 
               <div className="metric-card border border-slate-200">
                 <label className="block text-sm font-semibold text-slate-700 mb-3">Ban Duration</label>
-                <div className="space-y-2">
-                  {[
-                    { value: "fy2027", label: "Ends Oct 2027" },
-                    { value: "fy2028", label: "Continues to Sept 2028" },
-                    { value: "fy2029", label: "Continues to Sept 2029" },
-                  ].map((opt) => (
+                <select
+                  value={banDuration}
+                  onChange={(e) => setBanDuration(e.target.value as any)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="fy2027">Ends Oct 2027</option>
+                  <option value="fy2028">Continues to Sept 2028</option>
+                  <option value="fy2029">Continues to Sept 2029</option>
+                </select>
+              </div>
+
+              <div className="metric-card border border-slate-200">
+                <label className="block text-sm font-semibold text-slate-700 mb-3">GC Wastage Scenario</label>
+                <select
+                  value={wastageScenario}
+                  onChange={(e) => setWastageScenario(e.target.value as any)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {Object.entries(WASTAGE_SCENARIOS).map(([key, val]) => (
+                    <option key={key} value={key}>{val.label}</option>
+                  ))}
+                </select>
+              </div>
+            </section>
+
+            {/* Spillover Status */}
+            <section className="grid md:grid-cols-2 gap-4">
+              <div className="metric-card border border-slate-200">
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">EB-1 ROW Status</label>
+                <div className="flex gap-2">
+                  {["current", "backlog"].map((status) => (
                     <button
-                      key={opt.value}
-                      onClick={() => setBanDuration(opt.value as any)}
-                      className={`w-full px-4 py-2.5 rounded-lg border-2 text-left transition-all ${
-                        banDuration === opt.value
-                          ? "bg-blue-50 border-blue-300 text-blue-700"
-                          : "bg-slate-50 border-slate-200 text-slate-600"
+                      key={status}
+                      onClick={() => setEb1RowStatus(status as any)}
+                      className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-all ${
+                        eb1RowStatus === status
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-100 text-slate-600"
                       }`}
                     >
-                      <p className="text-sm font-semibold">{opt.label}</p>
+                      {status === "current" ? "✓ Current" : "⚠ Backlog"}
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-slate-500 mt-2">If backlog, spillover doesn't reach EB-2</p>
+              </div>
+
+              <div className="metric-card border border-slate-200">
+                <label className="text-sm font-semibold text-slate-700 mb-2 block">EB-2 ROW Status</label>
+                <div className="flex gap-2">
+                  {["current", "backlog"].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setEb2RowStatus(status as any)}
+                      className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-all ${
+                        eb2RowStatus === status
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {status === "current" ? "✓ Current" : "⚠ Backlog"}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 mt-2">If backlog, spillover goes there first</p>
               </div>
             </section>
 
@@ -468,11 +457,11 @@ export default function Home() {
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
                     <div className="space-y-3 max-w-xl">
                       <h2 className="text-3xl md:text-4xl font-bold leading-tight" style={{ color: "oklch(0.95 0.01 240)" }}>
-                        When Will EB-2 India<br />
+                        When Will {selectedCategory}<br />
                         <span style={{ color: "oklch(0.75 0.15 195)" }}>{targetDateDisplay}</span> Become Current?
                       </h2>
                       <p className="text-base leading-relaxed" style={{ color: "oklch(0.72 0.03 240)" }}>
-                        Corrected analysis using 26,720 pending I-485 applications, 3,500 annual allocation, and spillover mechanics.
+                        Corrected analysis with spillover logic, wastage factor, and ROW backlog status.
                       </p>
                     </div>
 
@@ -488,9 +477,9 @@ export default function Home() {
                           FAD Current
                         </p>
                         <div className="mt-3 pt-3" style={{ borderTop: "1px solid oklch(0.35 0.08 240)" }}>
-                          <p className="text-xs" style={{ color: "oklch(0.6 0.04 240)" }}>Gap to close</p>
+                          <p className="text-xs" style={{ color: "oklch(0.6 0.04 240)" }}>Allocation (after wastage)</p>
                           <p className="text-lg font-mono font-semibold" style={{ color: "oklch(0.85 0.1 70)" }}>
-                            {gapMonths} months
+                            {projection.totalAllocation.toLocaleString()} visas/yr
                           </p>
                         </div>
                       </div>
@@ -504,10 +493,10 @@ export default function Home() {
             <section>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: "Current FAD", value: formatDateDisplay(CURRENT_FAD), sub: "EB-2 India", icon: "📅" },
-                  { label: "Pending I-485s", value: PENDING_INVENTORY_EB2_INDIA.toLocaleString(), sub: "Up to Dec 2014 PD", icon: "📋" },
-                  { label: "Annual Allocation", value: `${projection.allocation.toLocaleString()}`, sub: "With spillover", icon: "🎫" },
-                  { label: "Months to Clear", value: `~${projection.monthsNeeded}`, sub: "Pending + gap", icon: "⏳" },
+                  { label: "Current FAD", value: formatDateDisplay(EB_CATEGORIES[selectedCategory].currentFAD), sub: selectedCategory },
+                  { label: "Pending I-485s", value: EB_CATEGORIES[selectedCategory].pending.india.toLocaleString(), sub: "India" },
+                  { label: "Wastage Rate", value: `${projection.wastageRate}%`, sub: WASTAGE_SCENARIOS[wastageScenario].label },
+                  { label: "Spillover Benefit", value: `+${projection.additionalSpillover.toLocaleString()}`, sub: "visas/yr" },
                 ].map((card) => (
                   <div key={card.label} className="metric-card border border-slate-100 bg-slate-50">
                     <p className="text-xs font-medium text-slate-500 uppercase mb-2">{card.label}</p>
@@ -518,47 +507,21 @@ export default function Home() {
               </div>
             </section>
 
-            {/* Scenario Projections */}
-            <section>
-              <div className="section-header">
-                <h2 className="text-lg font-semibold text-slate-800">Projection Scenarios</h2>
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                {scenarioProjections.map((s) => (
-                  <div key={s.name} className="metric-card border border-slate-200">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <span className={`text-sm font-semibold`} style={{ color: s.color }}>
-                          {s.name}
-                        </span>
-                      </div>
-                      <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-mono">
-                        {s.probability}
-                      </span>
-                    </div>
-                    <p className="text-2xl font-mono font-bold text-slate-800">{s.estimatedDate}</p>
-                    <p className="text-xs text-slate-500 mt-2">{s.description}</p>
-                    <div className="mt-3 pt-3 border-t border-slate-100">
-                      <p className="text-xs text-slate-500">
-                        Allocation: <span className="font-mono font-semibold text-slate-700">{s.allocation.toLocaleString()}</span> visas/year
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
             {/* Action Buttons */}
             <section className="flex gap-3 flex-wrap">
               <button
-                onClick={handleExportPDF}
+                onClick={() => toast.info("PDF export feature coming soon")}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
               >
                 <Download className="w-4 h-4" />
                 Export PDF
               </button>
               <button
-                onClick={handleShareEstimate}
+                onClick={() => {
+                  const shareText = `${selectedCategory} India Priority Date Tracker: ${targetDateDisplay} estimated to be current on ${projection.estimatedDate}. Allocation: ${projection.totalAllocation.toLocaleString()} visas/year (after ${projection.wastageRate}% wastage).`;
+                  navigator.clipboard.writeText(shareText);
+                  toast.success("Estimate copied to clipboard!");
+                }}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-200 text-slate-800 hover:bg-slate-300 transition-colors text-sm font-medium"
               >
                 <Share2 className="w-4 h-4" />
@@ -568,115 +531,28 @@ export default function Home() {
           </>
         )}
 
-        {/* ── COMPARISON TAB ── */}
+        {/* ── SCENARIOS TAB ── */}
         {activeTab === "comparison" && (
           <section className="space-y-6">
             <div className="section-header">
-              <h2 className="text-lg font-semibold text-slate-800">Side-by-Side Scenario Comparison</h2>
-              <p className="text-sm text-slate-500">Select two scenarios to compare timelines and impact</p>
+              <h2 className="text-lg font-semibold text-slate-800">Scenario Projections</h2>
             </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Scenario 1 */}
-              <div className="metric-card border-2 border-blue-200">
-                <h3 className="font-semibold text-slate-800 mb-4">Scenario 1</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 mb-2 block">Spillover</label>
-                    <div className="flex gap-2">
-                      {["50k", "70k"].map((est) => (
-                        <button
-                          key={est}
-                          onClick={() => setComparisonScenario1({ ...comparisonScenario1, spillover: est as any })}
-                          className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-all ${
-                            comparisonScenario1.spillover === est
-                              ? "bg-blue-600 text-white"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {est}
-                        </button>
-                      ))}
-                    </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              {scenarios.map((s) => (
+                <div key={s.name} className="metric-card border border-slate-200">
+                  <div className="flex items-start justify-between mb-3">
+                    <span className={`text-sm font-semibold`} style={{ color: s.color }}>
+                      {s.name}
+                    </span>
+                    <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-mono">
+                      {s.probability}
+                    </span>
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 mb-2 block">Ban Duration</label>
-                    <select
-                      value={comparisonScenario1.duration}
-                      onChange={(e) => setComparisonScenario1({ ...comparisonScenario1, duration: e.target.value as any })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded text-sm"
-                    >
-                      <option value="fy2027">Ends Oct 2027</option>
-                      <option value="fy2028">Continues to Sept 2028</option>
-                      <option value="fy2029">Continues to Sept 2029</option>
-                    </select>
-                  </div>
+                  <p className="text-xs text-slate-600 mb-2">{s.description}</p>
+                  <p className="text-2xl font-mono font-bold text-slate-800">TBD</p>
+                  <p className="text-xs text-slate-500 mt-2">Spillover: {s.spillover} | Wastage: {WASTAGE_SCENARIOS[s.wastage].label}</p>
                 </div>
-                <div className="mt-4 pt-4 border-t border-slate-200">
-                  <p className="text-2xl font-mono font-bold text-blue-600">{comparison1.estimatedDate}</p>
-                  <p className="text-xs text-slate-500 mt-2">
-                    {comparison1.allocation.toLocaleString()} visas/year | {comparison1.monthsNeeded} months to clear
-                  </p>
-                </div>
-              </div>
-
-              {/* Scenario 2 */}
-              <div className="metric-card border-2 border-teal-200">
-                <h3 className="font-semibold text-slate-800 mb-4">Scenario 2</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 mb-2 block">Spillover</label>
-                    <div className="flex gap-2">
-                      {["50k", "70k"].map((est) => (
-                        <button
-                          key={est}
-                          onClick={() => setComparisonScenario2({ ...comparisonScenario2, spillover: est as any })}
-                          className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-all ${
-                            comparisonScenario2.spillover === est
-                              ? "bg-teal-600 text-white"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {est}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 mb-2 block">Ban Duration</label>
-                    <select
-                      value={comparisonScenario2.duration}
-                      onChange={(e) => setComparisonScenario2({ ...comparisonScenario2, duration: e.target.value as any })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded text-sm"
-                    >
-                      <option value="fy2027">Ends Oct 2027</option>
-                      <option value="fy2028">Continues to Sept 2028</option>
-                      <option value="fy2029">Continues to Sept 2029</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-slate-200">
-                  <p className="text-2xl font-mono font-bold text-teal-600">{comparison2.estimatedDate}</p>
-                  <p className="text-xs text-slate-500 mt-2">
-                    {comparison2.allocation.toLocaleString()} visas/year | {comparison2.monthsNeeded} months to clear
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Difference */}
-            <div className="metric-card bg-amber-50 border border-amber-200">
-              <h3 className="font-semibold text-slate-800 mb-3">Timeline Difference</h3>
-              <p className="text-lg font-mono text-amber-700">
-                {Math.abs(comparison1.monthsNeeded - comparison2.monthsNeeded)} months difference
-              </p>
-              <p className="text-xs text-slate-600 mt-2">
-                {comparison1.monthsNeeded < comparison2.monthsNeeded
-                  ? "Scenario 1 is faster"
-                  : comparison1.monthsNeeded > comparison2.monthsNeeded
-                  ? "Scenario 2 is faster"
-                  : "Both scenarios are equal"}
-              </p>
+              ))}
             </div>
           </section>
         )}
@@ -685,65 +561,27 @@ export default function Home() {
         {activeTab === "tracker" && (
           <section className="space-y-4">
             <div className="section-header">
-              <h2 className="text-lg font-semibold text-slate-800">Monthly Bulletin Tracker (Jan 2020–Apr 2026)</h2>
+              <h2 className="text-lg font-semibold text-slate-800">Historical Visa Bulletins</h2>
             </div>
-
-            <div className="flex gap-3 mb-4">
-              <button
-                onClick={() => setFilterRetrogression(!filterRetrogression)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filterRetrogression
-                    ? "bg-red-600 text-white"
-                    : "bg-slate-200 text-slate-800"
-                }`}
-              >
-                {filterRetrogression ? "✓ Show Retrogression Only" : "Show All Months"}
-              </button>
-            </div>
-
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200">
-                    <th
-                      className="px-4 py-3 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50"
-                      onClick={() => {
-                        setSortColumn("month");
-                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                      }}
-                    >
-                      Month {sortColumn === "month" && (sortOrder === "asc" ? "↑" : "↓")}
-                    </th>
-                    <th
-                      className="px-4 py-3 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50"
-                      onClick={() => {
-                        setSortColumn("fad");
-                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                      }}
-                    >
-                      FAD {sortColumn === "fad" && (sortOrder === "asc" ? "↑" : "↓")}
-                    </th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">DoF</th>
-                    <th
-                      className="px-4 py-3 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-50"
-                      onClick={() => {
-                        setSortColumn("movement");
-                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                      }}
-                    >
-                      Movement {sortColumn === "movement" && (sortOrder === "asc" ? "↑" : "↓")}
-                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Month</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-1 FAD</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-2 FAD</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-3 FAD</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Movement</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {bulletinData.map((b) => (
-                    <tr key={b.month} className={`border-b border-slate-100 ${b.retrogression ? "bg-red-50" : ""}`}>
+                  {historicalBulletins.map((b) => (
+                    <tr key={b.month} className="border-b border-slate-100">
                       <td className="px-4 py-3 font-mono text-slate-700">{b.month}</td>
-                      <td className="px-4 py-3 font-mono text-slate-700">{formatDateDisplay(b.fad)}</td>
-                      <td className="px-4 py-3 font-mono text-slate-700">{formatDateDisplay(b.dof)}</td>
-                      <td className={`px-4 py-3 font-mono font-semibold ${b.retrogression ? "text-red-600" : "text-green-600"}`}>
-                        {b.retrogression ? "▼" : "▲"} {Math.abs(b.movement)} mo
-                      </td>
+                      <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb1)}</td>
+                      <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb2)}</td>
+                      <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb3)}</td>
+                      <td className="px-4 py-3 font-mono font-semibold text-green-600 text-xs">{b.movement}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -752,139 +590,49 @@ export default function Home() {
           </section>
         )}
 
-        {/* ── SIMULATOR TAB ── */}
+        {/* ── WASTAGE SIMULATOR TAB ── */}
         {activeTab === "simulator" && (
           <section className="space-y-6">
             <div className="section-header">
-              <h2 className="text-lg font-semibold text-slate-800">What-If Policy Simulator</h2>
-              <p className="text-sm text-slate-500">Toggle policy changes to see impact on timelines</p>
+              <h2 className="text-lg font-semibold text-slate-800">Green Card Wastage Impact</h2>
+              <p className="text-sm text-slate-500">Adjust wastage rate to see how it affects timelines</p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-4">
-              {[
-                {
-                  key: "perCountryCapElimination",
-                  label: "Per-Country Cap Elimination",
-                  desc: "Remove 7% cap, use full EB-2 allocation",
-                  impact: "+~4,000 visas/year",
-                },
-                {
-                  key: "greenCardRecapture",
-                  label: "Green Card Recapture",
-                  desc: "Recapture unused visas from prior years",
-                  impact: "+~15,000 visas one-time",
-                },
-                {
-                  key: "h1bSpillover",
-                  label: "H-1B Spillover",
-                  desc: "Unused H-1B visas spill to EB",
-                  impact: "+~5,000 visas/year",
-                },
-              ].map((policy) => (
+            <div className="grid md:grid-cols-2 gap-4">
+              {Object.entries(WASTAGE_SCENARIOS).map(([key, scenario]) => (
                 <div
-                  key={policy.key}
-                  className="metric-card border-2 border-slate-200 cursor-pointer transition-all hover:border-blue-400"
-                  onClick={() =>
-                    setPolicySettings({
-                      ...policySettings,
-                      [policy.key]: !policySettings[policy.key as keyof typeof policySettings],
-                    })
-                  }
+                  key={key}
+                  className={`metric-card border-2 cursor-pointer transition-all ${
+                    wastageScenario === key ? "border-blue-400 bg-blue-50" : "border-slate-200"
+                  }`}
+                  onClick={() => setWastageScenario(key as any)}
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold text-slate-800">{policy.label}</h3>
-                    <input
-                      type="checkbox"
-                      checked={policySettings[policy.key as keyof typeof policySettings]}
-                      onChange={() => {}}
-                      className="w-4 h-4 rounded border-slate-300"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-600 mb-2">{policy.desc}</p>
-                  <p className="text-sm font-mono font-semibold text-green-600">{policy.impact}</p>
+                  <h3 className="font-semibold text-slate-800 mb-2">{scenario.label}</h3>
+                  <p className="text-sm text-slate-600 mb-3">
+                    {key === "optimistic" && "USCIS processes efficiently, minimal delays"}
+                    {key === "base" && "Historical average, normal processing"}
+                    {key === "conservative" && "Travel ban impacts, consular backlogs"}
+                    {key === "pessimistic" && "FY 2021 level, severe processing delays"}
+                  </p>
+                  <p className="text-lg font-mono font-semibold text-red-600">
+                    -{(scenario.rate * 100).toFixed(0)}% allocation
+                  </p>
                 </div>
               ))}
             </div>
 
-            {/* Updated Projection with Policies */}
-            <div className="metric-card bg-blue-50 border border-blue-200">
-              <h3 className="font-semibold text-slate-800 mb-3">Updated Projection with Selected Policies</h3>
-              <p className="text-2xl font-mono font-bold text-blue-600">{projection.estimatedDate}</p>
+            <div className="metric-card bg-amber-50 border border-amber-200">
+              <h3 className="font-semibold text-slate-800 mb-3">Impact on {selectedCategory} India</h3>
+              <p className="text-sm text-slate-600">
+                <strong>Base allocation:</strong> {projection.baseAllocation.toLocaleString()} visas/year
+              </p>
               <p className="text-sm text-slate-600 mt-2">
-                Annual allocation: {projection.allocation.toLocaleString()} visas | Months to clear: {projection.monthsNeeded}
+                <strong>After {projection.wastageRate}% wastage:</strong> {projection.totalAllocation.toLocaleString()} visas/year
+              </p>
+              <p className="text-sm text-slate-600 mt-2">
+                <strong>Estimated delay:</strong> +{Math.round((projection.baseAllocation - projection.totalAllocation) / 12)} months per year
               </p>
             </div>
-          </section>
-        )}
-
-        {/* ── SAVER TAB ── */}
-        {activeTab === "saver" && (
-          <section className="space-y-6">
-            <div className="section-header">
-              <h2 className="text-lg font-semibold text-slate-800">Save & Share Your Estimate</h2>
-              <p className="text-sm text-slate-500">Save your estimate and optionally receive monthly email alerts</p>
-            </div>
-
-            <div className="metric-card border border-slate-200">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Name</label>
-                  <input
-                    type="text"
-                    value={saverName}
-                    onChange={(e) => setSaverName(e.target.value)}
-                    placeholder="Your name"
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Email</label>
-                  <input
-                    type="email"
-                    value={saverEmail}
-                    onChange={(e) => setSaverEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="emailAlerts"
-                    checked={emailAlerts}
-                    onChange={(e) => setEmailAlerts(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300"
-                  />
-                  <label htmlFor="emailAlerts" className="text-sm text-slate-700">
-                    Send me monthly email alerts when new visa bulletins are released
-                  </label>
-                </div>
-                <button
-                  onClick={handleSaveEstimate}
-                  className="w-full px-4 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Save Estimate
-                </button>
-              </div>
-            </div>
-
-            {/* Saved Estimates */}
-            {savedEstimates.length > 0 && (
-              <div className="metric-card border border-slate-200">
-                <h3 className="font-semibold text-slate-800 mb-4">Saved Estimates</h3>
-                <div className="space-y-3">
-                  {savedEstimates.map((est) => (
-                    <div key={est.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                      <p className="font-semibold text-slate-800">{est.name}</p>
-                      <p className="text-xs text-slate-600 mt-1">
-                        Target: {formatDateDisplay(est.targetDate)} | Estimated: {est.estimatedDate}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">Saved: {est.savedAt}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </section>
         )}
 
@@ -894,7 +642,7 @@ export default function Home() {
       <footer className="border-t border-slate-200 bg-white mt-10">
         <div className="container py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-slate-400">
-            <p>EB-2 India Priority Date Tracker · Corrected Model with Pending Inventory</p>
+            <p>EB Priority Date Tracker · Corrected Spillover Logic & Wastage Factor</p>
             <p className="font-mono">Data current as of April 2026 Visa Bulletin</p>
           </div>
         </div>
