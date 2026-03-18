@@ -172,13 +172,64 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
   };
 
   // ─── Calculate Projection ───────────────────────────────────────────────────────
+  //
+  // CORRECT FORMULA (derived from first principles):
+  //
+  // The FAD advances as pending I-485s are processed at monthlyRate visas/month.
+  // We need to find how many CALENDAR months from TODAY until the FAD reaches targetDate.
+  //
+  // Step 1: Months to clear all pending inventory ahead of current FAD:
+  //   monthsToClear = pending / monthlyRate
+  //
+  // Step 2: After clearing pending, the FAD will be approximately at the end of the
+  //   pending range. We then need additional calendar months for the FAD to advance
+  //   from there to targetDate, using the historical FAD advancement rate.
+  //
+  // Step 3: Total calendar months from TODAY:
+  //   totalMonthsFromToday = monthsToClear + (gapMonths / historicalFADRate)
+  //
+  // Step 4: Estimated date = TODAY + totalMonthsFromToday
+  //
+  // Historical FAD rate for EB-2 India (Oct 2025 → Apr 2026, 6 calendar months):
+  //   FAD moved from Nov 2013 to Jul 2014 = 8 priority-date months
+  //   Rate = 8/6 ≈ 1.33 PD months per calendar month
+  //
+  // NOTE: We do NOT add months to the current FAD date. We add months to TODAY.
 
   const categoryData = EB_CATEGORIES[selectedCategory as keyof typeof EB_CATEGORIES];
   const targetDateObj = new Date(targetDate);
   const currentFADDate = new Date(categoryData.currentFAD);
+  const today = new Date(2026, 2, 18); // Mar 18, 2026 (current date)
+
+  // Historical FAD advancement rates (PD months advanced per calendar month)
+  const HISTORICAL_FAD_RATES: Record<string, number> = {
+    EB1: 2.0,   // EB-1 India advances faster (smaller backlog)
+    EB2: 1.33,  // EB-2 India: 8 PD months in 6 calendar months (Oct 2025–Apr 2026)
+    EB3: 0.8,   // EB-3 India advances slower (larger backlog ~55k)
+  };
+
+  function computeProjection(pending: number, monthlyRate: number, gapMonths: number, fadRate: number) {
+    // Calendar months to clear pending inventory
+    const monthsToClear = pending / monthlyRate;
+    // Additional calendar months to advance FAD from end-of-pending to target
+    const monthsToAdvance = gapMonths / fadRate;
+    // Total calendar months from TODAY
+    const totalMonthsFromToday = Math.max(0, monthsToClear + monthsToAdvance);
+    // Estimated date = TODAY + totalMonthsFromToday
+    const estimatedDate = new Date(today);
+    estimatedDate.setDate(estimatedDate.getDate() + Math.round(totalMonthsFromToday * 30.44));
+    const dofDate = new Date(estimatedDate);
+    dofDate.setMonth(dofDate.getMonth() - 1);
+    return {
+      estimatedFADDate: estimatedDate,
+      estimatedDoFDate: dofDate,
+      monthsFromToday: Math.round(totalMonthsFromToday),
+    };
+  }
 
   const currentProjection = useMemo(() => {
     const config = SCENARIO_CONFIGS[wastageScenario as keyof typeof SCENARIO_CONFIGS];
+    const fadRate = HISTORICAL_FAD_RATES[selectedCategory] || 1.33;
     
     // If target is before or equal to current FAD, it's already current
     if (targetDateObj <= currentFADDate) {
@@ -193,34 +244,19 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
       };
     }
 
-    // Calculate months from current FAD to target date
-    const monthsToTarget = calculateMonthsDifference(categoryData.currentFAD, targetDate);
-    
-    // Calculate months to clear pending inventory
-    const monthsToClear = categoryData.pending.india / config.monthlyRate;
-    
-    // Total months from current FAD
-    const totalMonths = monthsToTarget + monthsToClear;
-
-    // Estimate when target becomes current
-    const estimatedFADDate = addMonthsToDate(categoryData.currentFAD, Math.round(totalMonths));
-    const estimatedDoFDate = new Date(estimatedFADDate);
-    estimatedDoFDate.setMonth(estimatedDoFDate.getMonth() - 1);
-
-    const fadString = estimatedFADDate.toISOString().split('T')[0];
-    const dofString = estimatedDoFDate.toISOString().split('T')[0];
-
-    // Months from today
-    const today = new Date();
-    const monthsFromToday = (estimatedFADDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+    // Gap in priority-date months from current FAD to target
+    const gapMonths = calculateMonthsDifference(categoryData.currentFAD, targetDate);
+    const { estimatedFADDate, estimatedDoFDate, monthsFromToday } = computeProjection(
+      categoryData.pending.india, config.monthlyRate, gapMonths, fadRate
+    );
 
     return {
       totalAllocation: config.allocation,
       monthlyRate: config.monthlyRate,
-      estimatedFAD: formatDateDisplay(fadString),
-      estimatedDoF: formatDateDisplay(dofString),
+      estimatedFAD: formatDateDisplay(estimatedFADDate.toISOString().split('T')[0]),
+      estimatedDoF: formatDateDisplay(estimatedDoFDate.toISOString().split('T')[0]),
       estimatedYear: estimatedFADDate.getFullYear(),
-      monthsNeeded: Math.round(monthsFromToday),
+      monthsNeeded: monthsFromToday,
       isAlreadyCurrent: false,
     };
   }, [selectedCategory, targetDate, wastageScenario]);
@@ -228,6 +264,8 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
   // Calculate all scenarios
   const allScenarios = useMemo(() => {
     const results: Record<string, any> = {};
+    const fadRate = HISTORICAL_FAD_RATES[selectedCategory] || 1.33;
+    const gapMonths = calculateMonthsDifference(categoryData.currentFAD, targetDate);
     
     for (const [key, config] of Object.entries(SCENARIO_CONFIGS)) {
       if (targetDateObj <= currentFADDate) {
@@ -237,16 +275,12 @@ Disclaimer: This is an estimate based on historical trends and current policy. A
           allocation: config.allocation,
         };
       } else {
-        const monthsToTarget = calculateMonthsDifference(categoryData.currentFAD, targetDate);
-        const monthsToClear = categoryData.pending.india / config.monthlyRate;
-        const totalMonths = monthsToTarget + monthsToClear;
-        const estimatedFADDate = addMonthsToDate(categoryData.currentFAD, Math.round(totalMonths));
-        const today = new Date();
-        const monthsFromToday = (estimatedFADDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
-        
+        const { estimatedFADDate, monthsFromToday } = computeProjection(
+          categoryData.pending.india, config.monthlyRate, gapMonths, fadRate
+        );
         results[key] = {
           estimatedFAD: formatDateDisplay(estimatedFADDate.toISOString().split('T')[0]),
-          monthsNeeded: Math.round(monthsFromToday),
+          monthsNeeded: monthsFromToday,
           allocation: config.allocation,
         };
       }
