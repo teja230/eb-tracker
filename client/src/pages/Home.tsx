@@ -81,9 +81,11 @@ const SCENARIO_CONFIGS = {
 };
 
 const historicalBulletins = [
-  { month: "Apr 2026", eb1: "2023-04-01", eb2: "2014-07-15", eb3: "2013-11-15", movement: "EB-2: +10mo, EB-2 ROW: CURRENT" },
-  { month: "Mar 2026", eb1: "2023-03-01", eb2: "2013-09-15", eb3: "2013-10-01", movement: "EB-2: +2mo" },
-  { month: "Feb 2026", eb1: "2023-03-01", eb2: "2013-07-15", eb3: "2013-10-01", movement: "Stable" },
+  { month: "Apr 2026", eb1_fad: "2023-04-01", eb1_dof: "2023-12-01", eb2_fad: "2014-07-15", eb2_dof: "2015-01-15", eb3_fad: "2013-11-15", eb3_dof: "2015-01-15", movement: "EB-2: +10mo, EB-2 ROW: CURRENT" },
+  { month: "Mar 2026", eb1_fad: "2023-03-01", eb1_dof: "2023-11-01", eb2_fad: "2013-09-15", eb2_dof: "2015-01-01", eb3_fad: "2013-10-01", eb3_dof: "2015-01-01", movement: "EB-2: +2mo" },
+  { month: "Feb 2026", eb1_fad: "2023-03-01", eb1_dof: "2023-11-01", eb2_fad: "2013-07-15", eb2_dof: "2014-12-15", eb3_fad: "2013-10-01", eb3_dof: "2015-01-01", movement: "Stable" },
+  { month: "Jan 2026", eb1_fad: "2023-02-01", eb1_dof: "2023-10-01", eb2_fad: "2013-05-15", eb2_dof: "2014-12-01", eb3_fad: "2013-09-15", eb3_dof: "2014-12-15", movement: "EB-3: +0.5mo" },
+  { month: "Dec 2025", eb1_fad: "2023-02-01", eb1_dof: "2023-10-01", eb2_fad: "2013-05-15", eb2_dof: "2014-12-01", eb3_fad: "2013-09-15", eb3_dof: "2014-12-15", movement: "EB-1: +1mo" },
 ];
 
 // ─── Utility Functions ────────────────────────────────────────────────────────
@@ -532,8 +534,11 @@ export default function Home() {
                   <tr className="border-b border-slate-200">
                     <th className="px-4 py-3 text-left font-semibold text-slate-700">Month</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-1 FAD</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-1 DoF</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-2 FAD</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-2 DoF</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-3 FAD</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">EB-3 DoF</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-700">Movement</th>
                   </tr>
                 </thead>
@@ -541,9 +546,12 @@ export default function Home() {
                   {historicalBulletins.map((b) => (
                     <tr key={b.month} className="border-b border-slate-100">
                       <td className="px-4 py-3 font-mono text-slate-700">{b.month}</td>
-                      <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb1)}</td>
-                      <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb2)}</td>
-                      <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb3)}</td>
+                      <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb1_fad)}</td>
+                      <td className="px-4 py-3 font-mono text-slate-600 text-xs">{formatDateDisplay(b.eb1_dof)}</td>
+                      <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb2_fad)}</td>
+                      <td className="px-4 py-3 font-mono text-slate-600 text-xs">{formatDateDisplay(b.eb2_dof)}</td>
+                      <td className="px-4 py-3 font-mono text-slate-700 text-xs">{formatDateDisplay(b.eb3_fad)}</td>
+                      <td className="px-4 py-3 font-mono text-slate-600 text-xs">{formatDateDisplay(b.eb3_dof)}</td>
                       <td className="px-4 py-3 font-mono font-semibold text-green-600 text-xs">{b.movement}</td>
                     </tr>
                   ))}
