@@ -47,6 +47,7 @@ import {
   AlertTriangle, Info, ChevronDown, ChevronUp, Share2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import PriorityDatePicker from '@/components/PriorityDatePicker';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -601,12 +602,7 @@ export default function Home() {
               <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
                 Your Priority Date
               </label>
-              <input
-                type="date"
-                value={targetDate}
-                onChange={e => handleDateChange(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-400"
-              />
+              <PriorityDatePicker value={targetDate} onChange={handleDateChange} />
               <p className="text-xs text-slate-400 mt-1.5">Change to see updated projections for any priority date.</p>
             </div>
             <div className="flex items-center gap-0 divide-x divide-slate-200 border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
