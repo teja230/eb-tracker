@@ -1265,88 +1265,195 @@ export default function Home() {
             </div>
 
             {/* Final Action Dates Table */}
-            <div>
-              <h3 className="text-sm font-semibold text-slate-800 mb-3">Final Action Dates (FAD)</h3>
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-slate-800 text-white">
-                      <th className="px-4 py-3 text-left font-semibold">Month</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-1</th>
-                      <th className="px-4 py-3 text-center font-semibold">Δ</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-2</th>
-                      <th className="px-4 py-3 text-center font-semibold">Δ</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-3</th>
-                      <th className="px-4 py-3 text-center font-semibold">Δ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {HISTORICAL_BULLETINS.map((b, idx) => {
-                      const prev = idx < HISTORICAL_BULLETINS.length - 1 ? HISTORICAL_BULLETINS[idx + 1] : null;
-                      const eb1m = prev ? movementLabel(prev.eb1_fad, b.eb1_fad) : null;
-                      const eb2m = prev ? movementLabel(prev.eb2_fad, b.eb2_fad) : null;
-                      const eb3m = prev ? movementLabel(prev.eb3_fad, b.eb3_fad) : null;
-                      const mvClass = (m: typeof eb1m) =>
-                        m?.type === "advancement" ? "text-emerald-600 font-semibold" :
-                        m?.type === "retrogression" ? "text-red-600 font-semibold" : "text-slate-400";
-                      return (
-                        <tr key={b.month} className={`border-b border-slate-100 hover:bg-slate-50 ${idx === 0 ? "bg-blue-50" : ""}`}>
-                          <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">{b.month}{idx === 0 && <span className="ml-1 text-blue-600 text-xs">(latest)</span>}</td>
-                          <td className="px-4 py-2.5 font-mono text-slate-700">{fmtDateStr(b.eb1_fad)}</td>
-                          <td className={`px-4 py-2.5 text-center font-mono ${mvClass(eb1m)}`}>{eb1m?.label ?? "—"}</td>
-                          <td className="px-4 py-2.5 font-mono text-slate-700">{fmtDateStr(b.eb2_fad)}</td>
-                          <td className={`px-4 py-2.5 text-center font-mono ${mvClass(eb2m)}`}>{eb2m?.label ?? "—"}</td>
-                          <td className="px-4 py-2.5 font-mono text-slate-700">{fmtDateStr(b.eb3_fad)}</td>
-                          <td className={`px-4 py-2.5 text-center font-mono ${mvClass(eb3m)}`}>{eb3m?.label ?? "—"}</td>
+            {(() => {
+              // Determine which column index pair belongs to the selected category
+              // Columns: Month(0), EB-1(1), Δ(2), EB-2(3), Δ(4), EB-3(5), Δ(6)
+              const selFadKey = selectedCategory === "EB1" ? "eb1_fad" : selectedCategory === "EB3" ? "eb3_fad" : "eb2_fad";
+              const selDofKey = selectedCategory === "EB1" ? "eb1_dof" : selectedCategory === "EB3" ? "eb3_dof" : "eb2_dof";
+              const selColIdx = selectedCategory === "EB1" ? 0 : selectedCategory === "EB3" ? 2 : 1; // 0=EB1,1=EB2,2=EB3
+              const targetParsed = parseDateStr(targetDate);
+
+              // Find the first row where the selected FAD >= user's priority date (first month it became current)
+              let firstCurrentIdx: number | null = null;
+              for (let i = HISTORICAL_BULLETINS.length - 1; i >= 0; i--) {
+                const fadVal = HISTORICAL_BULLETINS[i][selFadKey as keyof typeof HISTORICAL_BULLETINS[0]] as string;
+                if (parseDateStr(fadVal) >= targetParsed) {
+                  firstCurrentIdx = i;
+                  break;
+                }
+              }
+
+              const hdrCellCls = (colIdx: number) =>
+                colIdx === selColIdx
+                  ? "px-4 py-3 text-left font-bold bg-slate-600 text-white"
+                  : "px-4 py-3 text-left font-semibold text-slate-300";
+              const hdrDeltaCls = (colIdx: number) =>
+                colIdx === selColIdx
+                  ? "px-4 py-3 text-center font-bold bg-slate-600 text-white"
+                  : "px-4 py-3 text-center font-semibold text-slate-300";
+
+              return (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-slate-800">Final Action Dates (FAD)</h3>
+                    <span className="text-xs text-slate-500">
+                      Highlighted column: <span className="font-semibold text-slate-700">{cat.label}</span>
+                      {firstCurrentIdx !== null && <span className="ml-2 text-amber-600 font-semibold">★ = your date first became current</span>}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-slate-200">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-800 text-white">
+                          <th className="px-4 py-3 text-left font-semibold">Month</th>
+                          <th className={hdrCellCls(0)}>EB-1</th>
+                          <th className={hdrDeltaCls(0)}>Δ</th>
+                          <th className={hdrCellCls(1)}>EB-2</th>
+                          <th className={hdrDeltaCls(1)}>Δ</th>
+                          <th className={hdrCellCls(2)}>EB-3</th>
+                          <th className={hdrDeltaCls(2)}>Δ</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody>
+                        {HISTORICAL_BULLETINS.map((b, idx) => {
+                          const prev = idx < HISTORICAL_BULLETINS.length - 1 ? HISTORICAL_BULLETINS[idx + 1] : null;
+                          const eb1m = prev ? movementLabel(prev.eb1_fad, b.eb1_fad) : null;
+                          const eb2m = prev ? movementLabel(prev.eb2_fad, b.eb2_fad) : null;
+                          const eb3m = prev ? movementLabel(prev.eb3_fad, b.eb3_fad) : null;
+                          const mvClass = (m: typeof eb1m) =>
+                            m?.type === "advancement" ? "text-emerald-600 font-semibold" :
+                            m?.type === "retrogression" ? "text-red-600 font-semibold" : "text-slate-400";
+                          const isFirstCurrent = idx === firstCurrentIdx;
+                          const isLatest = idx === 0;
+                          const rowBase = isFirstCurrent
+                            ? "bg-amber-50 border-b border-amber-200"
+                            : isLatest
+                            ? "bg-blue-50 border-b border-slate-100"
+                            : "border-b border-slate-100 hover:bg-slate-50";
+                          const selCellCls = "px-4 py-2.5 font-mono font-bold text-slate-900 bg-slate-50";
+                          const otherCellCls = "px-4 py-2.5 font-mono text-slate-400";
+                          const c = (colIdx: number, val: string) =>
+                            colIdx === selColIdx ? <td className={selCellCls}>{val}</td> : <td className={otherCellCls}>{val}</td>;
+                          const d = (colIdx: number, m: typeof eb1m) =>
+                            colIdx === selColIdx
+                              ? <td className={`px-4 py-2.5 text-center font-mono ${mvClass(m)}`}>{m?.label ?? "—"}</td>
+                              : <td className="px-4 py-2.5 text-center font-mono text-slate-300">{m?.label ?? "—"}</td>;
+                          return (
+                            <tr key={b.month} className={rowBase}>
+                              <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">
+                                {isFirstCurrent && <span className="mr-1 text-amber-500">★</span>}
+                                {b.month}
+                                {isLatest && <span className="ml-1 text-blue-600 text-xs">(latest)</span>}
+                              </td>
+                              {c(0, fmtDateStr(b.eb1_fad))}
+                              {d(0, eb1m)}
+                              {c(1, fmtDateStr(b.eb2_fad))}
+                              {d(1, eb2m)}
+                              {c(2, fmtDateStr(b.eb3_fad))}
+                              {d(2, eb3m)}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Dates for Filing Table */}
-            <div>
-              <h3 className="text-sm font-semibold text-slate-800 mb-3">Dates for Filing (DoF)</h3>
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-slate-700 text-white">
-                      <th className="px-4 py-3 text-left font-semibold">Month</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-1</th>
-                      <th className="px-4 py-3 text-center font-semibold">Δ</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-2</th>
-                      <th className="px-4 py-3 text-center font-semibold">Δ</th>
-                      <th className="px-4 py-3 text-left font-semibold">EB-3</th>
-                      <th className="px-4 py-3 text-center font-semibold">Δ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {HISTORICAL_BULLETINS.map((b, idx) => {
-                      const prev = idx < HISTORICAL_BULLETINS.length - 1 ? HISTORICAL_BULLETINS[idx + 1] : null;
-                      const eb1m = prev ? movementLabel(prev.eb1_dof, b.eb1_dof) : null;
-                      const eb2m = prev ? movementLabel(prev.eb2_dof, b.eb2_dof) : null;
-                      const eb3m = prev ? movementLabel(prev.eb3_dof, b.eb3_dof) : null;
-                      const mvClass = (m: typeof eb1m) =>
-                        m?.type === "advancement" ? "text-emerald-600 font-semibold" :
-                        m?.type === "retrogression" ? "text-red-600 font-semibold" : "text-slate-400";
-                      return (
-                        <tr key={b.month} className={`border-b border-slate-100 hover:bg-slate-50 ${idx === 0 ? "bg-blue-50" : ""}`}>
-                          <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">{b.month}{idx === 0 && <span className="ml-1 text-blue-600 text-xs">(latest)</span>}</td>
-                          <td className="px-4 py-2.5 font-mono text-slate-700">{fmtDateStr(b.eb1_dof)}</td>
-                          <td className={`px-4 py-2.5 text-center font-mono ${mvClass(eb1m)}`}>{eb1m?.label ?? "—"}</td>
-                          <td className="px-4 py-2.5 font-mono text-slate-700">{fmtDateStr(b.eb2_dof)}</td>
-                          <td className={`px-4 py-2.5 text-center font-mono ${mvClass(eb2m)}`}>{eb2m?.label ?? "—"}</td>
-                          <td className="px-4 py-2.5 font-mono text-slate-700">{fmtDateStr(b.eb3_dof)}</td>
-                          <td className={`px-4 py-2.5 text-center font-mono ${mvClass(eb3m)}`}>{eb3m?.label ?? "—"}</td>
+            {(() => {
+              const selDofKey = selectedCategory === "EB1" ? "eb1_dof" : selectedCategory === "EB3" ? "eb3_dof" : "eb2_dof";
+              const selColIdx = selectedCategory === "EB1" ? 0 : selectedCategory === "EB3" ? 2 : 1;
+              const targetParsed = parseDateStr(targetDate);
+
+              // Find first row where selected DoF >= user's priority date
+              let firstCurrentIdx: number | null = null;
+              for (let i = HISTORICAL_BULLETINS.length - 1; i >= 0; i--) {
+                const dofVal = HISTORICAL_BULLETINS[i][selDofKey as keyof typeof HISTORICAL_BULLETINS[0]] as string;
+                if (parseDateStr(dofVal) >= targetParsed) {
+                  firstCurrentIdx = i;
+                  break;
+                }
+              }
+
+              const hdrCellCls = (colIdx: number) =>
+                colIdx === selColIdx
+                  ? "px-4 py-3 text-left font-bold bg-slate-500 text-white"
+                  : "px-4 py-3 text-left font-semibold text-slate-300";
+              const hdrDeltaCls = (colIdx: number) =>
+                colIdx === selColIdx
+                  ? "px-4 py-3 text-center font-bold bg-slate-500 text-white"
+                  : "px-4 py-3 text-center font-semibold text-slate-300";
+
+              return (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-slate-800">Dates for Filing (DoF)</h3>
+                    <span className="text-xs text-slate-500">
+                      Highlighted column: <span className="font-semibold text-slate-700">{cat.label}</span>
+                      {firstCurrentIdx !== null && <span className="ml-2 text-amber-600 font-semibold">★ = your date first became fileable</span>}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-slate-200">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-700 text-white">
+                          <th className="px-4 py-3 text-left font-semibold">Month</th>
+                          <th className={hdrCellCls(0)}>EB-1</th>
+                          <th className={hdrDeltaCls(0)}>Δ</th>
+                          <th className={hdrCellCls(1)}>EB-2</th>
+                          <th className={hdrDeltaCls(1)}>Δ</th>
+                          <th className={hdrCellCls(2)}>EB-3</th>
+                          <th className={hdrDeltaCls(2)}>Δ</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody>
+                        {HISTORICAL_BULLETINS.map((b, idx) => {
+                          const prev = idx < HISTORICAL_BULLETINS.length - 1 ? HISTORICAL_BULLETINS[idx + 1] : null;
+                          const eb1m = prev ? movementLabel(prev.eb1_dof, b.eb1_dof) : null;
+                          const eb2m = prev ? movementLabel(prev.eb2_dof, b.eb2_dof) : null;
+                          const eb3m = prev ? movementLabel(prev.eb3_dof, b.eb3_dof) : null;
+                          const mvClass = (m: typeof eb1m) =>
+                            m?.type === "advancement" ? "text-emerald-600 font-semibold" :
+                            m?.type === "retrogression" ? "text-red-600 font-semibold" : "text-slate-400";
+                          const isFirstCurrent = idx === firstCurrentIdx;
+                          const isLatest = idx === 0;
+                          const rowBase = isFirstCurrent
+                            ? "bg-amber-50 border-b border-amber-200"
+                            : isLatest
+                            ? "bg-blue-50 border-b border-slate-100"
+                            : "border-b border-slate-100 hover:bg-slate-50";
+                          const selCellCls = "px-4 py-2.5 font-mono font-bold text-slate-900 bg-slate-50";
+                          const otherCellCls = "px-4 py-2.5 font-mono text-slate-400";
+                          const c = (colIdx: number, val: string) =>
+                            colIdx === selColIdx ? <td className={selCellCls}>{val}</td> : <td className={otherCellCls}>{val}</td>;
+                          const d = (colIdx: number, m: typeof eb1m) =>
+                            colIdx === selColIdx
+                              ? <td className={`px-4 py-2.5 text-center font-mono ${mvClass(m)}`}>{m?.label ?? "—"}</td>
+                              : <td className="px-4 py-2.5 text-center font-mono text-slate-300">{m?.label ?? "—"}</td>;
+                          return (
+                            <tr key={b.month} className={rowBase}>
+                              <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">
+                                {isFirstCurrent && <span className="mr-1 text-amber-500">★</span>}
+                                {b.month}
+                                {isLatest && <span className="ml-1 text-blue-600 text-xs">(latest)</span>}
+                              </td>
+                              {c(0, fmtDateStr(b.eb1_dof))}
+                              {d(0, eb1m)}
+                              {c(1, fmtDateStr(b.eb2_dof))}
+                              {d(1, eb2m)}
+                              {c(2, fmtDateStr(b.eb3_dof))}
+                              {d(2, eb3m)}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
