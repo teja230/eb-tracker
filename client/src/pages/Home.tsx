@@ -198,6 +198,7 @@ export default function Home() {
   const [targetDate, setTargetDate] = useState("2016-08-01");
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [activeScenario, setActiveScenario] = useState<string | null>(null);
+  const [spilloverScenario, setSpilloverScenario] = useState<"none" | "moderate" | "significant" | "exceptional">("moderate");
 
   // Parse target date
   const targetDateNumeric = useMemo(() => dateToNumeric(targetDate), [targetDate]);
@@ -210,12 +211,32 @@ export default function Home() {
 
   const gapYears = gapMonths / 12;
 
-  // Projection scenarios (dynamic based on gap)
+  // Spillover allocation model
+  const allocationByScenario = useMemo(() => {
+    const baseAllocation = 3500; // Mid-range baseline (2,800–5,000)
+    const scenarios = {
+      none: baseAllocation,
+      moderate: baseAllocation + 4500, // +3,000–7,000 spillover
+      significant: baseAllocation + 10000, // +10,000–15,000 spillover
+      exceptional: baseAllocation + 17500, // +15,000–20,000 spillover
+    };
+    return scenarios[spilloverScenario];
+  }, [spilloverScenario]);
+
+  // Convert allocation to monthly movement rate
+  const monthlyMovementFromAllocation = useMemo(() => {
+    // Rough conversion: allocation / 12 months ≈ months of priority date movement per year
+    // Accounting for backlog and processing efficiency
+    const monthsPerYear = (allocationByScenario / 1000) * 2.5; // Calibrated to historical data
+    return monthsPerYear;
+  }, [allocationByScenario]);
+
+  // Projection scenarios (dynamic based on gap and allocation)
   const projectionScenarios = useMemo(() => {
     const scenarios = [
       {
         name: "Optimistic",
-        description: "Recent 12-month momentum sustained (~17 months/year)",
+        description: "Exceptional spillover sustained (~17 months/year)",
         annualRate: 17,
         color: "#0D9488",
         bgColor: "bg-teal-50",
@@ -223,43 +244,43 @@ export default function Home() {
         borderColor: "border-teal-200",
         dotColor: "bg-teal-500",
         probability: "Low",
-        note: "Requires April 2026-level jumps to continue every year",
+        note: "Requires sustained 20,000+ annual allocation (unlikely without policy change)",
       },
       {
         name: "Base Case",
-        description: "3-year average pace (~7 months/year)",
-        annualRate: 7,
+        description: `Current spillover scenario (~${monthlyMovementFromAllocation.toFixed(1)} months/year)`,
+        annualRate: monthlyMovementFromAllocation,
         color: "#2563EB",
         bgColor: "bg-blue-50",
         textColor: "text-blue-700",
         borderColor: "border-blue-200",
         dotColor: "bg-blue-500",
         probability: "Moderate",
-        note: "Assumes consistent spillover from EB-1 and family-based categories",
+        note: `Based on ${allocationByScenario.toLocaleString()} annual allocation (${spilloverScenario} spillover)`,
       },
       {
         name: "Conservative",
-        description: "Slow movement (~2.5 months/year)",
-        annualRate: 2.5,
+        description: "Reduced spillover (~5 months/year)",
+        annualRate: 5,
         color: "#D97706",
         bgColor: "bg-amber-50",
         textColor: "text-amber-700",
         borderColor: "border-amber-200",
         dotColor: "bg-amber-500",
         probability: "Moderate-High",
-        note: "Reflects typical 2024–2025 pace without significant spillover",
+        note: "If spillover ends or per-country cap enforcement tightens",
       },
       {
         name: "Pessimistic",
-        description: "Stagnant with retrogressions (~1.5 months/year)",
-        annualRate: 1.5,
+        description: "Baseline allocation only (~2.5 months/year)",
+        annualRate: 2.5,
         color: "#DC2626",
         bgColor: "bg-red-50",
         textColor: "text-red-700",
         borderColor: "border-red-200",
         dotColor: "bg-red-500",
         probability: "Low",
-        note: "If per-country caps remain and demand increases further",
+        note: "If 75-country ban is lifted and spillover ends",
       },
     ];
 
@@ -281,7 +302,15 @@ export default function Home() {
         monthsNeeded: calendarMonthsNeeded,
       };
     });
-  }, [gapMonths]);
+  }, [gapMonths, monthlyMovementFromAllocation, allocationByScenario, spilloverScenario]);
+
+  // Add allocationNote property to scenarios
+  const projectionsWithAllocation = useMemo(() => {
+    return projectionScenarios.map((s) => ({
+      ...s,
+      allocationNote: s.name === "Base Case" ? `(${allocationByScenario.toLocaleString()} visas/year)` : "",
+    }));
+  }, [projectionScenarios, allocationByScenario]);
 
   // Progress bar calculation
   const progressPct = useMemo(() => {
@@ -333,22 +362,12 @@ export default function Home() {
                   Change the date to see updated projections and gap analysis
                 </p>
               </div>
-              <div className="flex items-end gap-3">
-                <div className="flex-1 md:flex-none">
-                  <input
-                    type="date"
-                    value={targetDate}
-                    onChange={(e) => setTargetDate(e.target.value)}
-                    className="px-4 py-2 border border-slate-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <button
-                  onClick={() => setTargetDate("2016-08-01")}
-                  className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                >
-                  Reset to Aug 2016
-                </button>
-              </div>
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className="px-4 py-2 border border-slate-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
             </div>
             <div className="mt-4 pt-4 border-t border-slate-200">
               <p className="text-sm text-slate-600">
@@ -406,6 +425,43 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ── Spillover Scenario Selector ── */}
+        <section className="animate-fade-in-up">
+          <div className="metric-card border border-slate-200">
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Visa Spillover Scenario
+                </label>
+                <p className="text-xs text-slate-500 mb-3">
+                  Select how much unused family-based visa allocation spills over to employment-based categories
+                </p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {[
+                  { value: "none", label: "None", desc: "2,800–5,000/yr", color: "bg-slate-50 border-slate-200" },
+                  { value: "moderate", label: "Moderate", desc: "8,000–12,000/yr", color: "bg-blue-50 border-blue-200" },
+                  { value: "significant", label: "Significant", desc: "15,000–20,000/yr", color: "bg-teal-50 border-teal-200" },
+                  { value: "exceptional", label: "Exceptional", desc: "25,000+/yr", color: "bg-green-50 border-green-200" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSpilloverScenario(opt.value as any)}
+                    className={`p-3 rounded-lg border-2 text-center transition-all ${
+                      spilloverScenario === opt.value
+                        ? `${opt.color} border-current ring-2 ring-offset-1`
+                        : `${opt.color} hover:border-current`
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-slate-800">{opt.label}</p>
+                    <p className="text-xs text-slate-600 mt-1 font-mono">{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ── KPI Cards ── */}
         <section>
           <div className="section-header">
@@ -440,8 +496,8 @@ export default function Home() {
               },
               {
                 label: "Annual Allocation",
-                value: "~2,800–5,000",
-                sub: "Visas/year for India EB-2",
+                value: `~${allocationByScenario.toLocaleString()}`,
+                sub: `Visas/year (${spilloverScenario} spillover)`,
                 color: "text-slate-700",
                 accent: "bg-slate-50 border-slate-100",
                 icon: "🎫",
@@ -594,7 +650,7 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            {projectionScenarios.map((s) => (
+            {projectionsWithAllocation.map((s) => (
               <div
                 key={s.name}
                 className={`metric-card border cursor-pointer transition-all duration-200 ${s.borderColor} ${activeScenario === s.name ? "ring-2 ring-offset-1" : ""}`}
@@ -616,8 +672,9 @@ export default function Home() {
                     <p className="text-xs text-slate-500 mt-0.5">{s.description}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-slate-400 font-mono">{s.annualRate} mo/yr</p>
+                    <p className="text-xs text-slate-400 font-mono">{s.annualRate.toFixed(1)} mo/yr</p>
                     <p className="text-xs text-slate-400">advance rate</p>
+                    {(s as any).allocationNote && <p className="text-xs text-slate-400 font-mono mt-0.5">{(s as any).allocationNote}</p>}
                   </div>
                 </div>
 
