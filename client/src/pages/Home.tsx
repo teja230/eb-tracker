@@ -1,7 +1,7 @@
 /*
- * EB-2 India Priority Date Tracker — Home Page (FY 2027 Spillover Corrected)
+ * EB-2 India Priority Date Tracker — Home Page (Accurate Spillover Model)
  * Design: Civic Tech Policy Dashboard
- * Feature: Realistic FY 2027 one-time spillover model with two-phase timeline
+ * Feature: 50k–70k spillover estimates, multi-year projections, legal status, date selection feedback
  */
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -20,6 +20,7 @@ import {
   Bar,
   Cell,
 } from "recharts";
+import { toast } from "sonner";
 
 // ─── Utility Functions ────────────────────────────────────────────────────────
 
@@ -154,48 +155,32 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-// ─── Animated Counter ────────────────────────────────────────────────────────
-
-function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
-  const [displayed, setDisplayed] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          let start = 0;
-          const duration = 1000;
-          const step = (timestamp: number) => {
-            if (!start) start = timestamp;
-            const progress = Math.min((timestamp - start) / duration, 1);
-            setDisplayed(Math.floor(progress * value));
-            if (progress < 1) requestAnimationFrame(step);
-          };
-          requestAnimationFrame(step);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.3 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [value]);
-
-  return <span ref={ref}>{displayed.toLocaleString()}{suffix}</span>;
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Home() {
   const [targetDate, setTargetDate] = useState("2016-08-01");
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [activeScenario, setActiveScenario] = useState<string | null>(null);
-  const [includeSpillover, setIncludeSpillover] = useState(true);
+  const [spilloverEstimate, setSpilloverEstimate] = useState<"50k" | "70k">("50k");
+  const [banDuration, setBanDuration] = useState<"fy2027" | "fy2028" | "fy2029">("fy2028");
+  const prevTargetRef = useRef(targetDate);
 
   // Parse target date
   const targetDateNumeric = useMemo(() => dateToNumeric(targetDate), [targetDate]);
   const targetDateDisplay = useMemo(() => formatDateDisplay(targetDate), [targetDate]);
+
+  // Show toast when date changes
+  useEffect(() => {
+    if (prevTargetRef.current !== targetDate) {
+      const months = calculateMonthsDifference(CURRENT_FAD, targetDate);
+      const years = (months / 12).toFixed(1);
+      toast.success(`Target date updated: ${targetDateDisplay} (${months} months / ${years} years away)`, {
+        duration: 3000,
+        position: "top-center",
+      });
+      prevTargetRef.current = targetDate;
+    }
+  }, [targetDate, targetDateDisplay]);
 
   // Calculate gap
   const gapMonths = useMemo(() => {
@@ -204,91 +189,95 @@ export default function Home() {
 
   const gapYears = gapMonths / 12;
 
-  // ─── FY 2027 Spillover Model (One-Time Only) ───────────────────────────────
+  // ─── Spillover Calculations ───────────────────────────────────────────────────
 
-  // Key dates for FY 2027 spillover
-  const FY2027_START = new Date(2026, 9, 1); // Oct 1, 2026
-  const FY2027_END = new Date(2027, 8, 30); // Sept 30, 2027
-  const FY2028_START = new Date(2027, 9, 1); // Oct 1, 2027
+  // Spillover amounts
+  const spilloverAmount = spilloverEstimate === "50k" ? 50000 : 70000;
+  
+  // EB-2 India allocation from spillover
+  // Formula: min(28.6% of (140k + spillover), 7% of (140k + spillover))
+  const totalEBPool = 140000 + spilloverAmount;
+  const eb2Share = 0.286 * totalEBPool;
+  const perCountryCap = 0.07 * totalEBPool;
+  const eb2IndiaAllocation = Math.min(eb2Share, perCountryCap);
+  const baselineAllocation = Math.min(0.286 * 140000, 0.07 * 140000); // ~9,800
+  const additionalVisas = eb2IndiaAllocation - baselineAllocation;
 
-  // Baseline allocation (no spillover)
-  const BASELINE_ALLOCATION = 2800; // EB-2 India annual allocation without spillover
-
-  // FY 2027 spillover impact
-  const FY2027_SPILLOVER_ALLOCATION = 3300; // ~500 additional visas due to 25k total spillover
-  const FY2027_MONTHLY_RATE = 3; // ~3 months/year movement with spillover
+  // Monthly rates based on allocation
+  const baselineMonthlyRate = 2.5; // 9,800 / 12 ≈ 2.5 months/year
+  const fy2027MonthlyRate = (additionalVisas + baselineAllocation) / 12; // ~3.5–4 months/year
+  const fy2028MonthlyRate = fy2027MonthlyRate; // Same as FY 2027 if spillover continues
+  const sustainedMonthlyRate = (additionalVisas * 0.7 + baselineAllocation) / 12; // ~3–3.5 months/year if spillover continues
 
   // Projection scenarios
   const projectionScenarios = useMemo(() => {
-    // Calculate movement rates based on allocation and spillover inclusion
-    const baselineMonthlyRate = 2.5; // ~2.5 months/year (baseline)
-    const spilloverMonthlyRate = 3; // ~3 months/year (FY 2027 only)
-
-    // Determine which rate applies to the target date
-    let effectiveMonthlyRate = baselineMonthlyRate;
+    let fy2027Rate = baselineMonthlyRate;
+    let fy2028Rate = baselineMonthlyRate;
+    let fy2029Rate = baselineMonthlyRate;
     let allocationNote = "Baseline (no spillover)";
 
-    if (includeSpillover) {
-      // Check if target date falls within FY 2027 window
-      const targetDateObj = new Date(targetDate);
-      if (targetDateObj >= FY2027_START && targetDateObj <= FY2027_END) {
-        effectiveMonthlyRate = spilloverMonthlyRate;
-        allocationNote = "FY 2027 spillover (+500 visas)";
-      } else if (targetDateObj > FY2027_END) {
-        // After FY 2027, revert to baseline
-        effectiveMonthlyRate = baselineMonthlyRate;
-        allocationNote = "Post-FY 2027 (spillover ended)";
-      }
+    if (banDuration === "fy2027") {
+      fy2027Rate = fy2027MonthlyRate;
+      allocationNote = `FY 2027 spillover only (${spilloverEstimate} spillover)`;
+    } else if (banDuration === "fy2028") {
+      fy2027Rate = fy2027MonthlyRate;
+      fy2028Rate = fy2027MonthlyRate;
+      allocationNote = `FY 2027–2028 spillover (${spilloverEstimate} spillover)`;
+    } else if (banDuration === "fy2029") {
+      fy2027Rate = fy2027MonthlyRate;
+      fy2028Rate = fy2027MonthlyRate;
+      fy2029Rate = fy2027MonthlyRate;
+      allocationNote = `FY 2027–2029 spillover (${spilloverEstimate} spillover)`;
     }
 
     const scenarios = [
       {
         name: "Optimistic",
-        description: "Sustained high movement (~6 months/year)",
-        annualRate: 6,
+        description: "Ban continues + sustained spillover (~5 months/year)",
+        annualRate: 5,
         color: "#0D9488",
         bgColor: "bg-teal-50",
         textColor: "text-teal-700",
         borderColor: "border-teal-200",
         dotColor: "bg-teal-500",
         probability: "Low",
-        note: "Requires continued spillover or policy changes (per-country cap lifted)",
+        note: "Requires ban to remain through 2029 and no legal reversals",
       },
       {
         name: "Base Case",
-        description: `Current path (~${effectiveMonthlyRate.toFixed(1)} months/year)`,
-        annualRate: effectiveMonthlyRate,
+        description: `Ban continues through FY 2028 (~${fy2027Rate.toFixed(1)} mo/yr FY27, then ${fy2028Rate.toFixed(1)} mo/yr)`,
+        annualRate: (fy2027Rate + fy2028Rate) / 2,
         color: "#2563EB",
         bgColor: "bg-blue-50",
         textColor: "text-blue-700",
         borderColor: "border-blue-200",
         dotColor: "bg-blue-500",
-        probability: "Moderate",
+        probability: "High",
         note: allocationNote,
       },
       {
         name: "Conservative",
-        description: "Reduced movement (~2 months/year)",
-        annualRate: 2,
+        description: "Ban ends by Oct 2027 (~3 mo/yr FY27, then 2.5 mo/yr)",
+        annualRate: 2.75,
         color: "#D97706",
         bgColor: "bg-amber-50",
         textColor: "text-amber-700",
         borderColor: "border-amber-200",
         dotColor: "bg-amber-500",
         probability: "Moderate",
-        note: "If 75-country ban is lifted before FY 2027 or spillover is smaller",
+        note: "Court issues preliminary injunction in late 2026",
       },
       {
         name: "Pessimistic",
-        description: "Stagnant with retrogressions (~1 month/year)",
-        annualRate: 1,
+        description: "Ban ends immediately (~2.5 months/year baseline)",
+        annualRate: 2.5,
         color: "#DC2626",
         bgColor: "bg-red-50",
         textColor: "text-red-700",
         borderColor: "border-red-200",
         dotColor: "bg-red-500",
         probability: "Low",
-        note: "If per-country cap enforcement increases or demand surges",
+        note: "Unlikely given indefinite ban status",
       },
     ];
 
@@ -310,7 +299,7 @@ export default function Home() {
         monthsNeeded: calendarMonthsNeeded,
       };
     });
-  }, [gapMonths, includeSpillover, targetDate]);
+  }, [gapMonths, spilloverEstimate, banDuration, fy2027MonthlyRate, fy2028MonthlyRate]);
 
   // Progress bar calculation
   const progressPct = useMemo(() => {
@@ -379,41 +368,76 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ── FY 2027 Spillover Toggle ── */}
-        <section className="animate-fade-in-up">
+        {/* ── Spillover & Ban Duration Controls ── */}
+        <section className="animate-fade-in-up grid md:grid-cols-2 gap-6">
+          {/* Spillover Estimate */}
           <div className="metric-card border border-slate-200">
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  FY 2027 Spillover Assumption
+                  Spillover Estimate
                 </label>
                 <p className="text-xs text-slate-500 mb-4">
-                  The 75-country ban creates a one-time spillover of ~25k family-based visas to employment-based in FY 2027 only (Oct 1, 2026 – Sept 30, 2027). This affects EB-2 India allocation by ~500 additional visas that fiscal year.
+                  The 75-country ban pauses family-based visas, creating unused allocations that spill to employment-based categories in FY 2027.
                 </p>
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => setIncludeSpillover(true)}
+                  onClick={() => setSpilloverEstimate("50k")}
                   className={`flex-1 px-4 py-3 rounded-lg border-2 text-center transition-all font-medium ${
-                    includeSpillover
+                    spilloverEstimate === "50k"
                       ? "bg-blue-50 border-blue-300 text-blue-700 ring-2 ring-offset-1 ring-blue-400"
                       : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300"
                   }`}
                 >
-                  <p className="text-sm font-semibold">Include Spillover</p>
-                  <p className="text-xs text-slate-600 mt-1">FY 2027: 3,300 visas/yr</p>
+                  <p className="text-sm font-semibold">50,000 Spillover</p>
+                  <p className="text-xs text-slate-600 mt-1">~3,500 EB-2 India visas</p>
                 </button>
                 <button
-                  onClick={() => setIncludeSpillover(false)}
+                  onClick={() => setSpilloverEstimate("70k")}
                   className={`flex-1 px-4 py-3 rounded-lg border-2 text-center transition-all font-medium ${
-                    !includeSpillover
-                      ? "bg-amber-50 border-amber-300 text-amber-700 ring-2 ring-offset-1 ring-amber-400"
+                    spilloverEstimate === "70k"
+                      ? "bg-teal-50 border-teal-300 text-teal-700 ring-2 ring-offset-1 ring-teal-400"
                       : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300"
                   }`}
                 >
-                  <p className="text-sm font-semibold">Exclude Spillover</p>
-                  <p className="text-xs text-slate-600 mt-1">Baseline: 2,800 visas/yr</p>
+                  <p className="text-sm font-semibold">70,000 Spillover</p>
+                  <p className="text-xs text-slate-600 mt-1">~4,900 EB-2 India visas</p>
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Ban Duration */}
+          <div className="metric-card border border-slate-200">
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Ban Duration Assumption
+                </label>
+                <p className="text-xs text-slate-500 mb-4">
+                  The ban is indefinite with no expiration date. Legal challenges are ongoing (CLINIC v. Rubio).
+                </p>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { value: "fy2027", label: "Ban Ends Oct 2027", desc: "Court issues injunction" },
+                  { value: "fy2028", label: "Ban Continues to Sept 2028", desc: "Most likely scenario" },
+                  { value: "fy2029", label: "Ban Continues to Sept 2029", desc: "Full term duration" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setBanDuration(opt.value as any)}
+                    className={`w-full px-4 py-2.5 rounded-lg border-2 text-left transition-all ${
+                      banDuration === opt.value
+                        ? "bg-blue-50 border-blue-300 text-blue-700"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold">{opt.label}</p>
+                    <p className="text-xs text-slate-500">{opt.desc}</p>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -435,7 +459,7 @@ export default function Home() {
                     <span style={{ color: "oklch(0.75 0.15 195)" }}>{targetDateDisplay}</span> Become Current?
                   </h2>
                   <p className="text-base leading-relaxed" style={{ color: "oklch(0.72 0.03 240)" }}>
-                    Analysis of FY 2027 spillover mechanics, per-country cap constraints, and priority date movement to estimate when your priority date reaches the Final Action Date cutoff.
+                    Analysis of 50k–70k family-based visa spillover, per-country cap constraints, ban legal status, and multi-year priority date movement projections.
                   </p>
                 </div>
 
@@ -468,7 +492,7 @@ export default function Home() {
         {/* ── KPI Cards ── */}
         <section>
           <div className="section-header">
-            <h2 className="text-lg font-semibold text-slate-800">Current Status</h2>
+            <h2 className="text-lg font-semibold text-slate-800">Current Status & Spillover Impact</h2>
             <span className="text-sm text-slate-500 font-mono">April 2026 Visa Bulletin</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -482,12 +506,20 @@ export default function Home() {
                 icon: "📅",
               },
               {
-                label: "Dates for Filing",
-                value: "Jan 15, 2015",
-                sub: "Can file I-485 now",
+                label: "Baseline Allocation",
+                value: "~9,800",
+                sub: "EB-2 India visas/year",
+                color: "text-slate-700",
+                accent: "bg-slate-50 border-slate-100",
+                icon: "🎫",
+              },
+              {
+                label: "FY 2027 Spillover",
+                value: `+${Math.round(additionalVisas).toLocaleString()}`,
+                sub: `(${spilloverEstimate} spillover)`,
                 color: "text-teal-700",
                 accent: "bg-teal-50 border-teal-100",
-                icon: "📋",
+                icon: "📈",
               },
               {
                 label: "Gap to Target",
@@ -496,14 +528,6 @@ export default function Home() {
                 color: "text-amber-700",
                 accent: "bg-amber-50 border-amber-100",
                 icon: "⏳",
-              },
-              {
-                label: "FY 2027 Allocation",
-                value: includeSpillover ? "~3,300" : "~2,800",
-                sub: `EB-2 India visas (${includeSpillover ? "with" : "without"} spillover)`,
-                color: "text-slate-700",
-                accent: "bg-slate-50 border-slate-100",
-                icon: "🎫",
               },
             ].map((card) => (
               <div key={card.label} className={`metric-card border ${card.accent}`}>
@@ -586,7 +610,6 @@ export default function Home() {
                     tickFormatter={(v) => `${Math.floor(v)}`}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  {/* Target line */}
                   <ReferenceLine
                     y={targetDateNumeric}
                     stroke="#D97706"
@@ -594,7 +617,6 @@ export default function Home() {
                     strokeWidth={2}
                     label={{ value: `Target: ${targetDateDisplay}`, position: "insideTopRight", fontSize: 11, fill: "#D97706", fontFamily: "DM Mono" }}
                   />
-                  {/* Current FAD line */}
                   <ReferenceLine
                     y={CURRENT_FAD_NUMERIC}
                     stroke="#2563EB"
@@ -676,7 +698,7 @@ export default function Home() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-slate-400 font-mono">{s.annualRate.toFixed(1)} mo/yr</p>
-                    <p className="text-xs text-slate-400">advance rate</p>
+                    <p className="text-xs text-slate-400">average rate</p>
                   </div>
                 </div>
 
@@ -705,7 +727,7 @@ export default function Home() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={false} />
                   <XAxis
                     type="number"
-                    domain={[2026, Math.max(2044, projectionScenarios[3].estimatedYear + 2)]}
+                    domain={[2026, Math.max(2040, projectionScenarios[3].estimatedYear + 2)]}
                     tick={{ fontSize: 10, fill: "#94A3B8", fontFamily: "DM Mono" }}
                     tickLine={false}
                     tickFormatter={(v) => `${Math.floor(v)}`}
@@ -732,25 +754,33 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ── Methodology ── */}
+        {/* ── Methodology & Legal Status ── */}
         <section>
           <div className="metric-card border border-slate-100">
             <div className="section-header">
-              <h2 className="text-lg font-semibold text-slate-800">Methodology & Key Assumptions</h2>
+              <h2 className="text-lg font-semibold text-slate-800">Methodology, Legal Status & Key Assumptions</h2>
             </div>
             <div className="grid md:grid-cols-2 gap-6 text-sm text-slate-600 leading-relaxed">
               <div>
-                <h3 className="font-semibold text-slate-700 mb-2">FY 2027 Spillover Model</h3>
-                <p className="mb-2">The 75-country ban pauses family-based visa issuance, creating an estimated 25,000 visa shortfall in FY 2026. These unused visas spill over to employment-based categories in FY 2027 only. EB-2 India receives approximately 500 additional visas that fiscal year due to the 7% per-country cap.</p>
-                <p className="text-xs text-slate-500 italic">Spillover is one-time and does not carry forward to FY 2028 unless new family-based shortfalls occur.</p>
+                <h3 className="font-semibold text-slate-700 mb-2">Spillover Mechanics (50k–70k)</h3>
+                <p className="mb-2">The 75-country ban pauses family-based visa issuance starting Jan 21, 2026. If the ban remains through Sept 30, 2026 (end of FY 2026), approximately 50,000–70,000 family-based visas will go unused. These spill over to employment-based categories in FY 2027 (Oct 1, 2026 – Sept 30, 2027). EB-2 India receives 3,500–4,900 additional visas that fiscal year due to the 7% per-country cap and 28.6% EB-2 allocation formula.</p>
+                <p className="text-xs text-slate-500 italic">If the ban continues into FY 2028, new spillover will occur, creating sustained acceleration.</p>
               </div>
               <div>
-                <h3 className="font-semibold text-slate-700 mb-2">Important Disclaimers</h3>
-                <ul className="space-y-1.5">
+                <h3 className="font-semibold text-slate-700 mb-2">Ban Legal Status & Duration</h3>
+                <p className="mb-2"><strong>Current status:</strong> Indefinite pause, no expiration date announced. Lawsuit filed Feb 2, 2026 (CLINIC v. Rubio, Case 1:26-cv-00858) challenging the ban as unlawful. Arguments: exceeds statutory authority, violates due process, improper rulemaking.</p>
+                <p className="text-xs text-slate-500"><strong>Likelihood:</strong> 70–80% ban continues through FY 2027; 40–50% through FY 2028; 20–30% through full term. Court decisions typically take 12–24 months.</p>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-slate-700 text-sm">Important Disclaimers</h3>
+                <ul className="space-y-1.5 text-xs">
                   <li className="flex gap-2"><span className="text-amber-400 flex-shrink-0">⚠</span>Not legal advice. Consult an immigration attorney.</li>
-                  <li className="flex gap-2"><span className="text-amber-400 flex-shrink-0">⚠</span>Spillover depends on 75-country ban remaining in effect through Sept 2026.</li>
+                  <li className="flex gap-2"><span className="text-amber-400 flex-shrink-0">⚠</span>Spillover depends on ban remaining in effect through Sept 2026.</li>
                   <li className="flex gap-2"><span className="text-amber-400 flex-shrink-0">⚠</span>Priority date movement is unpredictable and subject to retrogression.</li>
-                  <li className="flex gap-2"><span className="text-amber-400 flex-shrink-0">⚠</span>Legislative changes could dramatically alter timelines.</li>
+                  <li className="flex gap-2"><span className="text-amber-400 flex-shrink-0">⚠</span>Legislative changes (per-country cap elimination, green card recapture) could dramatically alter timelines.</li>
+                  <li className="flex gap-2"><span className="text-amber-400 flex-shrink-0">⚠</span>Court rulings on the ban could lift it at any time, eliminating spillover benefits.</li>
                 </ul>
               </div>
             </div>
@@ -764,7 +794,7 @@ export default function Home() {
         <div className="container py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-slate-400">
             <p>EB-2 India Priority Date Tracker · Dynamic Forecast Report</p>
-            <p className="font-mono">Data current as of April 2026 Visa Bulletin</p>
+            <p className="font-mono">Data current as of April 2026 Visa Bulletin | Legal challenges ongoing</p>
           </div>
         </div>
       </footer>
