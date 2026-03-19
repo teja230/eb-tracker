@@ -16,36 +16,42 @@ The tracker is updated monthly when new visa bulletins are released by the U.S. 
 
 ## Features
 
-| Feature                       | Description                                                                    |
-|-------------------------------|--------------------------------------------------------------------------------|
-| **Priority Date Calculator**  | Enter any priority date and instantly see DoF, FAD, and GC receipt estimates   |
-| **Multi-Category Support**    | EB-1 (Priority Workers), EB-2 (Advanced Degree), EB-3 (Skilled Workers)        |
-| **Four Scenario Projections** | Optimistic, Base Case, Conservative, and Pessimistic with probability weights  |
-| **Bulletin Tracker**          | Historical Final Action Dates and Dates for Filing with Δ movement columns     |
-| **Wastage Simulator**         | Adjust spillover level, ban duration, and GC wastage to model custom scenarios |
-| **PDF/Text Export**           | Export personalized scenario estimates for sharing with immigration attorneys  |
-| **Live Data Status**          | Displays current bulletin month and ROW category status                        |
+| Feature                       | Description                                                                   |
+|-------------------------------|-------------------------------------------------------------------------------|
+| **Priority Date Calculator**  | Enter any priority date and instantly see DoF, FAD, and GC receipt estimates  |
+| **Multi-Category Support**    | EB-1 (Priority Workers), EB-2 (Advanced Degree), EB-3 (Skilled Workers)       |
+| **Four Scenario Projections** | Optimistic, Base Case, Conservative, and Pessimistic with probability weights |
+| **Historical Movement Chart** | Interactive chart with FAD/DoF lines, FY boundaries, and acceleration zones   |
+| **Queue Depth Chart**         | Demand density by PD year using hybrid I-485 inventory + I-140 approval data  |
+| **Bulletin Tracker**          | Historical Final Action Dates and Dates for Filing with Δ movement columns    |
+| **Adjust Assumptions**        | Tune spillover level, ban duration, and GC wastage to model custom scenarios  |
+| **Backtesting**               | Rolling 6-month MAE displayed alongside projections for model transparency    |
+| **PDF/Text Export**           | Export personalized scenario estimates for sharing with immigration attorneys |
 
 ---
 
-## Projection Algorithm
+## Projection Algorithm (v7)
 
-### FAD Advance Rate Model
+### Density + Seasonality Month-by-Month Model
 
-The tracker uses the **FAD Advance Rate Model**, which projects when a priority date becomes current by dividing the gap in priority-date months by a scenario-specific advance rate.
+The tracker projects FAD forward **one calendar month at a time**, applying demand density and seasonal adjustments at each step:
 
 ```
-months_from_today = gap_PD_months ÷ fad_advance_rate
-estimated_date    = TODAY + months_from_today
+each month: effectiveRate = fadAdvanceRate × seasonFactor / √densityFactor
 ```
 
 **Where:**
-- `gap_PD_months` — Number of priority-date months between the current FAD and the target priority date
-- `fad_advance_rate` — Priority-date months advanced per calendar month (scenario-dependent)
+- `fadAdvanceRate` — Calibrated PD-months/calendar-month (scenario-dependent, adjusted by simulator multipliers)
+- `seasonFactor` — FY-month seasonal factor derived from historical bulletin movement (median advance for that FY-month ÷ overall median)
+- `densityFactor` — `sqrt(yearDemand / refDemand)` for the PD-year the cursor is currently in
+
+**Demand density data (hybrid model):**
+- **Primary**: USCIS I-485 Pending Inventory (Oct 2025) — actual queue depth by PD year
+- **Fallback**: USCIS I-140 Approval Data (FY2025 Q3) — scaled to I-485 magnitude at the overlap year, used for PD years beyond inventory coverage (2015+)
 
 **Derived estimates:**
-- **Dates for Filing (DoF)** = FAD estimate − 6 months (EB-2 historical lead)
-- **GC Receipt** = FAD estimate + 15 months (EB-2 midpoint of 12–18 month range)
+- **Dates for Filing (DoF)** — Independent model using rolling median of historical DoF–FAD gap from bulletin data
+- **GC Receipt** = FAD estimate + category-specific lag (EB-2: ~15 months)
 
 ### Scenario Rates (EB-2 India)
 
@@ -56,17 +62,21 @@ estimated_date    = TODAY + months_from_today
 | Conservative | 0.45               | 30%         | No spillover, reversion to pre-FY2026 pace   |
 | Pessimistic  | 0.275              | 10–15%      | Ban reversed, stagnation / retrogression     |
 
-Rates are calibrated from historical visa bulletin data (Jan 2023–Apr 2026) and two research documents synthesizing findings from Capitol Immigration Law Group, AM22Tech, Manifest Law, and Beyondborderglobal.
+Rates are calibrated from historical visa bulletin data (Oct 2022–Apr 2026). Backtesting uses a rolling 6-month window to compute MAE (Mean Absolute Error) against historical actuals.
 
 ### Simulator Multipliers
 
-The Wastage Simulator adjusts the base rates using three multipliers:
+The Adjust Assumptions panel modifies the base rates using three multipliers. The combined multiplier applies to every projected month:
 
-| Control         | Low               | Moderate             | High                 |
-|-----------------|-------------------|----------------------|----------------------|
-| Spillover Level | ×0.75             | ×1.00                | ×1.25                |
-| Ban Duration    | ×0.85 (ends 2027) | ×1.00 (through 2028) | ×1.15 (through 2029) |
-| GC Wastage      | ×1.10 (5–10%)     | ×1.00 (15–20%)       | ×0.80 (25–30%)       |
+```
+adjustedRate = baseRate × spilloverMultiplier × banMultiplier × wastageMultiplier
+```
+
+| Control         | Low                                    | Moderate (Base)              | High                                    |
+|-----------------|----------------------------------------|------------------------------|-----------------------------------------|
+| Spillover Level | ×0.75 (~30k extra EB visas)            | ×1.00 (~50k extra)           | ×1.25 (~70k+ extra)                     |
+| Ban Duration    | ×0.85 (ends 2027 — court reversal)     | ×1.00 (through 2028)         | ×1.15 (through 2029 — full term)        |
+| GC Wastage      | ×1.10 (5–10%, efficient processing)    | ×1.00 (15–20%, typical)      | ×0.80 (25–30%, systemic delays)         |
 
 ---
 
@@ -107,10 +117,10 @@ U.S. immigration law limits any single country to no more than 7% of annual empl
 Under INA §201(d), unused family-based visas spill over to employment-based categories. When other countries cannot use their family-based allocation (e.g., due to the 75-country ban), those visas become available to EB applicants. Critically, spillover **favors backlogged countries** when ROW categories are current — meaning India receives a disproportionately large share.
 
 ### Green Card Wastage
-Visas go unused when applicants fail medical exams, face security clearance delays, or miss consular interview windows. Historical EB-2 India wastage is ~20%; EB-3 India ~49%. During travel bans, wastage increases due to consular backlogs.
+Visas go unused due to processing friction — medical exams, security clearances, or interview windows. FY2021: 25% overall wastage (66k of 262k available). FY2022: near 0% after USCIS processing reforms. Higher visa supply combined with processing gaps increases wastage risk.
 
 ### FY2027 Spillover Context
-Presidential Proclamations 10949 & 10998 (January 2026) paused immigrant visas for 75+ countries. India, China, Mexico, and the Philippines were **exempt**. Unused family-based visas from banned countries are estimated to generate 50k–70k additional EB visas in FY2027 (Oct 1, 2026 – Sep 30, 2027). The legal challenge (CLINIC v. Rubio) remains active as of March 2026.
+Presidential Proclamations 10949 & 10998 (January 2026) indefinitely paused immigrant visas for 75+ countries. India, China, Mexico, and the Philippines are **exempt**. Unused family-based visas from banned countries are estimated to generate 50k–70k additional EB visas in FY2027 (Oct 1, 2026 – Sep 30, 2027), projecting a total EB quota of 190k–211k. The legal challenge (*CLINIC v. Rubio*, SDNY, filed Feb 2026) remains active.
 
 ---
 
@@ -145,19 +155,23 @@ As of April 2026, the EB-2 India FAD is **Jul 15, 2014** — 25 priority-date mo
 ## Project Structure
 
 ```
-eb2-india-tracker/
+eb-tracker/
 ├── client/
 │   ├── src/
 │   │   ├── pages/
-│   │   │   └── Home.tsx          ← Main tracker component (all logic + UI)
-│   │   ├── components/ui/        ← shadcn/ui primitives
-│   │   ├── contexts/             ← ThemeContext
-│   │   ├── App.tsx               ← Router
-│   │   └── index.css             ← Global styles + Tailwind tokens
+│   │   │   └── Home.tsx              ← Main tracker component (all logic + UI)
+│   │   ├── components/
+│   │   │   ├── ui/                   ← shadcn/ui primitives
+│   │   │   ├── PriorityDatePicker.tsx
+│   │   │   └── ErrorBoundary.tsx
+│   │   ├── hooks/
+│   │   │   └── useMobile.tsx         ← Responsive breakpoint hook
+│   │   ├── App.tsx                   ← Router (Wouter)
+│   │   └── index.css                 ← Global styles + Tailwind tokens
 │   └── index.html
 ├── server/
-│   └── index.ts                  ← Static file server (production)
-├── README_PROJECT.md             ← This file
+│   └── index.ts                      ← Static file server (production)
+├── vite.config.ts
 └── package.json
 ```
 
@@ -168,10 +182,12 @@ eb2-india-tracker/
 When a new visa bulletin is released (typically the second Tuesday of each month):
 
 1. Open `client/src/pages/Home.tsx`
-2. Update `CURRENT_BULLETIN` at the top of the file with the new FAD and DoF values
+2. Update `CURRENT_BULLETIN` with the new month, FAD, and DoF values for EB-1/EB-2/EB-3
 3. Add a new entry to `HISTORICAL_BULLETINS` array (insert at index 0, most recent first)
-4. Update `TODAY` constant to the current date
-5. Save and deploy
+4. Verify `TODAY` is set to `new Date()` (auto-updates, do not hardcode)
+5. If new I-485 inventory data is available, update `I485_INDIA_PENDING`
+6. If new I-140 approval data is available, update `I140_INDIA_APPROVALS`
+7. Save and deploy
 
 ---
 
