@@ -990,7 +990,7 @@ export default function Home() {
     const statX = margin + contentW * 0.45;
     const statCols = [
       { label: "CURRENT FAD", val: fmtDateStr(cat.currentFAD) },
-      { label: "GAP", val: `${gapMonths} mo` },
+      { label: "GAP", val: fmtDuration(gapMonths) },
       { label: "CURRENT DOF", val: fmtDateStr(cat.currentDoF) },
     ];
     statCols.forEach((st, i) => {
@@ -1019,7 +1019,7 @@ export default function Home() {
     const bpCols = [
       { label: "FILING DATE (DOF)", val: bp.isAlreadyCurrent ? "Current" : fmtDate(bp.dofDate), sub: "Can file I-485" },
       { label: "FINAL ACTION DATE", val: bp.isAlreadyCurrent ? "Current" : fmtDate(bp.fadDate), sub: "Visa becomes available" },
-      { label: "GC RECEIPT EST.", val: bp.isAlreadyCurrent ? "Current" : fmtDate(bp.gcDate), sub: `~${cat.gcLagMonths}mo after FAD` },
+      { label: "GC RECEIPT EST.", val: bp.isAlreadyCurrent ? "Current" : fmtDate(bp.gcDate), sub: `~${fmtDuration(cat.gcLagMonths)} after FAD` },
       { label: "TIME TO FAD", val: fmtDuration(bp.monthsFromToday), sub: "Base case estimate" },
     ];
     bpCols.forEach((col, i) => {
@@ -1351,7 +1351,7 @@ export default function Home() {
             }`}>
               {[
                 { label: 'Current FAD', value: fmtDateStr(cat.currentFAD), tip: 'Final Action Date — the cutoff date for visa availability' },
-                { label: 'Gap', value: gapMonths > 0 ? `${gapMonths} mo` : 'Current', tip: 'Months between your priority date and the current Final Action Date' },
+                { label: 'Gap', value: gapMonths > 0 ? fmtDuration(gapMonths) : 'Current', tip: 'Months between your priority date and the current Final Action Date' },
                 { label: 'Current DoF', value: fmtDateStr(cat.currentDoF), tip: 'Dates for Filing — the earliest date you can submit I-485' },
               ].map(({ label, value, tip }) => (
                 <div key={label} className="flex flex-col justify-center items-center px-3 py-3 md:px-5 md:py-4 md:min-w-[100px] group relative">
@@ -1403,7 +1403,7 @@ export default function Home() {
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">GC Receipt Est.</p>
                     <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(baseProjection.gcDate)}</p>
-                    <p className="text-xs text-slate-500 mt-1.5">~{cat.gcLagMonths}mo after FAD</p>
+                    <p className="text-xs text-slate-500 mt-1.5">~{fmtDuration(cat.gcLagMonths)} after FAD</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Time to FAD</p>
