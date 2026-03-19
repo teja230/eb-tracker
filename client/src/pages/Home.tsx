@@ -809,9 +809,9 @@ export default function Home() {
   const [activeHistoricalPoint, setActiveHistoricalPoint] = useState<any | null>(null);
 
   // Simulator controls (affect scenario rates)
-  const [spilloverLevel, setSpilloverLevel] = useState<'low' | 'moderate' | 'high'>('moderate');
-  const [banContinues, setBanContinues] = useState<'2027' | '2028' | '2029'>('2028');
-  const [wastageLevel, setWastageLevel] = useState<'low' | 'moderate' | 'high'>('moderate');
+  const [spilloverLevel, setSpilloverLevel] = useState<'low' | 'moderate' | 'high'>('high');
+  const [banContinues, setBanContinues] = useState<'2027' | '2028' | '2029'>('2029');
+  const [wastageLevel, setWastageLevel] = useState<'low' | 'moderate' | 'high'>('low');
 
   const cat = EB_CATEGORIES[selectedCategory];
 
@@ -939,8 +939,20 @@ export default function Home() {
     [categoryBulletins, demandInputs, cat.rates.base, cat.gcLagMonths, selectedCategory]
   );
 
-  const baseProjection = projections.base;
+  const overviewProjection = projections.optimistic;
   const gapMonths = Math.max(0, Math.round(monthsBetween(cat.currentFAD, targetDate)));
+  const overviewAssumptionSummary = useMemo(() => {
+    const spilloverSummary =
+      spilloverLevel === 'high'
+        ? 'high spillover (~70k+ extra EB visas in FY2027)'
+        : spilloverLevel === 'moderate'
+          ? 'moderate spillover (30-40k extra EB visas in FY2027)'
+          : 'low spillover (~30k extra EB visas in FY2027)';
+    const banSummary = `ban through ${banContinues}`;
+    const wastageSummary =
+      wastageLevel === 'low' ? 'low wastage' : wastageLevel === 'moderate' ? 'moderate wastage' : 'high wastage';
+    return `${spilloverSummary}, ${banSummary}, and ${wastageSummary}`;
+  }, [spilloverLevel, banContinues, wastageLevel]);
 
   // Chart data: historical FAD movement
   // Uses timestamp (ms) on Y-axis for accurate date spacing; X-axis shows bulletin months
@@ -1112,11 +1124,11 @@ export default function Home() {
 
   const handleShare = useCallback(async () => {
     const url = generateShareUrl();
-    const baseFadDate = baseProjection?.fadDate;
-    const fadMonthYear = baseFadDate ? `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][baseFadDate.getMonth()]} ${baseFadDate.getFullYear()}` : 'unknown';
-    const baseDofDate = baseProjection?.dofDate;
-    const dofMonthYear = baseDofDate ? `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][baseDofDate.getMonth()]} ${baseDofDate.getFullYear()}` : null;
-    const sentence = dofMonthYear ? `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) — can file I-485 around ${dofMonthYear}, become current around ${fadMonthYear} (base case). ${url}` : `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) is estimated to become current around ${fadMonthYear} (base case). ${url}`;
+    const overviewFadDate = overviewProjection?.fadDate;
+    const fadMonthYear = overviewFadDate ? `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][overviewFadDate.getMonth()]} ${overviewFadDate.getFullYear()}` : 'unknown';
+    const overviewDofDate = overviewProjection?.dofDate;
+    const dofMonthYear = overviewDofDate ? `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][overviewDofDate.getMonth()]} ${overviewDofDate.getFullYear()}` : null;
+    const sentence = dofMonthYear ? `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) — can file I-485 around ${dofMonthYear}, become current around ${fadMonthYear} (best case). ${url}` : `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) is estimated to become current around ${fadMonthYear} (best case). ${url}`;
     try {
       await navigator.clipboard.writeText(sentence);
       setShareCopied(true);
@@ -1130,7 +1142,7 @@ export default function Home() {
       // Fallback: show in prompt
       window.prompt('Copy this to share your estimate:', sentence);
     }
-  }, [generateShareUrl, baseProjection, cat.label, targetDate]);
+  }, [generateShareUrl, overviewProjection, cat.label, targetDate]);
 
   const generateExport = () => {
     const doc = new jsPDF({
@@ -1207,16 +1219,16 @@ export default function Home() {
     });
     y += 30;
 
-    // ── Section: Base Case Projection ──
+    // ── Section: Best Case Projection ──
     checkPage(38);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(100, 116, 139);
-    doc.text('BASE CASE PROJECTION', margin, y);
+    doc.text('BEST CASE PROJECTION', margin, y);
     y += 4;
     doc.setFillColor(15, 23, 42);
     doc.roundedRect(margin, y, contentW, 28, 2, 2, 'F');
-    const bp = projections.base;
+    const bp = overviewProjection;
     const bpCols = [
       {
         label: 'FILING DATE (DOF)',
@@ -1236,7 +1248,7 @@ export default function Home() {
       {
         label: 'TIME TO FAD',
         val: fmtDuration(bp.monthsFromToday),
-        sub: 'Base case estimate',
+        sub: 'Best case estimate',
       },
     ];
     bpCols.forEach((col, i) => {
@@ -1566,7 +1578,7 @@ export default function Home() {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Hero Estimate */}
-            {baseProjection.isAlreadyCurrent ? (
+            {overviewProjection.isAlreadyCurrent ? (
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center">
                 <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
                 <p className="text-xl font-bold text-emerald-700">Already Current!</p>
@@ -1577,36 +1589,36 @@ export default function Home() {
                 <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-300 mb-1">Your Projection</h2>
                 <div className="flex items-center gap-2 mb-5">
                   <span className="text-xs font-mono text-slate-400">{fmtDateStr(targetDate)}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider bg-slate-600 text-slate-300 px-2 py-0.5 rounded-full">Base Case</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider bg-emerald-600/80 text-emerald-50 px-2 py-0.5 rounded-full">Best Case</span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6">
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Filing Date (DoF)</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(baseProjection.dofDate)}</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(overviewProjection.dofDate)}</p>
                     <p className="text-xs text-slate-500 mt-1.5">P50 estimate</p>
-                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(baseProjection.dofRange.p10)} - {fmtDate(baseProjection.dofRange.p90)}</p>
+                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(overviewProjection.dofRange.p10)} - {fmtDate(overviewProjection.dofRange.p90)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Final Action Date</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(baseProjection.fadDate)}</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(overviewProjection.fadDate)}</p>
                     <p className="text-xs text-slate-500 mt-1.5">P50 estimate</p>
-                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(baseProjection.fadRange.p10)} - {fmtDate(baseProjection.fadRange.p90)}</p>
+                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(overviewProjection.fadRange.p10)} - {fmtDate(overviewProjection.fadRange.p90)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">GC Receipt Est.</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(baseProjection.gcDate)}</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(overviewProjection.gcDate)}</p>
                     <p className="text-xs text-slate-500 mt-1.5">P50 estimate</p>
-                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(baseProjection.gcRange.p10)} - {fmtDate(baseProjection.gcRange.p90)}</p>
+                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(overviewProjection.gcRange.p10)} - {fmtDate(overviewProjection.gcRange.p90)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Time to FAD</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDuration(baseProjection.monthsFromToday)}</p>
-                    <p className="text-xs text-slate-500 mt-1">Base case median</p>
-                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDuration(Math.round(baseProjection.fadMonths.p10))} - {fmtDuration(Math.round(baseProjection.fadMonths.p90))}</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDuration(overviewProjection.monthsFromToday)}</p>
+                    <p className="text-xs text-slate-500 mt-1">Best case median</p>
+                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDuration(Math.round(overviewProjection.fadMonths.p10))} - {fmtDuration(Math.round(overviewProjection.fadMonths.p90))}</p>
                   </div>
                 </div>
                 <div className="text-xs text-slate-400 mt-5 border-t border-slate-600 pt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <p>Base case assumes moderate spillover (30-40k extra EB visas in FY2027). See Scenarios tab for full range.</p>
+                  <p>Best case uses the optimistic scenario with {overviewAssumptionSummary}. See Scenarios tab for the full range.</p>
                   <div className="flex items-center gap-3 text-[10px] shrink-0">
                     {backtestResult.predictions > 0 && (
                       <span className="flex items-center gap-1 bg-slate-600/50 px-2 py-0.5 rounded-full" title={`6-month backtest on ${backtestResult.predictions} rolling windows`}>
@@ -1615,7 +1627,7 @@ export default function Home() {
                       </span>
                     )}
                     {backtestResult.predictions > 0 && <span className="flex items-center gap-1 bg-slate-600/50 px-2 py-0.5 rounded-full" title="Share of 6-month backtest windows where the actual FAD landed inside the model's 80% interval">80% hit: {Math.round(backtestResult.coverage80 * 100)}%</span>}
-                    <span className="flex items-center gap-1 bg-slate-600/50 px-2 py-0.5 rounded-full" title="Share of simulated paths where at least one monthly retrogression occurred before the target became current">Retrogression risk: {Math.round(baseProjection.retrogressionRisk * 100)}%</span>
+                    <span className="flex items-center gap-1 bg-slate-600/50 px-2 py-0.5 rounded-full" title="Share of simulated paths where at least one monthly retrogression occurred before the target became current">Retrogression risk: {Math.round(overviewProjection.retrogressionRisk * 100)}%</span>
                   </div>
                 </div>
               </div>
