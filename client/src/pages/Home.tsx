@@ -66,6 +66,16 @@ const CURRENT_BULLETIN = {
   eb3: { fad: "2013-11-15", dof: "2015-01-15" },
 };
 
+// ─── I-140 FILING DENSITY DATA ───────────────────────────────────────────────
+// Source: USCIS Form I-140 Performance Data (FY2025 Q3), India sheet
+// Published: Oct 8, 2025 | Query ref: CLAIMS3/ELIS, queried 7/2025 (PAER0018278)
+// Used to weight projections: denser cohort years slow FAD advancement proportionally.
+const I140_INDIA_APPROVALS = {
+  EB1: { 2014: 6371, 2015: 6127, 2016: 7737, 2017: 8496, 2018: 7575, 2019: 6879, 2020: 6194, 2021: 7243, 2022: 8123, 2023: 10995, 2024: 8780 },
+  EB2: { 2014: 25010, 2015: 31546, 2016: 47462, 2017: 40898, 2018: 39047, 2019: 43306, 2020: 34976, 2021: 37586, 2022: 45299, 2023: 39269, 2024: 38842 },
+  EB3: { 2014: 3827, 2015: 6251, 2016: 9946, 2017: 8610, 2018: 8064, 2019: 11182, 2020: 9041, 2021: 48036, 2022: 16574, 2023: 12549, 2024: 10113 },
+} as const;
+
 // EB Category metadata — order determines tab display order (EB-1, EB-2, EB-3)
 const EB_CATEGORIES = {
   EB1: {
@@ -247,16 +257,6 @@ const HISTORICAL_BULLETINS = [
   { month: "Nov 2022", eb1_fad: "2022-11-01", eb1_dof: "2022-11-01", eb2_fad: "2012-04-01", eb2_dof: "2012-05-01", eb3_fad: "2012-04-01", eb3_dof: "2012-07-01" },
   { month: "Oct 2022", eb1_fad: "2022-10-01", eb1_dof: "2022-10-01", eb2_fad: "2012-04-01", eb2_dof: "2012-05-01", eb3_fad: "2012-04-01", eb3_dof: "2012-07-01" },
 ];
-
-// ─── I-140 FILING DENSITY DATA ───────────────────────────────────────────────
-// Source: USCIS Form I-140 Performance Data (FY2025 Q3), India sheet
-// Published: Oct 8, 2025 | Query ref: CLAIMS3/ELIS, queried 7/2025 (PAER0018278)
-// Used to weight projections: denser cohort years slow FAD advancement proportionally.
-const I140_INDIA_APPROVALS = {
-  EB1: { 2014: 6371, 2015: 6127, 2016: 7737, 2017: 8496, 2018: 7575, 2019: 6879, 2020: 6194, 2021: 7243, 2022: 8123, 2023: 10995, 2024: 8780 },
-  EB2: { 2014: 25010, 2015: 31546, 2016: 47462, 2017: 40898, 2018: 39047, 2019: 43306, 2020: 34976, 2021: 37586, 2022: 45299, 2023: 39269, 2024: 38842 },
-  EB3: { 2014: 3827, 2015: 6251, 2016: 9946, 2017: 8610, 2018: 8064, 2019: 11182, 2020: 9041, 2021: 48036, 2022: 16574, 2023: 12549, 2024: 10113 },
-} as const;
 
 // ─── UTILITY FUNCTIONS ────────────────────────────────────────────────────────
 
