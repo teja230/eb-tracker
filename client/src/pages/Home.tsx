@@ -515,18 +515,20 @@ export default function Home() {
   const gapMonths = Math.max(0, Math.round(monthsBetween(cat.currentFAD, targetDate)));
 
   // Chart data: historical FAD movement
+  // Uses timestamp (ms) on Y-axis for accurate date spacing; X-axis shows bulletin months
   const historicalChartData = useMemo(() => {
-    return [...HISTORICAL_BULLETINS].reverse().map(b => {
+    return [...HISTORICAL_BULLETINS].reverse().map((b, i) => {
       const key = selectedCategory === "EB1" ? "eb1_fad" : selectedCategory === "EB3" ? "eb3_fad" : "eb2_fad";
       const dofKey = selectedCategory === "EB1" ? "eb1_dof" : selectedCategory === "EB3" ? "eb3_dof" : "eb2_dof";
       const fadDate = parseDateStr(b[key as keyof typeof b] as string);
       const dofDate = parseDateStr(b[dofKey as keyof typeof b] as string);
-      // Convert to decimal years for chart
-      const toDecYear = (d: Date) => d.getFullYear() + d.getMonth() / 12;
       return {
         month: b.month,
-        fad: +toDecYear(fadDate).toFixed(2),
-        dof: +toDecYear(dofDate).toFixed(2),
+        idx: i,
+        fad: fadDate.getTime(),
+        dof: dofDate.getTime(),
+        fadLabel: fmtDate(fadDate),
+        dofLabel: fmtDate(dofDate),
       };
     });
   }, [selectedCategory]);
@@ -1114,30 +1116,87 @@ export default function Home() {
             </div>
 
             {/* Historical Chart */}
-            <Card className="p-5">
-              <h3 className="text-sm font-semibold text-slate-700 mb-4">
-                {cat.label} India — FAD & DoF Historical Movement
-              </h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={historicalChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+            <Card className="p-5 pb-3 overflow-hidden">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-slate-700">
+                  {cat.label} India — Priority Date Movement
+                </h3>
+                <div className="flex items-center gap-4 text-[10px] text-slate-500">
+                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 bg-blue-700 rounded" /> FAD</span>
+                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 bg-cyan-500 rounded opacity-60" style={{borderBottom: '1.5px dashed #06b6d4'}} /> DoF</span>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={historicalChartData} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="fadGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#1e40af" stopOpacity={0.5} />
+                      <stop offset="75%" stopColor="#1e40af" stopOpacity={0.8} />
+                      <stop offset="100%" stopColor="#1e40af" stopOpacity={1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    tickLine={false}
+                    interval={Math.max(0, Math.floor(historicalChartData.length / 8) - 1)}
+                    angle={-35}
+                    textAnchor="end"
+                    height={50}
+                  />
                   <YAxis
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={v => `${Math.floor(v)}`}
-                    domain={['auto', 'auto']}
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v: number) => {
+                      const d = new Date(v);
+                      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                      return `${months[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
+                    }}
+                    domain={['dataMin', 'dataMax']}
+                    width={52}
                   />
                   <Tooltip
-                    formatter={(v: number) => {
-                      const yr = Math.floor(v);
-                      const mo = Math.round((v - yr) * 12);
+                    contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', padding: '10px 14px', fontSize: 12 }}
+                    labelStyle={{ fontWeight: 700, color: '#1e293b', marginBottom: 4 }}
+                    formatter={(v: number, name: string) => {
+                      const d = new Date(v);
                       const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-                      return [`${months[mo]} ${yr}`];
+                      const label = name === 'fad' ? 'Final Action Date' : 'Dates for Filing';
+                      return [`${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`, label];
                     }}
+                    cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }}
                   />
-                  <Legend />
-                  <Line type="monotone" dataKey="fad" name="Final Action Date" stroke="#1e40af" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="dof" name="Dates for Filing" stroke="#0891b2" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 2" />
+                  {/* Target priority date reference line */}
+                  <ReferenceLine
+                    y={parseDateStr(targetDate).getTime()}
+                    stroke="#f59e0b"
+                    strokeDasharray="6 3"
+                    strokeWidth={1.5}
+                    label={{ value: `Your PD: ${fmtDateStr(targetDate)}`, position: 'right', fill: '#d97706', fontSize: 10, fontWeight: 600 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="dof"
+                    name="dof"
+                    stroke="#06b6d4"
+                    strokeWidth={1.5}
+                    strokeDasharray="6 3"
+                    strokeOpacity={0.5}
+                    dot={false}
+                    activeDot={{ r: 4, fill: '#06b6d4', stroke: '#fff', strokeWidth: 2 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="fad"
+                    name="fad"
+                    stroke="url(#fadGrad)"
+                    strokeWidth={2.5}
+                    dot={false}
+                    activeDot={{ r: 5, fill: '#1e40af', stroke: '#fff', strokeWidth: 2 }}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </Card>
