@@ -26,7 +26,7 @@ The tracker is updated monthly when new visa bulletins are released by the U.S. 
 | **Bulletin Tracker**          | Historical Final Action Dates and Dates for Filing with Δ movement columns   |
 | **Adjust Assumptions**        | Tune spillover level, ban duration, and GC wastage to model custom scenarios |
 | **Backtesting**               | Rolling 6-month MAE + 80% interval coverage for model transparency           |
-| **PDF + Share Export**        | Export a personalized PDF and copy a shareable estimate summary to clipboard |
+| **PDF + Share Export**        | Export a personalized PDF and share a summary on mobile or copy it on desktop |
 
 ---
 
@@ -109,7 +109,7 @@ adjustedRate = baseRate × spilloverMultiplier × banMultiplier × wastageMultip
 | EB-2 ROW   | CURRENT           | CURRENT          |
 | EB-3 ROW   | CURRENT           | CURRENT          |
 
-> **Note:** EB-1 ROW and EB-2 ROW being CURRENT is significant — it means all family-based visa spillover flows directly to backlogged countries (India, China) rather than being absorbed by ROW demand. This is the primary driver of the FY2027 optimistic scenario.
+> **Note:** EB-1 ROW and EB-2 ROW being CURRENT does not itself create extra visas. It means ROW demand is not absorbing otherwise-available employment-based numbers. Separately, unused family-based numbers can spill into employment-based visas under INA §201(d). When both conditions hold, more of the expanded EB supply can reach backlogged countries such as India and China.
 
 ---
 
@@ -150,28 +150,51 @@ As of April 2026, the EB-2 India FAD is **Jul 15, 2014** — 25 priority-date mo
 
 ---
 
+## Local Development
+
+Use **pnpm** for local installs in this repository. The project includes `pnpm-lock.yaml` and a `patchedDependencies` entry in `package.json` for the Wouter patch under `patches/wouter@3.7.1.patch`, so `pnpm install` is the supported setup path.
+
+```bash
+pnpm install
+pnpm dev
+pnpm check
+pnpm test
+pnpm build
+```
+
+---
+
 ## Project Structure
 
 ```
 eb-tracker/
+├── ideas.md                         ← Product and design working notes
+├── patches/
+│   └── wouter@3.7.1.patch          ← pnpm patched dependency applied at install time
 ├── client/
 │   ├── src/
+│   │   ├── data/
+│   │   │   └── trackerData.ts       ← Bulletin history, category metadata, scenarios, demand inputs
 │   │   ├── pages/
-│   │   │   └── Home.tsx              ← Main tracker component (UI + data)
+│   │   │   └── Home.tsx             ← Main tracker component (UI + derived view models)
 │   │   ├── lib/
-│   │   │   └── forecast.ts          ← v8 probabilistic forecast engine
+│   │   │   ├── forecast.ts          ← v8 probabilistic forecast engine
+│   │   │   ├── forecast.test.ts     ← Forecast-engine unit tests
+│   │   │   └── trackerUtils.ts      ← Shared date and formatting helpers
 │   │   ├── components/
-│   │   │   ├── ui/                   ← shadcn/ui primitives
+│   │   │   ├── ui/                  ← shadcn/ui primitives
 │   │   │   ├── PriorityDatePicker.tsx
 │   │   │   └── ErrorBoundary.tsx
 │   │   ├── hooks/
-│   │   │   └── useMobile.tsx         ← Responsive breakpoint hook
-│   │   ├── App.tsx                   ← Router (Wouter)
-│   │   └── index.css                 ← Global styles + Tailwind tokens
+│   │   │   └── useMobile.tsx        ← Responsive breakpoint hook
+│   │   ├── App.tsx                  ← Router (Wouter)
+│   │   └── index.css                ← Global styles + Tailwind tokens
 │   └── index.html
 ├── server/
-│   └── index.ts                      ← Static file server (production)
+│   └── index.ts                     ← Static file server (production)
+├── shared/                          ← Shared cross-runtime code
 ├── vite.config.ts
+├── vitest.config.ts
 └── package.json
 ```
 
@@ -181,13 +204,13 @@ eb-tracker/
 
 When a new visa bulletin is released (typically the second Tuesday of each month):
 
-1. Open `client/src/pages/Home.tsx`
+1. Open `client/src/data/trackerData.ts`
 2. Update `CURRENT_BULLETIN` with the new month, FAD, and DoF values for EB-1/EB-2/EB-3
 3. Add a new entry to `HISTORICAL_BULLETINS` array (insert at index 0, most recent first)
 4. Verify `TODAY` is set to `new Date()` (auto-updates, do not hardcode)
 5. If new I-485 inventory data is available, update `I485_INDIA_PENDING`
 6. If new I-140 approval data is available, update `I140_INDIA_APPROVALS`
-7. Recalculate and verify any displayed category totals, notes, or inventory summaries that depend on those tables (for example `pendingInventory` values and backlog copy)
+7. Recalculate and verify any displayed category totals, notes, or inventory summaries that depend on those tables
 8. Check for month- or category-specific hardcoded UI text outside the data tables (for example "Already Current" copy, pace cards, and explanatory notes)
 9. Save and deploy
 

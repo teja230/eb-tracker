@@ -1,5 +1,4 @@
-const DAYS_PER_PD_MONTH = 30.44;
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+import { addApproxMonths, parseBulletinMonth, parseDateStr, monthsBetween, monthsBetweenDates } from '@/lib/trackerUtils';
 
 export type ForecastBulletin = {
   month: string;
@@ -76,28 +75,8 @@ type PathResult = {
   finalFadAdvance: number;
 };
 
-function parseDateStr(s: string): Date {
-  const [y, m, d] = s.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function monthsBetweenDates(from: Date, to: Date): number {
-  return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth()) + (to.getDate() - from.getDate()) / DAYS_PER_PD_MONTH;
-}
-
-function monthsBetween(from: string, to: string): number {
-  return monthsBetweenDates(parseDateStr(from), parseDateStr(to));
-}
-
-function addApproxMonths(base: Date, months: number): Date {
-  const d = new Date(base);
-  d.setDate(d.getDate() + Math.round(months * DAYS_PER_PD_MONTH));
-  return d;
-}
-
 function bulletinMonthToDate(label: string): Date {
-  const [month, year] = label.split(' ');
-  return new Date(Number(year), MONTH_NAMES.indexOf(month), 1);
+  return parseBulletinMonth(label);
 }
 
 function toFyMonth(calendarMonth: number): number {
