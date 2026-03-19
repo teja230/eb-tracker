@@ -844,6 +844,52 @@ export default function Home() {
     return start && end ? { x1: start, x2: end } : null;
   }, [historicalChartData]);
 
+  // Demand density chart data: pending I-485s + scaled I-140 by PD year
+  const demandDensityData = useMemo(() => {
+    const catKey = selectedCategory;
+    const i485 = I485_INDIA_PENDING[catKey] ?? {};
+    const i140 = I140_INDIA_APPROVALS[catKey] ?? {};
+
+    // Compute I-140 → I-485 scale factor at overlap year
+    const overlapYears = Object.keys(i485).map(Number)
+      .filter(y => i485[y] > 0 && i140[y] !== undefined);
+    const overlapYear = overlapYears.length > 0 ? Math.max(...overlapYears) : null;
+    const scaleFactor = overlapYear ? i485[overlapYear] / i140[overlapYear] : 1;
+
+    // Collect all years, determine range around current FAD and target PD
+    const fadYear = parseDateStr(cat.currentFAD).getFullYear();
+    const targetYear = parseDateStr(targetDate).getFullYear();
+    const allI485Years = Object.keys(i485).map(Number).filter(y => i485[y] > 0);
+    const allI140Years = Object.keys(i140).map(Number);
+    const minYear = Math.min(fadYear - 2, ...allI485Years, ...allI140Years);
+    const maxYear = Math.max(targetYear + 1, ...allI485Years, ...allI140Years);
+
+    const bars: { year: string; pending: number; source: string; isTarget: boolean; isCurrent: boolean }[] = [];
+    for (let y = minYear; y <= maxYear; y++) {
+      const i485Val = i485[y];
+      const i140Val = i140[y];
+      let pending = 0;
+      let source = "none";
+      if (i485Val !== undefined && i485Val > 0) {
+        pending = i485Val;
+        source = "I-485";
+      } else if (i140Val !== undefined) {
+        pending = Math.round(i140Val * scaleFactor);
+        source = "I-140 (scaled)";
+      }
+      if (pending > 0) {
+        bars.push({
+          year: String(y),
+          pending,
+          source,
+          isTarget: y === targetYear,
+          isCurrent: y === fadYear,
+        });
+      }
+    }
+    return bars;
+  }, [selectedCategory, targetDate, cat.currentFAD]);
+
   // Scenario comparison chart data
   const scenarioChartData = useMemo(() => {
     return Object.entries(SCENARIOS).map(([key, s]) => ({
@@ -1576,6 +1622,79 @@ export default function Home() {
                 </p>
               )}
             </Card>
+
+            {/* Demand Density — Queue Depth by PD Year */}
+            {demandDensityData.length > 0 && (
+              <Card className="p-5 pb-3 overflow-hidden">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-sm font-semibold text-slate-700">
+                    Queue Depth by Priority Date Year
+                  </h3>
+                  <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                    <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm bg-blue-600" /> I-485 inventory</span>
+                    <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm bg-blue-300" /> I-140 (scaled)</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 mb-3">
+                  Pending applications the FAD must clear through each year. Your PD year highlighted.
+                </p>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={demandDensityData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+                    <CartesianGrid vertical={false} stroke="#f1f5f9" />
+                    <XAxis
+                      dataKey="year"
+                      tick={{ fontSize: 10, fill: '#94a3b8' }}
+                      axisLine={{ stroke: '#e2e8f0' }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: '#94a3b8' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                      width={36}
+                    />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', padding: '10px 14px', fontSize: 12 }}
+                      formatter={(v: number, _name: string, props: any) => {
+                        return [`${v.toLocaleString()} pending`, props.payload.source];
+                      }}
+                      labelFormatter={(label: string) => `PD Year ${label}`}
+                      cursor={{ fill: '#f1f5f9' }}
+                    />
+                    <Bar dataKey="pending" radius={[3, 3, 0, 0]} maxBarSize={40}>
+                      {demandDensityData.map((entry, i) => (
+                        <Cell
+                          key={i}
+                          fill={entry.isTarget ? '#f59e0b' : entry.source === 'I-485' ? '#2563eb' : '#93c5fd'}
+                          stroke={entry.isTarget ? '#d97706' : 'none'}
+                          strokeWidth={entry.isTarget ? 2 : 0}
+                        />
+                      ))}
+                    </Bar>
+                    {/* Current FAD position marker */}
+                    <ReferenceLine
+                      x={String(parseDateStr(cat.currentFAD).getFullYear())}
+                      stroke="#10b981"
+                      strokeDasharray="4 2"
+                      strokeWidth={1.5}
+                      label={{ value: 'FAD', position: 'top', fill: '#10b981', fontSize: 9, fontWeight: 700 }}
+                    />
+                    {/* Target PD marker */}
+                    <ReferenceLine
+                      x={String(parseDateStr(targetDate).getFullYear())}
+                      stroke="#f59e0b"
+                      strokeDasharray="4 2"
+                      strokeWidth={1.5}
+                      label={{ value: 'Your PD', position: 'top', fill: '#d97706', fontSize: 9, fontWeight: 700 }}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+                <p className="text-[10px] text-slate-400 text-center mt-1">
+                  Source: USCIS I-485 Pending Inventory (Oct 2025) · I-140 Performance Data (FY2025 Q3)
+                </p>
+              </Card>
+            )}
 
             {/* Key Facts */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
