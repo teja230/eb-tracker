@@ -16,6 +16,16 @@ export function parseBulletinMonth(value: string): Date {
   return new Date(Number(year), monthIndex, 1);
 }
 
+export function bulletinMonthDiffInMonths(laterLabel: string, earlierLabel: string): number {
+  const later = parseBulletinMonth(laterLabel);
+  const earlier = parseBulletinMonth(earlierLabel);
+  return (later.getFullYear() - earlier.getFullYear()) * 12 + (later.getMonth() - earlier.getMonth());
+}
+
+export function areConsecutiveBulletinMonths(laterLabel: string, earlierLabel: string): boolean {
+  return bulletinMonthDiffInMonths(laterLabel, earlierLabel) === 1;
+}
+
 export function monthsBetweenDates(from: Date, to: Date): number {
   return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth()) + (to.getDate() - from.getDate()) / DAYS_PER_PD_MONTH;
 }

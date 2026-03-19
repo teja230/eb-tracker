@@ -16,17 +16,17 @@ The tracker is updated monthly when new visa bulletins are released by the U.S. 
 
 ## Features
 
-| Feature                       | Description                                                                  |
-|-------------------------------|------------------------------------------------------------------------------|
-| **Priority Date Calculator**  | Enter any priority date and instantly see DoF, FAD, and GC receipt estimates |
-| **Multi-Category Support**    | EB-1 (Priority Workers), EB-2 (Advanced Degree), EB-3 (Skilled Workers)      |
-| **Four Scenario Projections** | Optimistic, Base, Conservative, Pessimistic — each with P10/P50/P90 ranges   |
-| **Historical Movement Chart** | Interactive chart with FAD/DoF lines, FY boundaries, and acceleration zones  |
-| **Queue Depth Chart**         | Demand density by PD year using hybrid I-485 inventory + I-140 approval data |
-| **Bulletin Tracker**          | Historical Final Action Dates and Dates for Filing with Δ movement columns   |
-| **Adjust Assumptions**        | Tune spillover level, ban duration, and GC wastage to model custom scenarios |
-| **Backtesting**               | Rolling 6-month MAE + 80% interval coverage for model transparency           |
-| **PDF + Share Export**        | Export a personalized PDF and share a summary on mobile or copy it on desktop |
+| Feature                       | Description                                                                                                      |
+|-------------------------------|------------------------------------------------------------------------------------------------------------------|
+| **Priority Date Calculator**  | Enter any priority date and instantly see DoF, FAD, and GC receipt estimates                                     |
+| **Multi-Category Support**    | EB-1 (Priority Workers), EB-2 (Advanced Degree), EB-3 (Skilled Workers)                                          |
+| **Four Scenario Projections** | Optimistic, Base, Conservative, Pessimistic — each with P10/P50/P90 ranges                                       |
+| **Historical Movement Chart** | Interactive chart with FAD/DoF lines, FY boundaries, and acceleration zones                                      |
+| **Queue Depth Chart**         | Demand density by PD year using hybrid I-485 inventory + I-140 approval data                                     |
+| **Bulletin Tracker**          | Historical Final Action Dates and Dates for Filing with Δ movement columns, including FY2020-FY2022 archive rows |
+| **Adjust Assumptions**        | Tune spillover level, ban duration, and GC wastage to model custom scenarios                                     |
+| **Backtesting**               | Rolling 6-month MAE + 80% interval coverage for model transparency                                               |
+| **PDF + Share Export**        | Export a personalized PDF and share a summary on mobile or copy it on desktop                                    |
 
 ---
 
@@ -65,7 +65,7 @@ delta = baseRate × clamp(seasonality + residualSample, -2.25, 3.25) / √clamp(
 | Conservative | 0.45               | 30%         | No spillover, reversion to pre-FY2026 pace   |
 | Pessimistic  | 0.275              | 10–15%      | Ban reversed, stagnation / retrogression     |
 
-Rates are calibrated from 43 months of verified visa bulletin data (Oct 2022–Apr 2026). Backtesting uses rolling 6-month windows to compute MAE and 80% interval coverage.
+Rates are calibrated from 43 months of verified visa bulletin data (Oct 2022–Apr 2026). The Bulletin Tracker tab also includes FY2020-FY2022 archival rows, but those older rows are kept out of the forecast model so seasonality and backtests stay anchored to the contiguous recent series. Backtesting uses rolling 6-month windows to compute MAE and 80% interval coverage.
 
 ### Simulator Multipliers
 
@@ -174,7 +174,7 @@ eb-tracker/
 ├── client/
 │   ├── src/
 │   │   ├── data/
-│   │   │   └── trackerData.ts       ← Bulletin history, category metadata, scenarios, demand inputs
+│   │   │   └── trackerData.ts       ← Model history, Bulletin Tracker archive, category metadata, scenarios, demand inputs
 │   │   ├── pages/
 │   │   │   └── Home.tsx             ← Main tracker component (UI + derived view models)
 │   │   ├── lib/
@@ -212,7 +212,8 @@ When a new visa bulletin is released (typically the second Tuesday of each month
 6. If new I-140 approval data is available, update `I140_INDIA_APPROVALS`
 7. Recalculate and verify any displayed category totals, notes, or inventory summaries that depend on those tables
 8. Check for month- or category-specific hardcoded UI text outside the data tables (for example "Already Current" copy, pace cards, and explanatory notes)
-9. Save and deploy
+9. If you backfill older fiscal years for the Bulletin Tracker, add them to `ARCHIVED_BULLETIN_TRACKER_HISTORY` instead of `HISTORICAL_BULLETINS`, which must remain contiguous for the forecast engine
+10. Save and deploy
 
 ---
 

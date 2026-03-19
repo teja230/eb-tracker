@@ -51,6 +51,7 @@ import { toast } from 'sonner';
 import PriorityDatePicker from '@/components/PriorityDatePicker';
 import { useIsMobile } from '@/hooks/useMobile';
 import {
+  BULLETIN_TRACKER_HISTORY,
   CURRENT_BULLETIN,
   EB_CATEGORIES,
   HISTORICAL_BULLETINS,
@@ -69,6 +70,7 @@ import {
   type ForecastProjection,
 } from '@/lib/forecast';
 import {
+  areConsecutiveBulletinMonths,
   MONTH_LABELS,
   fmtBulletinMonthLabel,
   fmtCompactMonthYear,
@@ -125,10 +127,18 @@ export default function Home() {
   const [shareCopied, setShareCopied] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
   const [showSimulatorControls, setShowSimulatorControls] = useState(false);
-  // Bulletin Tracker: fiscal year groups — FY2026 expanded by default
-  const [expandedFYs, setExpandedFYs] = useState<Set<string>>(new Set(['FY2026']));
-  const toggleFY = (fy: string) =>
-    setExpandedFYs(prev => {
+  // Bulletin Tracker: keep FAD and DoF accordions independent
+  const [expandedFadFYs, setExpandedFadFYs] = useState<Set<string>>(new Set(['FY2026']));
+  const [expandedDofFYs, setExpandedDofFYs] = useState<Set<string>>(new Set(['FY2026']));
+  const toggleFadFY = (fy: string) =>
+    setExpandedFadFYs(prev => {
+      const next = new Set(prev);
+      if (next.has(fy)) next.delete(fy);
+      else next.add(fy);
+      return next;
+    });
+  const toggleDofFY = (fy: string) =>
+    setExpandedDofFYs(prev => {
       const next = new Set(prev);
       if (next.has(fy)) next.delete(fy);
       else next.add(fy);
@@ -1685,6 +1695,7 @@ export default function Home() {
                   <div className="flex-1 text-sm text-slate-600">
                     Historical visa bulletins for India. Δ columns show month-over-month movement.
                     <span className="text-emerald-600 font-semibold"> Green = advancement</span>,<span className="text-red-600 font-semibold"> Red = retrogression</span>.
+                    <span className="block text-xs text-slate-500 mt-1">Tracker tables now run continuously from Oct 2019 through the latest bulletin, including archived FY2020-FY2022 rows. Forecasts, charts, and backtests remain calibrated on the contiguous Oct 2022–Apr 2026 series.</span>
                   </div>
                   <div className="flex gap-3 shrink-0 flex-wrap">
                     <PaceTile label="FAD Pace" v6={fad6} v12={fad12} />
@@ -1702,11 +1713,12 @@ export default function Home() {
               const selDofKey = selectedCategory === 'EB1' ? 'eb1_dof' : selectedCategory === 'EB3' ? 'eb3_dof' : 'eb2_dof';
               const selColIdx = selectedCategory === 'EB1' ? 0 : selectedCategory === 'EB3' ? 2 : 1; // 0=EB1,1=EB2,2=EB3
               const targetParsed = parseDateStr(targetDate);
+              const trackerHistory = BULLETIN_TRACKER_HISTORY;
 
               // Find the first row where the selected FAD >= user's priority date (first month it became current)
               let firstCurrentIdx: number | null = null;
-              for (let i = HISTORICAL_BULLETINS.length - 1; i >= 0; i--) {
-                const fadVal = HISTORICAL_BULLETINS[i][selFadKey as keyof (typeof HISTORICAL_BULLETINS)[0]] as string;
+              for (let i = trackerHistory.length - 1; i >= 0; i--) {
+                const fadVal = trackerHistory[i][selFadKey as keyof (typeof trackerHistory)[number]] as string;
                 if (parseDateStr(fadVal) >= targetParsed) {
                   firstCurrentIdx = i;
                   break;
@@ -1725,7 +1737,7 @@ export default function Home() {
                 return `FY${isOctNovDec ? yr + 1 : yr}`;
               };
               const fyGroups: { fy: string; indices: number[] }[] = [];
-              HISTORICAL_BULLETINS.forEach((b, idx) => {
+              trackerHistory.forEach((b, idx) => {
                 const fy = fyOf(b.month);
                 const g = fyGroups.find(x => x.fy === fy);
                 if (g) g.indices.push(idx);
@@ -1740,8 +1752,8 @@ export default function Home() {
                       {firstCurrentIdx !== null && (
                         <button
                           onClick={() => {
-                            const fy = fyOf(HISTORICAL_BULLETINS[firstCurrentIdx!].month);
-                            setExpandedFYs(prev => {
+                            const fy = fyOf(trackerHistory[firstCurrentIdx!].month);
+                            setExpandedFadFYs(prev => {
                               const n = new Set(prev);
                               n.add(fy);
                               return n;
@@ -1768,13 +1780,13 @@ export default function Home() {
                   </div>
                   <div className="space-y-2">
                     {fyGroups.map(({ fy, indices }) => {
-                      const isOpen = expandedFYs.has(fy);
-                      const startMo = HISTORICAL_BULLETINS[indices[indices.length - 1]].month;
-                      const endMo = HISTORICAL_BULLETINS[indices[0]].month;
+                      const isOpen = expandedFadFYs.has(fy);
+                      const startMo = trackerHistory[indices[indices.length - 1]].month;
+                      const endMo = trackerHistory[indices[0]].month;
                       const hasStarRow = firstCurrentIdx !== null && indices.includes(firstCurrentIdx);
                       return (
                         <div key={fy} className="rounded-lg border border-slate-200 overflow-hidden">
-                          <button onClick={() => toggleFY(fy)} className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${isOpen ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                          <button onClick={() => toggleFadFY(fy)} className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${isOpen ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
                             <div className="flex items-center gap-3">
                               <span className="font-bold text-sm">{fy}</span>
                               <span className={`text-xs ${isOpen ? 'text-slate-300' : 'text-slate-500'}`}>
@@ -1800,8 +1812,8 @@ export default function Home() {
                                 </thead>
                                 <tbody>
                                   {indices.map(idx => {
-                                    const b = HISTORICAL_BULLETINS[idx];
-                                    const prev = idx < HISTORICAL_BULLETINS.length - 1 ? HISTORICAL_BULLETINS[idx + 1] : null;
+                                    const b = trackerHistory[idx];
+                                    const prev = idx < trackerHistory.length - 1 && areConsecutiveBulletinMonths(b.month, trackerHistory[idx + 1].month) ? trackerHistory[idx + 1] : null;
                                     const eb1m = prev ? movementLabel(prev.eb1_fad, b.eb1_fad) : null;
                                     const eb2m = prev ? movementLabel(prev.eb2_fad, b.eb2_fad) : null;
                                     const eb3m = prev ? movementLabel(prev.eb3_fad, b.eb3_fad) : null;
@@ -1846,11 +1858,12 @@ export default function Home() {
               const selDofKey = selectedCategory === 'EB1' ? 'eb1_dof' : selectedCategory === 'EB3' ? 'eb3_dof' : 'eb2_dof';
               const selColIdx = selectedCategory === 'EB1' ? 0 : selectedCategory === 'EB3' ? 2 : 1;
               const targetParsed = parseDateStr(targetDate);
+              const trackerHistory = BULLETIN_TRACKER_HISTORY;
 
               // Find first row where selected DoF >= user's priority date
               let firstCurrentIdx: number | null = null;
-              for (let i = HISTORICAL_BULLETINS.length - 1; i >= 0; i--) {
-                const dofVal = HISTORICAL_BULLETINS[i][selDofKey as keyof (typeof HISTORICAL_BULLETINS)[0]] as string;
+              for (let i = trackerHistory.length - 1; i >= 0; i--) {
+                const dofVal = trackerHistory[i][selDofKey as keyof (typeof trackerHistory)[number]] as string;
                 if (parseDateStr(dofVal) >= targetParsed) {
                   firstCurrentIdx = i;
                   break;
@@ -1868,7 +1881,7 @@ export default function Home() {
                 return `FY${['Oct', 'Nov', 'Dec'].includes(mo) ? yr + 1 : yr}`;
               };
               const fyGroupsD: { fy: string; indices: number[] }[] = [];
-              HISTORICAL_BULLETINS.forEach((b, idx) => {
+              trackerHistory.forEach((b, idx) => {
                 const fy = fyOfD(b.month);
                 const g = fyGroupsD.find(x => x.fy === fy);
                 if (g) g.indices.push(idx);
@@ -1883,8 +1896,8 @@ export default function Home() {
                       {firstCurrentIdx !== null && (
                         <button
                           onClick={() => {
-                            const fy = fyOfD(HISTORICAL_BULLETINS[firstCurrentIdx!].month);
-                            setExpandedFYs(prev => {
+                            const fy = fyOfD(trackerHistory[firstCurrentIdx!].month);
+                            setExpandedDofFYs(prev => {
                               const n = new Set(prev);
                               n.add(fy);
                               return n;
@@ -1911,13 +1924,13 @@ export default function Home() {
                   </div>
                   <div className="space-y-2">
                     {fyGroupsD.map(({ fy, indices }) => {
-                      const isOpen = expandedFYs.has(fy);
-                      const startMo = HISTORICAL_BULLETINS[indices[indices.length - 1]].month;
-                      const endMo = HISTORICAL_BULLETINS[indices[0]].month;
+                      const isOpen = expandedDofFYs.has(fy);
+                      const startMo = trackerHistory[indices[indices.length - 1]].month;
+                      const endMo = trackerHistory[indices[0]].month;
                       const hasStarRow = firstCurrentIdx !== null && indices.includes(firstCurrentIdx);
                       return (
                         <div key={fy} className="rounded-lg border border-slate-200 overflow-hidden">
-                          <button onClick={() => toggleFY(fy)} className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${isOpen ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                          <button onClick={() => toggleDofFY(fy)} className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${isOpen ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
                             <div className="flex items-center gap-3">
                               <span className="font-bold text-sm">{fy}</span>
                               <span className={`text-xs ${isOpen ? 'text-slate-300' : 'text-slate-500'}`}>
@@ -1943,8 +1956,8 @@ export default function Home() {
                                 </thead>
                                 <tbody>
                                   {indices.map(idx => {
-                                    const b = HISTORICAL_BULLETINS[idx];
-                                    const prev = idx < HISTORICAL_BULLETINS.length - 1 ? HISTORICAL_BULLETINS[idx + 1] : null;
+                                    const b = trackerHistory[idx];
+                                    const prev = idx < trackerHistory.length - 1 && areConsecutiveBulletinMonths(b.month, trackerHistory[idx + 1].month) ? trackerHistory[idx + 1] : null;
                                     const eb1m = prev ? movementLabel(prev.eb1_dof, b.eb1_dof) : null;
                                     const eb2m = prev ? movementLabel(prev.eb2_dof, b.eb2_dof) : null;
                                     const eb3m = prev ? movementLabel(prev.eb3_dof, b.eb3_dof) : null;

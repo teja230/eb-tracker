@@ -183,7 +183,7 @@ export const SCENARIOS = {
   },
 };
 
-// Historical visa bulletins (most recent first)
+// Forecast-model history (most recent first)
 // ALL values verified against official travel.state.gov bulletins (Oct 2022 – Apr 2026)
 // EB-1 India "C" (Current) in Oct–Dec 2022 represented using bulletin month date.
 export const HISTORICAL_BULLETINS: HistoricalBulletinRow[] = [
@@ -220,10 +220,10 @@ export const HISTORICAL_BULLETINS: HistoricalBulletinRow[] = [
   { month: 'Oct 2023', eb1_fad: '2017-01-01', eb1_dof: '2019-07-01', eb2_fad: '2012-01-01', eb2_dof: '2012-05-15', eb3_fad: '2012-05-01', eb3_dof: '2012-08-01' },
   { month: 'Sep 2023', eb1_fad: '2012-01-01', eb1_dof: '2022-06-01', eb2_fad: '2011-01-01', eb2_dof: '2012-05-01', eb3_fad: '2009-01-01', eb3_dof: '2012-08-01' },
   { month: 'Aug 2023', eb1_fad: '2012-01-01', eb1_dof: '2022-06-01', eb2_fad: '2011-01-01', eb2_dof: '2012-05-01', eb3_fad: '2009-01-01', eb3_dof: '2012-08-01' },
-  { month: 'Jul 2023', eb1_fad: '2011-01-01', eb1_dof: '2022-06-01', eb2_fad: '2011-01-01', eb2_dof: '2012-05-01', eb3_fad: '2009-01-01', eb3_dof: '2012-08-01' },
+  { month: 'Jul 2023', eb1_fad: '2022-02-01', eb1_dof: '2022-06-01', eb2_fad: '2011-01-01', eb2_dof: '2012-05-01', eb3_fad: '2009-01-01', eb3_dof: '2012-08-01' },
   { month: 'Jun 2023', eb1_fad: '2022-02-01', eb1_dof: '2022-06-01', eb2_fad: '2011-01-01', eb2_dof: '2012-05-01', eb3_fad: '2012-06-15', eb3_dof: '2012-08-01' },
   { month: 'May 2023', eb1_fad: '2022-02-01', eb1_dof: '2022-06-01', eb2_fad: '2011-01-01', eb2_dof: '2012-05-01', eb3_fad: '2012-06-15', eb3_dof: '2012-08-01' },
-  { month: 'Apr 2023', eb1_fad: '2011-01-01', eb1_dof: '2022-06-01', eb2_fad: '2011-01-01', eb2_dof: '2012-05-01', eb3_fad: '2012-06-15', eb3_dof: '2012-08-01' },
+  { month: 'Apr 2023', eb1_fad: '2022-02-01', eb1_dof: '2022-06-01', eb2_fad: '2011-01-01', eb2_dof: '2012-05-01', eb3_fad: '2012-06-15', eb3_dof: '2012-08-01' },
   { month: 'Mar 2023', eb1_fad: '2022-02-01', eb1_dof: '2022-06-01', eb2_fad: '2011-10-08', eb2_dof: '2012-05-01', eb3_fad: '2012-06-15', eb3_dof: '2012-08-01' },
   { month: 'Feb 2023', eb1_fad: '2022-02-01', eb1_dof: '2022-06-01', eb2_fad: '2011-10-08', eb2_dof: '2012-05-01', eb3_fad: '2012-06-15', eb3_dof: '2012-08-01' },
   { month: 'Jan 2023', eb1_fad: '2022-02-01', eb1_dof: '2022-06-01', eb2_fad: '2011-10-08', eb2_dof: '2012-05-01', eb3_fad: '2012-06-15', eb3_dof: '2012-08-01' },
@@ -231,3 +231,47 @@ export const HISTORICAL_BULLETINS: HistoricalBulletinRow[] = [
   { month: 'Nov 2022', eb1_fad: '2022-11-01', eb1_dof: '2022-11-01', eb2_fad: '2012-04-01', eb2_dof: '2012-05-01', eb3_fad: '2012-04-01', eb3_dof: '2012-07-01' },
   { month: 'Oct 2022', eb1_fad: '2022-10-01', eb1_dof: '2022-10-01', eb2_fad: '2012-04-01', eb2_dof: '2012-05-01', eb3_fad: '2012-04-01', eb3_dof: '2012-07-01' },
 ];
+
+// Bulletin Tracker archive-only history (most recent first)
+// Verified against official travel.state.gov bulletins for FY2022, FY2021, and FY2020.
+// EB-1 India "C" (Current) is represented using the bulletin month date.
+export const ARCHIVED_BULLETIN_TRACKER_HISTORY: HistoricalBulletinRow[] = [
+  { month: 'Sep 2022', eb1_fad: '2022-09-01', eb1_dof: '2022-09-01', eb2_fad: '2014-12-01', eb2_dof: '2015-01-01', eb3_fad: '2012-02-15', eb3_dof: '2012-02-22' },
+  { month: 'Aug 2022', eb1_fad: '2022-08-01', eb1_dof: '2022-08-01', eb2_fad: '2014-12-01', eb2_dof: '2015-01-01', eb3_fad: '2012-02-15', eb3_dof: '2012-02-22' },
+  { month: 'Jul 2022', eb1_fad: '2022-07-01', eb1_dof: '2022-07-01', eb2_fad: '2014-12-01', eb2_dof: '2015-01-01', eb3_fad: '2012-01-15', eb3_dof: '2012-01-22' },
+  { month: 'Jun 2022', eb1_fad: '2022-06-01', eb1_dof: '2022-06-01', eb2_fad: '2014-09-01', eb2_dof: '2014-12-01', eb3_fad: '2012-01-15', eb3_dof: '2012-01-22' },
+  { month: 'May 2022', eb1_fad: '2022-05-01', eb1_dof: '2022-05-01', eb2_fad: '2013-09-01', eb2_dof: '2014-12-01', eb3_fad: '2012-01-15', eb3_dof: '2012-01-22' },
+  { month: 'Apr 2022', eb1_fad: '2022-04-01', eb1_dof: '2022-04-01', eb2_fad: '2013-07-08', eb2_dof: '2014-09-01', eb3_fad: '2012-01-15', eb3_dof: '2012-01-22' },
+  { month: 'Mar 2022', eb1_fad: '2022-03-01', eb1_dof: '2022-03-01', eb2_fad: '2013-05-01', eb2_dof: '2013-09-01', eb3_fad: '2012-01-15', eb3_dof: '2012-01-22' },
+  { month: 'Feb 2022', eb1_fad: '2022-02-01', eb1_dof: '2022-02-01', eb2_fad: '2013-01-01', eb2_dof: '2013-09-01', eb3_fad: '2012-01-15', eb3_dof: '2012-01-22' },
+  { month: 'Jan 2022', eb1_fad: '2022-01-01', eb1_dof: '2022-01-01', eb2_fad: '2012-07-08', eb2_dof: '2013-07-08', eb3_fad: '2012-01-15', eb3_dof: '2012-01-22' },
+  { month: 'Dec 2021', eb1_fad: '2021-12-01', eb1_dof: '2021-12-01', eb2_fad: '2012-05-01', eb2_dof: '2013-07-08', eb3_fad: '2012-01-15', eb3_dof: '2012-01-22' },
+  { month: 'Nov 2021', eb1_fad: '2021-11-01', eb1_dof: '2021-11-01', eb2_fad: '2011-12-01', eb2_dof: '2013-01-08', eb3_fad: '2012-01-15', eb3_dof: '2012-01-22' },
+  { month: 'Oct 2021', eb1_fad: '2021-10-01', eb1_dof: '2021-10-01', eb2_fad: '2011-09-01', eb2_dof: '2012-07-08', eb3_fad: '2014-01-01', eb3_dof: '2014-01-08' },
+  { month: 'Sep 2021', eb1_fad: '2021-09-01', eb1_dof: '2021-09-01', eb2_fad: '2011-09-01', eb2_dof: '2011-12-01', eb3_fad: '2014-01-01', eb3_dof: '2014-03-01' },
+  { month: 'Aug 2021', eb1_fad: '2021-08-01', eb1_dof: '2021-08-01', eb2_fad: '2011-06-01', eb2_dof: '2011-12-01', eb3_fad: '2013-07-01', eb3_dof: '2014-02-01' },
+  { month: 'Jul 2021', eb1_fad: '2021-07-01', eb1_dof: '2021-07-01', eb2_fad: '2011-06-01', eb2_dof: '2011-12-01', eb3_fad: '2013-01-01', eb3_dof: '2014-02-01' },
+  { month: 'Jun 2021', eb1_fad: '2021-06-01', eb1_dof: '2021-06-01', eb2_fad: '2010-12-01', eb2_dof: '2011-08-01', eb3_fad: '2011-11-01', eb3_dof: '2014-01-01' },
+  { month: 'May 2021', eb1_fad: '2021-05-01', eb1_dof: '2021-05-01', eb2_fad: '2010-08-01', eb2_dof: '2011-05-15', eb3_fad: '2011-02-01', eb3_dof: '2014-01-01' },
+  { month: 'Apr 2021', eb1_fad: '2021-04-01', eb1_dof: '2021-04-01', eb2_fad: '2010-05-01', eb2_dof: '2011-05-15', eb3_fad: '2010-09-01', eb3_dof: '2014-01-01' },
+  { month: 'Mar 2021', eb1_fad: '2020-08-01', eb1_dof: '2021-03-01', eb2_fad: '2010-01-15', eb2_dof: '2011-05-15', eb3_fad: '2010-07-01', eb3_dof: '2014-01-01' },
+  { month: 'Feb 2021', eb1_fad: '2020-01-01', eb1_dof: '2020-11-01', eb2_fad: '2009-10-12', eb2_dof: '2011-05-15', eb3_fad: '2010-04-01', eb3_dof: '2014-01-01' },
+  { month: 'Jan 2021', eb1_fad: '2019-09-01', eb1_dof: '2020-11-01', eb2_fad: '2009-10-08', eb2_dof: '2011-05-15', eb3_fad: '2010-03-22', eb3_dof: '2014-01-01' },
+  { month: 'Dec 2020', eb1_fad: '2019-04-01', eb1_dof: '2020-11-01', eb2_fad: '2009-10-01', eb2_dof: '2011-05-15', eb3_fad: '2010-03-15', eb3_dof: '2014-01-01' },
+  { month: 'Nov 2020', eb1_fad: '2018-12-01', eb1_dof: '2020-09-01', eb2_fad: '2009-09-22', eb2_dof: '2011-05-15', eb3_fad: '2010-03-01', eb3_dof: '2015-01-01' },
+  { month: 'Oct 2020', eb1_fad: '2018-06-01', eb1_dof: '2020-09-01', eb2_fad: '2009-09-01', eb2_dof: '2011-05-15', eb3_fad: '2010-01-15', eb3_dof: '2015-01-01' },
+  { month: 'Sep 2020', eb1_fad: '2018-03-01', eb1_dof: '2018-07-01', eb2_fad: '2009-07-08', eb2_dof: '2009-08-15', eb3_fad: '2009-10-01', eb3_dof: '2010-02-01' },
+  { month: 'Aug 2020', eb1_fad: '2018-02-08', eb1_dof: '2018-07-01', eb2_fad: '2009-07-08', eb2_dof: '2009-08-15', eb3_fad: '2009-10-01', eb3_dof: '2010-02-01' },
+  { month: 'Jul 2020', eb1_fad: '2017-05-08', eb1_dof: '2017-08-01', eb2_fad: '2009-07-08', eb2_dof: '2009-08-15', eb3_fad: '2009-06-01', eb3_dof: '2010-02-01' },
+  { month: 'Jun 2020', eb1_fad: '2016-06-08', eb1_dof: '2017-03-15', eb2_fad: '2009-06-12', eb2_dof: '2009-07-01', eb3_fad: '2009-04-01', eb3_dof: '2010-02-01' },
+  { month: 'May 2020', eb1_fad: '2015-08-01', eb1_dof: '2017-03-15', eb2_fad: '2009-06-02', eb2_dof: '2009-07-01', eb3_fad: '2009-03-01', eb3_dof: '2010-02-01' },
+  { month: 'Apr 2020', eb1_fad: '2015-05-01', eb1_dof: '2017-03-15', eb2_fad: '2009-05-25', eb2_dof: '2009-07-01', eb3_fad: '2009-01-22', eb3_dof: '2010-02-01' },
+  { month: 'Mar 2020', eb1_fad: '2015-03-01', eb1_dof: '2017-03-15', eb2_fad: '2009-05-22', eb2_dof: '2009-07-01', eb3_fad: '2009-01-15', eb3_dof: '2010-02-01' },
+  { month: 'Feb 2020', eb1_fad: '2015-01-01', eb1_dof: '2017-03-15', eb2_fad: '2009-05-19', eb2_dof: '2009-07-01', eb3_fad: '2009-01-08', eb3_dof: '2010-02-01' },
+  { month: 'Jan 2020', eb1_fad: '2015-01-01', eb1_dof: '2017-03-15', eb2_fad: '2009-05-18', eb2_dof: '2009-07-01', eb3_fad: '2009-01-01', eb3_dof: '2010-02-01' },
+  { month: 'Dec 2019', eb1_fad: '2015-01-01', eb1_dof: '2017-03-15', eb2_fad: '2009-05-15', eb2_dof: '2009-07-01', eb3_fad: '2009-01-01', eb3_dof: '2010-02-01' },
+  { month: 'Nov 2019', eb1_fad: '2015-01-01', eb1_dof: '2017-03-15', eb2_fad: '2009-05-13', eb2_dof: '2009-07-01', eb3_fad: '2009-01-01', eb3_dof: '2010-02-01' },
+  { month: 'Oct 2019', eb1_fad: '2015-01-01', eb1_dof: '2017-03-15', eb2_fad: '2009-05-12', eb2_dof: '2009-07-01', eb3_fad: '2009-01-01', eb3_dof: '2010-02-01' },
+];
+
+export const BULLETIN_TRACKER_HISTORY: HistoricalBulletinRow[] = [...HISTORICAL_BULLETINS, ...ARCHIVED_BULLETIN_TRACKER_HISTORY];
