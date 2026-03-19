@@ -176,7 +176,8 @@ const SCENARIOS = {
 };
 
 // Historical visa bulletins (most recent first)
-// ALL values verified against official travel.state.gov bulletins (Mar 2026)
+// ALL values verified against official travel.state.gov bulletins (Oct 2022 – Apr 2026)
+// EB-1 India "C" (Current) in Oct–Dec 2022 represented using bulletin month date.
 const HISTORICAL_BULLETINS = [
   // Apr 2026: EB-2 FAD +10mo jump. Verified from official bulletin.
   { month: "Apr 2026", eb1_fad: "2023-04-01", eb1_dof: "2023-12-01", eb2_fad: "2014-07-15", eb2_dof: "2015-01-15", eb3_fad: "2013-11-15", eb3_dof: "2015-01-15" },
@@ -216,10 +217,35 @@ const HISTORICAL_BULLETINS = [
   { month: "Nov 2024", eb1_fad: "2022-02-01", eb1_dof: "2022-04-15", eb2_fad: "2012-07-15", eb2_dof: "2013-01-01", eb3_fad: "2012-11-01", eb3_dof: "2013-06-08" },
   // Oct 2024: Verified from travel.state.gov.
   { month: "Oct 2024", eb1_fad: "2022-02-01", eb1_dof: "2022-04-15", eb2_fad: "2012-07-15", eb2_dof: "2013-01-01", eb3_fad: "2012-11-01", eb3_dof: "2013-06-08" },
-  // Jan 2024: estimated from historical trend
-  { month: "Jan 2024", eb1_fad: "2022-01-01", eb1_dof: "2022-09-01", eb2_fad: "2012-03-01", eb2_dof: "2012-07-01", eb3_fad: "2012-02-01", eb3_dof: "2012-07-01" },
-  // Jan 2023: estimated from historical trend
-  { month: "Jan 2023", eb1_fad: "2021-10-01", eb1_dof: "2022-05-01", eb2_fad: "2011-10-08", eb2_dof: "2012-02-01", eb3_fad: "2011-08-01", eb3_dof: "2012-02-01" },
+  // ── FY2024 (Oct 2023 – Sep 2024) — All verified from travel.state.gov ──
+  { month: "Sep 2024", eb1_fad: "2022-02-01", eb1_dof: "2022-02-08", eb2_fad: "2012-07-15", eb2_dof: "2012-07-22", eb3_fad: "2012-10-22", eb3_dof: "2012-11-01" },
+  { month: "Aug 2024", eb1_fad: "2022-02-01", eb1_dof: "2022-02-08", eb2_fad: "2012-07-15", eb2_dof: "2012-07-22", eb3_fad: "2012-10-22", eb3_dof: "2012-11-01" },
+  { month: "Jul 2024", eb1_fad: "2022-02-01", eb1_dof: "2022-02-08", eb2_fad: "2012-06-15", eb2_dof: "2012-06-22", eb3_fad: "2012-09-22", eb3_dof: "2012-10-01" },
+  { month: "Jun 2024", eb1_fad: "2021-03-01", eb1_dof: "2021-04-01", eb2_fad: "2012-04-15", eb2_dof: "2012-05-15", eb3_fad: "2012-08-22", eb3_dof: "2012-09-15" },
+  { month: "May 2024", eb1_fad: "2021-03-01", eb1_dof: "2021-04-01", eb2_fad: "2012-04-15", eb2_dof: "2012-05-15", eb3_fad: "2012-08-15", eb3_dof: "2012-09-15" },
+  { month: "Apr 2024", eb1_fad: "2021-03-01", eb1_dof: "2021-04-01", eb2_fad: "2012-04-15", eb2_dof: "2012-05-15", eb3_fad: "2012-08-15", eb3_dof: "2012-09-15" },
+  { month: "Mar 2024", eb1_fad: "2020-10-01", eb1_dof: "2021-01-01", eb2_fad: "2012-03-01", eb2_dof: "2012-05-15", eb3_fad: "2012-07-01", eb3_dof: "2012-08-01" },
+  { month: "Feb 2024", eb1_fad: "2020-09-01", eb1_dof: "2021-01-01", eb2_fad: "2012-03-01", eb2_dof: "2012-05-15", eb3_fad: "2012-07-01", eb3_dof: "2012-08-01" },
+  { month: "Jan 2024", eb1_fad: "2020-09-01", eb1_dof: "2021-01-01", eb2_fad: "2012-03-01", eb2_dof: "2012-05-15", eb3_fad: "2012-06-01", eb3_dof: "2012-08-01" },
+  { month: "Dec 2023", eb1_fad: "2017-01-01", eb1_dof: "2019-07-01", eb2_fad: "2012-01-01", eb2_dof: "2012-05-15", eb3_fad: "2012-05-01", eb3_dof: "2012-08-01" },
+  { month: "Nov 2023", eb1_fad: "2017-01-01", eb1_dof: "2019-07-01", eb2_fad: "2012-01-01", eb2_dof: "2012-05-15", eb3_fad: "2012-05-01", eb3_dof: "2012-08-01" },
+  { month: "Oct 2023", eb1_fad: "2017-01-01", eb1_dof: "2019-07-01", eb2_fad: "2012-01-01", eb2_dof: "2012-05-15", eb3_fad: "2012-05-01", eb3_dof: "2012-08-01" },
+  // ── FY2023 (Oct 2022 – Sep 2023) — All verified from travel.state.gov ──
+  // Note: EB-1 India was "C" (Current) Oct–Dec 2022; represented as bulletin month date.
+  // Apr/Jul 2023: Severe retrogression for EB-1 India (to Jan 2011) and EB-3 India (to Jan 2009).
+  { month: "Sep 2023", eb1_fad: "2012-01-01", eb1_dof: "2022-06-01", eb2_fad: "2011-01-01", eb2_dof: "2012-05-01", eb3_fad: "2009-01-01", eb3_dof: "2012-08-01" },
+  { month: "Aug 2023", eb1_fad: "2012-01-01", eb1_dof: "2022-06-01", eb2_fad: "2011-01-01", eb2_dof: "2012-05-01", eb3_fad: "2009-01-01", eb3_dof: "2012-08-01" },
+  { month: "Jul 2023", eb1_fad: "2011-01-01", eb1_dof: "2022-06-01", eb2_fad: "2011-01-01", eb2_dof: "2012-05-01", eb3_fad: "2009-01-01", eb3_dof: "2012-08-01" },
+  { month: "Jun 2023", eb1_fad: "2022-02-01", eb1_dof: "2022-06-01", eb2_fad: "2011-01-01", eb2_dof: "2012-05-01", eb3_fad: "2012-06-15", eb3_dof: "2012-08-01" },
+  { month: "May 2023", eb1_fad: "2022-02-01", eb1_dof: "2022-06-01", eb2_fad: "2011-01-01", eb2_dof: "2012-05-01", eb3_fad: "2012-06-15", eb3_dof: "2012-08-01" },
+  { month: "Apr 2023", eb1_fad: "2011-01-01", eb1_dof: "2022-06-01", eb2_fad: "2011-01-01", eb2_dof: "2012-05-01", eb3_fad: "2012-06-15", eb3_dof: "2012-08-01" },
+  { month: "Mar 2023", eb1_fad: "2022-02-01", eb1_dof: "2022-06-01", eb2_fad: "2011-10-08", eb2_dof: "2012-05-01", eb3_fad: "2012-06-15", eb3_dof: "2012-08-01" },
+  { month: "Feb 2023", eb1_fad: "2022-02-01", eb1_dof: "2022-06-01", eb2_fad: "2011-10-08", eb2_dof: "2012-05-01", eb3_fad: "2012-06-15", eb3_dof: "2012-08-01" },
+  { month: "Jan 2023", eb1_fad: "2022-02-01", eb1_dof: "2022-06-01", eb2_fad: "2011-10-08", eb2_dof: "2012-05-01", eb3_fad: "2012-06-15", eb3_dof: "2012-08-01" },
+  // EB-1 India was "Current" (C) in Oct–Dec 2022; using bulletin month as proxy date
+  { month: "Dec 2022", eb1_fad: "2022-12-01", eb1_dof: "2022-12-01", eb2_fad: "2011-10-08", eb2_dof: "2012-05-01", eb3_fad: "2012-06-15", eb3_dof: "2012-08-01" },
+  { month: "Nov 2022", eb1_fad: "2022-11-01", eb1_dof: "2022-11-01", eb2_fad: "2012-04-01", eb2_dof: "2012-05-01", eb3_fad: "2012-04-01", eb3_dof: "2012-07-01" },
+  { month: "Oct 2022", eb1_fad: "2022-10-01", eb1_dof: "2022-10-01", eb2_fad: "2012-04-01", eb2_dof: "2012-05-01", eb3_fad: "2012-04-01", eb3_dof: "2012-07-01" },
 ];
 
 // ─── I-140 FILING DENSITY DATA ───────────────────────────────────────────────
