@@ -905,17 +905,20 @@ export default function Home() {
               <p className="text-xs text-slate-400 mt-1.5">Change to see updated projections for any priority date.</p>
             </div>
             {/* Stats side */}
-            <div className={`flex items-stretch divide-x divide-slate-200 border-t md:border-t-0 md:border-l transition-all duration-300 ${
+            <div className={`grid grid-cols-3 md:flex md:items-stretch md:divide-x divide-slate-200 border-t md:border-t-0 md:border-l transition-all duration-300 ${
               dateFlash ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-slate-50'
             }`}>
               {[
-                { label: 'Current FAD', value: fmtDateStr(cat.currentFAD) },
-                { label: 'Gap', value: gapMonths > 0 ? `${gapMonths} mo` : 'Current' },
-                { label: 'Current DoF', value: fmtDateStr(cat.currentDoF) },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex flex-col justify-center items-center px-5 py-4 min-w-[100px]">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest whitespace-nowrap mb-1">{label}</p>
-                  <p className="font-mono font-bold text-slate-800 text-sm whitespace-nowrap">{value}</p>
+                { label: 'Current FAD', value: fmtDateStr(cat.currentFAD), tip: 'Final Action Date — the cutoff date for visa availability' },
+                { label: 'Gap', value: gapMonths > 0 ? `${gapMonths} mo` : 'Current', tip: 'Months between your priority date and the current Final Action Date' },
+                { label: 'Current DoF', value: fmtDateStr(cat.currentDoF), tip: 'Dates for Filing — the earliest date you can submit I-485' },
+              ].map(({ label, value, tip }) => (
+                <div key={label} className="flex flex-col justify-center items-center px-3 py-3 md:px-5 md:py-4 md:min-w-[100px] group relative">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest whitespace-nowrap mb-1 flex items-center gap-1">
+                    {label}
+                    <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-slate-200 text-slate-400 text-[8px] font-bold cursor-help" title={tip}>i</span>
+                  </p>
+                  <p className="font-mono font-bold text-slate-800 text-sm md:text-sm whitespace-nowrap">{value}</p>
                 </div>
               ))}
             </div>
@@ -937,34 +940,43 @@ export default function Home() {
                 </p>
               </div>
             ) : (
-              <div className="bg-gradient-to-br from-slate-800 to-slate-700 rounded-xl p-6 text-white">
-                <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-300 mb-4">
-                  When Will {fmtDateStr(targetDate)} Become Current? (Base Case)
+              <div className="bg-gradient-to-br from-slate-800 to-slate-700 rounded-xl p-6 text-white relative -mt-2 md:-mt-0">
+                <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-300 mb-1">
+                  Your Projection
                 </h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <span className="text-xs font-mono text-slate-400">{fmtDateStr(targetDate)}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider bg-slate-600 text-slate-300 px-2 py-0.5 rounded-full">Base Case</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6">
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Filing Date (DoF)</p>
-                    <p className="text-xl font-bold font-mono">{fmtDate(baseProjection.dofDate)}</p>
-                    <p className="text-xs text-slate-400 mt-1">Can file I-485</p>
+                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Filing Date (DoF)</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(baseProjection.dofDate)}</p>
+                    <p className="text-xs text-slate-500 mt-1.5">Can file I-485</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Final Action Date</p>
-                    <p className="text-xl font-bold font-mono">{fmtDate(baseProjection.fadDate)}</p>
-                    <p className="text-xs text-slate-400 mt-1">Visa becomes available</p>
+                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Final Action Date</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(baseProjection.fadDate)}</p>
+                    <p className="text-xs text-slate-500 mt-1.5">Visa becomes available</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">GC Receipt Est.</p>
-                    <p className="text-xl font-bold font-mono">{fmtDate(baseProjection.gcDate)}</p>
-                    <p className="text-xs text-slate-400 mt-1">~{cat.gcLagMonths}mo after FAD</p>
+                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">GC Receipt Est.</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(baseProjection.gcDate)}</p>
+                    <p className="text-xs text-slate-500 mt-1.5">~{cat.gcLagMonths}mo after FAD</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Months to FAD</p>
-                    <p className="text-xl font-bold font-mono">{baseProjection.monthsFromToday}</p>
-                    <p className="text-xs text-slate-400 mt-1">Base case estimate</p>
+                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Months to FAD</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{baseProjection.monthsFromToday}</p>
+                    <p className="text-sm font-mono text-slate-400 mt-0.5">
+                      {baseProjection.monthsFromToday >= 12
+                        ? `~${Math.floor(baseProjection.monthsFromToday / 12)} yr${Math.floor(baseProjection.monthsFromToday / 12) !== 1 ? 's' : ''} ${baseProjection.monthsFromToday % 12} mo`
+                        : `${baseProjection.monthsFromToday} mo`}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">Base case estimate</p>
                   </div>
                 </div>
-                <p className="text-xs text-slate-400 mt-4 border-t border-slate-600 pt-3">
-                  Base case assumes moderate spillover (30–40k extra EB visas in FY2027). See Scenarios tab for full range.
+                <p className="text-xs text-slate-400 mt-5 border-t border-slate-600 pt-3">
+                  Base case assumes moderate spillover (30-40k extra EB visas in FY2027). See Scenarios tab for full range.
                 </p>
               </div>
             )}
