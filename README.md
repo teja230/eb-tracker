@@ -20,12 +20,12 @@ The tracker is updated monthly when new visa bulletins are released by the U.S. 
 |-------------------------------|-------------------------------------------------------------------------------|
 | **Priority Date Calculator**  | Enter any priority date and instantly see DoF, FAD, and GC receipt estimates  |
 | **Multi-Category Support**    | EB-1 (Priority Workers), EB-2 (Advanced Degree), EB-3 (Skilled Workers)       |
-| **Four Scenario Projections** | Optimistic, Base Case, Conservative, and Pessimistic with probability weights |
+| **Four Scenario Projections** | Optimistic, Base, Conservative, Pessimistic — each with P10/P50/P90 ranges    |
 | **Historical Movement Chart** | Interactive chart with FAD/DoF lines, FY boundaries, and acceleration zones   |
 | **Queue Depth Chart**         | Demand density by PD year using hybrid I-485 inventory + I-140 approval data  |
 | **Bulletin Tracker**          | Historical Final Action Dates and Dates for Filing with Δ movement columns    |
 | **Adjust Assumptions**        | Tune spillover level, ban duration, and GC wastage to model custom scenarios  |
-| **Backtesting**               | Rolling 6-month MAE displayed alongside projections for model transparency    |
+| **Backtesting**               | Rolling 6-month MAE + 80% interval coverage for model transparency            |
 | **PDF/Text Export**           | Export personalized scenario estimates for sharing with immigration attorneys |
 
 ---
@@ -155,7 +155,9 @@ eb-tracker/
 ├── client/
 │   ├── src/
 │   │   ├── pages/
-│   │   │   └── Home.tsx              ← Main tracker component (all logic + UI)
+│   │   │   └── Home.tsx              ← Main tracker component (UI + data)
+│   │   ├── lib/
+│   │   │   └── forecast.ts          ← v8 probabilistic forecast engine
 │   │   ├── components/
 │   │   │   ├── ui/                   ← shadcn/ui primitives
 │   │   │   ├── PriorityDatePicker.tsx
