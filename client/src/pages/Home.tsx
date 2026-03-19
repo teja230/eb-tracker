@@ -6,33 +6,21 @@
  * - DM Sans + DM Mono typography
  * - Data-forward, trustworthy, professional
  *
- * ALGORITHM (v7 — Density + Seasonality Month-by-Month Model):
+ * ALGORITHM (v8 — Probabilistic Dual-Cutoff Simulator):
  *
- * Builds on the v6 density-weighted model with three enhancements:
+ * The forecast now simulates both FAD and DoF month by month instead of
+ * converting the entire gap with a single fixed rate. Each projected bulletin
+ * month combines:
  *
- * 1. MONTH-BY-MONTH PROJECTION: Instead of one-shot gap conversion, projects
- *    forward one calendar month at a time, applying density and seasonal
- *    adjustments at each step. This naturally handles transitions between
- *    PD-years with different demand densities.
+ * 1. The scenario's base FAD rate (still controlled by spillover / ban / wastage
+ *    assumptions in the Scenarios tab)
+ * 2. A historical FY-month movement pattern derived from verified bulletin data
+ * 3. A sampled residual from that FY-month's historical movement bucket
+ * 4. A demand-density slowdown using a hybrid curve built from USCIS I-485
+ *    inventory and scaled I-140 approvals
  *
- * 2. FY-MONTH SEASONALITY: Derives seasonal factors from historical bulletin
- *    movement data. Each FY-month (Oct=1..Sep=12) gets a factor representing
- *    its historical median advance relative to the overall median.
- *    E.g., Oct (new FY) may show retrogression while Aug-Sep show surges.
- *
- * 3. INDEPENDENT DOF MODEL: Instead of fixed dofLeadMonths, computes the
- *    rolling median of the historical DoF-FAD gap from bulletin data.
- *
- * 4. BACKTESTING: Rolling-window backtest computes 6-month-ahead prediction
- *    error (MAE) using only data available at each historical point.
- *
- * For each projected calendar month:
- *   seasonFactor    = historical median advance for that FY-month / overall median
- *   densityFactor   = sqrt(yearApprovals / refApprovals) for PD-year cursor
- *   monthAdvance    = fadAdvanceRate × seasonFactor / densityFactor
- *   calendarMonths += 1 (or pro-rated for last partial month)
- *
- *   estimatedDate = TODAY + sum(calendarMonths)
+ * That gives a path simulator which can produce both surges and retrogression,
+ * separate DoF and FAD forecasts, and a rolling 6-month backtest.
  *
  * Density data sources:
  *   Primary: USCIS I-485 Pending Inventory (as of Oct 2, 2025) — actual queue depth
@@ -63,6 +51,14 @@ import { toast } from 'sonner';
 import PriorityDatePicker from '@/components/PriorityDatePicker';
 import { useIsMobile } from '@/hooks/useMobile';
 import { jsPDF } from 'jspdf';
+import {
+  backtestForecast,
+  buildDemandCurve,
+  createForecastContext,
+  forecastScenario,
+  type BacktestSummary,
+  type ForecastProjection,
+} from '@/lib/forecast';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -151,63 +147,6 @@ const I140_INDIA_APPROVALS: Record<string, Record<number, number>> = {
   },
 };
 
-/**
- * Hybrid density lookup: returns a normalized demand signal for the given
- * category + PD year. Uses I-485 inventory where available, otherwise scales
- * I-140 approvals to I-485 magnitude at their overlap year.
- *
- * The two data sources are on very different scales (I-485 = remaining pending
- * cases, I-140 = annual approvals). To blend them, we compute a scale factor
- * at the overlap year (last I-485 year that also has I-140 data) and apply it
- * to all I-140 values. This produces a single continuous demand curve.
- */
-function getHybridDensity(category: string, pdYear: number): number | undefined {
-  const i485 = I485_INDIA_PENDING[category]?.[pdYear];
-  if (i485 !== undefined && i485 > 0) return i485;
-
-  const i140 = I140_INDIA_APPROVALS[category]?.[pdYear];
-  if (i140 === undefined) return undefined;
-
-  // Scale I-140 values to I-485 magnitude using overlap year
-  // For EB-2: overlap at 2014 → I-485=17,092 vs I-140=25,010 → scale=0.683
-  // For EB-3: overlap at 2014 → I-485=10,346 vs I-140=3,827 → scale=2.70
-  const i485Data = I485_INDIA_PENDING[category] ?? {};
-  const i140Data = I140_INDIA_APPROVALS[category] ?? {};
-  const overlapYears = Object.keys(i485Data)
-    .map(Number)
-    .filter(y => i485Data[y] > 0 && i140Data[y] !== undefined);
-
-  if (overlapYears.length === 0) return i140; // no overlap, use raw
-
-  // Use the last overlap year (closest to the I-140-only territory)
-  const overlapYear = Math.max(...overlapYears);
-  const scaleFactor = i485Data[overlapYear] / i140Data[overlapYear];
-  return i140 * scaleFactor;
-}
-
-/**
- * Compute weighted mean of hybrid density across all available years for a
- * category. Used as the reference value so density ratios reflect relative
- * variation, not artifacts of depleted residuals vs peak years.
- */
-function computeMeanDensity(category: string): number {
-  // Collect all years from both sources
-  const allYears = new Set<number>();
-  for (const y of Object.keys(I485_INDIA_PENDING[category] ?? {})) allYears.add(Number(y));
-  for (const y of Object.keys(I140_INDIA_APPROVALS[category] ?? {})) allYears.add(Number(y));
-
-  let sum = 0,
-    count = 0;
-  Array.from(allYears).forEach(y => {
-    const d = getHybridDensity(category, y);
-    if (d && d > 0) {
-      sum += d;
-      count++;
-    }
-  });
-  return count > 0 ? sum / count : 1;
-}
-
 // EB Category metadata — order determines tab display order (EB-1, EB-2, EB-3)
 const EB_CATEGORIES = {
   EB1: {
@@ -283,9 +222,6 @@ const SCENARIOS = {
     tailwindColor: 'emerald',
     spillover: '60k+ extra EB visas (FY2027 materializes at scale)',
     description: 'Large FY2027 spillover materializes. 75-country ban persists through Sept 2026, generating 60k+ extra EB visas. Historical parallel: COVID FY2021–22 created 120k+ extra EB visas.',
-    dofRange: 'Late 2026 – Early 2027',
-    fadRange: 'Late 2027 – 2028',
-    gcRange: '2028 – 2029',
   },
   base: {
     label: 'Base Case',
@@ -294,9 +230,6 @@ const SCENARIOS = {
     tailwindColor: 'blue',
     spillover: '30–40k extra EB visas (moderate spillover)',
     description: 'Moderate spillover with some retrogression. Ban generates 30–40k extra visas but offset by surge in I-485 filings and mid-year retrogression.',
-    dofRange: 'Mid–Late 2027',
-    fadRange: '2028 – 2029',
-    gcRange: '2029 – 2031',
   },
   conservative: {
     label: 'Conservative',
@@ -305,9 +238,6 @@ const SCENARIOS = {
     tailwindColor: 'amber',
     spillover: 'No spillover, reversion to pre-FY2026 pace',
     description: 'Ban reversed by courts, no spillover materializes. Movement reverts to pre-FY2026 pace of 2–4 months/year.',
-    dofRange: '2028 – 2029',
-    fadRange: '2030 – 2033',
-    gcRange: '2031 – 2035',
   },
   pessimistic: {
     label: 'Pessimistic',
@@ -316,9 +246,6 @@ const SCENARIOS = {
     tailwindColor: 'red',
     spillover: 'Stagnation / retrogression',
     description: 'Ban reversed, retrogression occurs, pace drops below pre-FY2026 levels. At FY2024 pace (3.5 months/year), Aug 2016 would not clear until ~2033.',
-    dofRange: '2030 – 2033',
-    fadRange: '2032 – 2036',
-    gcRange: '2033 – 2038',
   },
 };
 
@@ -825,218 +752,10 @@ function getHistoricalPointInsight(point: { month: string; fadRaw: number; dofRa
   };
 }
 
-// ─── EMPIRICAL ANALYSIS LAYER (v7 additions) ────────────────────────────────
-// Enhances the density-weighted model with:
-// - FY-month seasonality factors from historical bulletin data
-// - Month-by-month forward projection (replaces one-shot gap conversion)
-// - Independent DoF modeling from historical DoF-FAD gap (rolling median)
-// - Backtesting with MAE for transparent confidence reporting
-//
-// Existing density model and calibrated rates are preserved.
+// Forecast simulation now lives in client/src/lib/forecast.ts.
 
 type BulletinFadKey = 'eb1_fad' | 'eb2_fad' | 'eb3_fad';
 type BulletinDofKey = 'eb1_dof' | 'eb2_dof' | 'eb3_dof';
-
-/** Compute month-over-month FAD advances (in PD-months) from bulletin history */
-function computeHistoricalAdvances(fadKey: BulletinFadKey) {
-  const bulletins = [...HISTORICAL_BULLETINS].reverse(); // chronological order
-  const advances: { fyMonth: number; advance: number; month: string }[] = [];
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  for (let i = 1; i < bulletins.length; i++) {
-    const prevFad = bulletins[i - 1][fadKey] as string;
-    const currFad = bulletins[i][fadKey] as string;
-    const advance = monthsBetween(prevFad, currFad);
-    const calMonth = monthNames.indexOf(bulletins[i].month.split(' ')[0]);
-    const fyMonth = calMonth >= 9 ? calMonth - 8 : calMonth + 4; // Oct=1, Sep=12
-    advances.push({ fyMonth, advance, month: bulletins[i].month });
-  }
-  return advances;
-}
-
-/** Compute FY-month seasonal factors from historical advances.
- *  Factor >1 = above-average movement that FY-month; <1 = below-average. */
-function computeSeasonalFactors(advances: { fyMonth: number; advance: number }[]) {
-  const byFyMonth: Record<number, number[]> = {};
-  for (const a of advances) {
-    if (!byFyMonth[a.fyMonth]) byFyMonth[a.fyMonth] = [];
-    byFyMonth[a.fyMonth].push(a.advance);
-  }
-
-  const allAdvances = advances.map(a => a.advance).sort((a, b) => a - b);
-  const overallMedian = allAdvances.length > 0 ? allAdvances[Math.floor(allAdvances.length / 2)] : 0.5;
-
-  const factors: Record<number, number> = {};
-  for (let m = 1; m <= 12; m++) {
-    const vals = byFyMonth[m];
-    if (!vals || vals.length === 0) {
-      factors[m] = 1.0;
-    } else {
-      const sorted = [...vals].sort((a, b) => a - b);
-      const med = sorted[Math.floor(sorted.length / 2)];
-      factors[m] = overallMedian > 0 ? med / overallMedian : 1.0;
-    }
-  }
-  return factors;
-}
-
-/** Compute historical DoF-FAD gap in months. Returns rolling median. */
-function computeDofFadGap(fadKey: BulletinFadKey, dofKey: BulletinDofKey): number {
-  const gaps: number[] = [];
-  for (const b of HISTORICAL_BULLETINS) {
-    const gap = monthsBetween(b[fadKey] as string, b[dofKey] as string);
-    if (gap > 0) gaps.push(gap);
-  }
-  if (gaps.length === 0) return 6;
-  const sorted = [...gaps].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)];
-}
-
-/** Backtest: at each historical point, predict next N months of FAD movement
- *  using only prior data + density model. Returns MAE in PD-months. */
-function backtestModel(fadKey: BulletinFadKey, fadAdvanceRate: number, density: { category: string; refApprovals: number } | undefined, horizonMonths: number = 6): { mae: number; predictions: number } {
-  const bulletins = [...HISTORICAL_BULLETINS].reverse(); // chronological
-  if (bulletins.length < horizonMonths + 6) return { mae: 0, predictions: 0 };
-
-  const errors: number[] = [];
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  for (let t = 6; t < bulletins.length - horizonMonths; t++) {
-    // Build seasonal factors from history up to point t
-    const histAdvances: { fyMonth: number; advance: number }[] = [];
-    for (let i = 1; i <= t; i++) {
-      const advance = monthsBetween(bulletins[i - 1][fadKey] as string, bulletins[i][fadKey] as string);
-      const calMonth = monthNames.indexOf(bulletins[i].month.split(' ')[0]);
-      const fyMonth = calMonth >= 9 ? calMonth - 8 : calMonth + 4;
-      histAdvances.push({ fyMonth, advance });
-    }
-    const seasonal = computeSeasonalFactors(histAdvances);
-
-    // Predict month-by-month with density + seasonality
-    let predictedAdvancePD = 0;
-    let pdCursor = bulletins[t][fadKey] as string;
-
-    for (let h = 1; h <= horizonMonths; h++) {
-      const futureIdx = t + h;
-      if (futureIdx >= bulletins.length) break;
-
-      const calMonth = monthNames.indexOf(bulletins[futureIdx].month.split(' ')[0]);
-      const fyMonth = calMonth >= 9 ? calMonth - 8 : calMonth + 4;
-      const seasonFactor = seasonal[fyMonth] ?? 1.0;
-
-      let effectiveRate = fadAdvanceRate * seasonFactor;
-      if (density) {
-        const cursorYear = parseDateStr(pdCursor).getFullYear();
-        const yearDemand = getHybridDensity(density.category, cursorYear) ?? density.refApprovals;
-        const densityFactor = Math.sqrt(yearDemand / density.refApprovals);
-        effectiveRate = effectiveRate / densityFactor;
-      }
-
-      predictedAdvancePD += effectiveRate;
-      // Advance PD cursor
-      const d = parseDateStr(pdCursor);
-      d.setDate(d.getDate() + Math.round(effectiveRate * 30.44));
-      pdCursor = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    }
-
-    const actualAdvance = monthsBetween(bulletins[t][fadKey] as string, bulletins[Math.min(t + horizonMonths, bulletins.length - 1)][fadKey] as string);
-
-    errors.push(Math.abs(predictedAdvancePD - actualAdvance));
-  }
-
-  if (errors.length === 0) return { mae: 0, predictions: 0 };
-  const mae = errors.reduce((s, e) => s + e, 0) / errors.length;
-  return { mae: Math.round(mae * 10) / 10, predictions: errors.length };
-}
-
-/**
- * Core projection function (v7 — Density + Seasonality Month-by-Month Model).
- *
- * Enhances the density-weighted model with FY-month seasonal adjustments and
- * month-by-month forward projection. Keeps all existing density data and
- * calibrated rates.
- *
- * For each projected calendar month:
- *   fyMonth         = fiscal year month (Oct=1 .. Sep=12)
- *   seasonFactor    = historical median advance for that FY-month / overall median
- *   densityFactor   = sqrt(yearApprovals / refApprovals) for the PD-year cursor
- *   monthAdvance    = fadAdvanceRate × seasonFactor / densityFactor
- *
- * Sums calendar months until the PD gap is consumed.
- * DoF modeled independently via historical DoF-FAD gap median.
- */
-function computeProjection(currentFAD: string, targetDate: string, fadAdvanceRate: number, dofLeadMonths: number, gcLagMonths: number, density?: { category: string; refApprovals: number }, fadKey?: BulletinFadKey, dofKey?: BulletinDofKey) {
-  const gapPDMonths = monthsBetween(currentFAD, targetDate);
-
-  if (gapPDMonths <= 0) {
-    return {
-      isAlreadyCurrent: true,
-      monthsFromToday: 0,
-      fadDate: parseDateStr(currentFAD),
-      dofDate: parseDateStr(currentFAD),
-      gcDate: parseDateStr(currentFAD),
-      gapPDMonths: 0,
-    };
-  }
-
-  // Compute seasonal factors from bulletin history (if fadKey available)
-  const seasonal = fadKey ? computeSeasonalFactors(computeHistoricalAdvances(fadKey)) : null;
-
-  // Month-by-month forward projection with density + seasonality
-  let remainingPD = gapPDMonths;
-  let calendarMonths = 0;
-  let projMonth = TODAY.getMonth(); // 0-indexed calendar month
-  let pdCursorDate = parseDateStr(currentFAD);
-
-  while (remainingPD > 0.01 && calendarMonths < 600) {
-    const fyMonth = projMonth >= 9 ? projMonth - 8 : projMonth + 4;
-    const seasonFactor = seasonal?.[fyMonth] ?? 1.0;
-
-    // Start with calibrated rate × seasonal adjustment
-    let effectiveRate = fadAdvanceRate * seasonFactor;
-
-    // Apply hybrid density weighting for the PD-year the cursor is in
-    // Uses I-485 inventory (actual queue depth) where available,
-    // falls back to I-140 approvals for years beyond inventory coverage
-    if (density) {
-      const pdYear = pdCursorDate.getFullYear();
-      const yearDemand = getHybridDensity(density.category, pdYear) ?? density.refApprovals;
-      const densityFactor = Math.sqrt(yearDemand / density.refApprovals);
-      effectiveRate = effectiveRate / densityFactor;
-    }
-
-    const monthAdvance = Math.max(effectiveRate, 0.001);
-    if (remainingPD <= monthAdvance) {
-      calendarMonths += remainingPD / monthAdvance;
-      remainingPD = 0;
-    } else {
-      remainingPD -= monthAdvance;
-      calendarMonths += 1;
-    }
-
-    // Advance PD cursor
-    pdCursorDate = new Date(pdCursorDate);
-    pdCursorDate.setDate(pdCursorDate.getDate() + Math.round(monthAdvance * 30.44));
-
-    projMonth = (projMonth + 1) % 12;
-  }
-
-  const fadDate = addMonths(TODAY, calendarMonths);
-
-  // Independent DoF: use historical median gap if bulletin keys available
-  const empiricalDofLead = fadKey && dofKey ? computeDofFadGap(fadKey, dofKey) : dofLeadMonths;
-  const dofDate = addMonths(fadDate, -empiricalDofLead);
-  const gcDate = addMonths(fadDate, gcLagMonths);
-
-  return {
-    isAlreadyCurrent: false,
-    monthsFromToday: Math.round(calendarMonths),
-    fadDate,
-    dofDate,
-    gcDate,
-    gapPDMonths: Math.round(gapPDMonths),
-  };
-}
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
@@ -1158,36 +877,67 @@ export default function Home() {
   const fadKey: BulletinFadKey = selectedCategory === 'EB1' ? 'eb1_fad' : selectedCategory === 'EB3' ? 'eb3_fad' : 'eb2_fad';
   const dofKey: BulletinDofKey = selectedCategory === 'EB1' ? 'eb1_dof' : selectedCategory === 'EB3' ? 'eb3_dof' : 'eb2_dof';
 
-  // Compute projections for all scenarios (hybrid density + seasonality + month-by-month)
+  const categoryBulletins = useMemo(
+    () =>
+      [...HISTORICAL_BULLETINS].reverse().map(b => ({
+        month: b.month,
+        fad: b[fadKey] as string,
+        dof: b[dofKey] as string,
+      })),
+    [fadKey, dofKey]
+  );
+
+  const demandInputs = useMemo(
+    () => ({
+      i485: I485_INDIA_PENDING[selectedCategory] ?? {},
+      i140: I140_INDIA_APPROVALS[selectedCategory] ?? {},
+    }),
+    [selectedCategory]
+  );
+
+  const forecastContext = useMemo(
+    () =>
+      createForecastContext({
+        bulletins: categoryBulletins,
+        demand: demandInputs,
+      }),
+    [categoryBulletins, demandInputs]
+  );
+
+  // Compute projections for all scenarios (probabilistic dual-cutoff simulator)
   const projections = useMemo(() => {
-    const result: Record<string, ReturnType<typeof computeProjection>> = {};
-    const density = cat.density
-      ? {
-          category: cat.density.category,
-          refApprovals: computeMeanDensity(cat.density.category),
-        }
-      : undefined;
+    const result: Record<string, ForecastProjection> = {};
     for (const key of Object.keys(SCENARIOS) as Array<keyof typeof SCENARIOS>) {
-      result[key] = computeProjection(cat.currentFAD, targetDate, adjustedRates[key], cat.dofLeadMonths, cat.gcLagMonths, density, fadKey, dofKey);
+      result[key] = forecastScenario({
+        context: forecastContext,
+        today: TODAY,
+        currentFad: cat.currentFAD,
+        currentDof: cat.currentDoF,
+        targetDate,
+        baseFadRate: adjustedRates[key],
+        gcLagMonths: cat.gcLagMonths,
+        paths: 500,
+        maxMonths: 240,
+        seed: `${selectedCategory}:${targetDate}:${key}:${spilloverLevel}:${banContinues}:${wastageLevel}`,
+      });
     }
     return result;
-  }, [selectedCategory, targetDate, adjustedRates, cat, fadKey, dofKey]);
+  }, [forecastContext, cat.currentFAD, cat.currentDoF, cat.gcLagMonths, targetDate, adjustedRates, selectedCategory, spilloverLevel, banContinues, wastageLevel]);
 
-  // Backtest MAE for the base-case rate (6-month horizon)
-  const backtestResult = useMemo(() => {
-    const density = cat.density
-      ? {
-          category: cat.density.category,
-          refApprovals: computeMeanDensity(cat.density.category),
-        }
-      : undefined;
-    return backtestModel(fadKey, cat.rates.base, density, 6);
-  }, [selectedCategory, cat, fadKey]);
-
-  // Empirical DoF lead (independent model)
-  const empiricalDofLead = useMemo(() => {
-    return Math.round(computeDofFadGap(fadKey, dofKey) * 10) / 10;
-  }, [fadKey, dofKey]);
+  // Backtest the same simulator used for live forecasts.
+  const backtestResult: BacktestSummary = useMemo(
+    () =>
+      backtestForecast({
+        bulletins: categoryBulletins,
+        demand: demandInputs,
+        baseFadRate: cat.rates.base,
+        gcLagMonths: cat.gcLagMonths,
+        horizonMonths: 6,
+        paths: 200,
+        seed: `${selectedCategory}:backtest`,
+      }),
+    [categoryBulletins, demandInputs, cat.rates.base, cat.gcLagMonths, selectedCategory]
+  );
 
   const baseProjection = projections.base;
   const gapMonths = Math.max(0, Math.round(monthsBetween(cat.currentFAD, targetDate)));
@@ -1293,13 +1043,8 @@ export default function Home() {
     const catKey = selectedCategory;
     const i485 = I485_INDIA_PENDING[catKey] ?? {};
     const i140 = I140_INDIA_APPROVALS[catKey] ?? {};
-
-    // Compute I-140 → I-485 scale factor at overlap year
-    const overlapYears = Object.keys(i485)
-      .map(Number)
-      .filter(y => i485[y] > 0 && i140[y] !== undefined);
-    const overlapYear = overlapYears.length > 0 ? Math.max(...overlapYears) : null;
-    const scaleFactor = overlapYear ? i485[overlapYear] / i140[overlapYear] : 1;
+    const demandCurve = buildDemandCurve({ i485, i140 });
+    const scaleFactor = demandCurve.scaleFactor;
 
     // Collect all years, determine range around current FAD and target PD
     const fadYear = parseDateStr(cat.currentFAD).getFullYear();
@@ -1604,7 +1349,12 @@ export default function Home() {
     doc.setTextColor(100, 116, 139);
     doc.text('METHODOLOGY', margin, y);
     y += 5;
-    const methodLines = ['Uses the FAD Advance Rate Model: months_to_FAD = gap_PD_months ÷ fad_advance_rate', 'Rates are calibrated from research documents and historical visa bulletin data.', 'DoF (Date for Filing) leads FAD by approximately 6 months.', 'GC receipt follows FAD by approximately 12–18 months.'];
+    const methodLines = [
+      'Uses a probabilistic month-by-month simulator for both FAD and DoF, rather than a single gap divided by one static rate.',
+      'Each simulated bulletin month samples historical seasonality and volatility, then adjusts movement for demand density using USCIS I-485 inventory with scaled I-140 fallback data.',
+      'Scenario assumptions still control the base FAD rate through spillover, ban duration, and wastage multipliers.',
+      'Displayed dates are medians (P50) with an 80% interval, and the backtest badge reports 6-month FAD forecast MAE and interval hit rate.',
+    ];
     methodLines.forEach(line => {
       checkPage(6);
       doc.setFont('helvetica', 'normal');
@@ -1833,22 +1583,26 @@ export default function Home() {
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Filing Date (DoF)</p>
                     <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(baseProjection.dofDate)}</p>
-                    <p className="text-xs text-slate-500 mt-1.5">Can file I-485</p>
+                    <p className="text-xs text-slate-500 mt-1.5">P50 estimate</p>
+                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(baseProjection.dofRange.p10)} - {fmtDate(baseProjection.dofRange.p90)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Final Action Date</p>
                     <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(baseProjection.fadDate)}</p>
-                    <p className="text-xs text-slate-500 mt-1.5">Visa becomes available</p>
+                    <p className="text-xs text-slate-500 mt-1.5">P50 estimate</p>
+                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(baseProjection.fadRange.p10)} - {fmtDate(baseProjection.fadRange.p90)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">GC Receipt Est.</p>
                     <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(baseProjection.gcDate)}</p>
-                    <p className="text-xs text-slate-500 mt-1.5">~{fmtDuration(cat.gcLagMonths)} after FAD</p>
+                    <p className="text-xs text-slate-500 mt-1.5">P50 estimate</p>
+                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(baseProjection.gcRange.p10)} - {fmtDate(baseProjection.gcRange.p90)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Time to FAD</p>
                     <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDuration(baseProjection.monthsFromToday)}</p>
-                    <p className="text-xs text-slate-500 mt-1">Base case estimate</p>
+                    <p className="text-xs text-slate-500 mt-1">Base case median</p>
+                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDuration(Math.round(baseProjection.fadMonths.p10))} - {fmtDuration(Math.round(baseProjection.fadMonths.p90))}</p>
                   </div>
                 </div>
                 <div className="text-xs text-slate-400 mt-5 border-t border-slate-600 pt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -1860,9 +1614,8 @@ export default function Home() {
                         MAE: ±{backtestResult.mae} mo
                       </span>
                     )}
-                    <span className="flex items-center gap-1 bg-slate-600/50 px-2 py-0.5 rounded-full" title="DoF-FAD gap derived from historical bulletin data">
-                      DoF lead: {empiricalDofLead} mo
-                    </span>
+                    {backtestResult.predictions > 0 && <span className="flex items-center gap-1 bg-slate-600/50 px-2 py-0.5 rounded-full" title="Share of 6-month backtest windows where the actual FAD landed inside the model's 80% interval">80% hit: {Math.round(backtestResult.coverage80 * 100)}%</span>}
+                    <span className="flex items-center gap-1 bg-slate-600/50 px-2 py-0.5 rounded-full" title="Share of simulated paths where at least one monthly retrogression occurred before the target became current">Retrogression risk: {Math.round(baseProjection.retrogressionRisk * 100)}%</span>
                   </div>
                 </div>
               </div>
@@ -2208,25 +1961,25 @@ export default function Home() {
             </button>
             {showMethodology && (
               <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs text-slate-600 space-y-2">
-                <p className="font-semibold text-slate-800">Hybrid Density + Seasonality Month-by-Month Model (v7)</p>
+                <p className="font-semibold text-slate-800">Probabilistic Dual-Cutoff Simulator (v8)</p>
                 <p>
-                  Projects FAD forward <strong>one calendar month at a time</strong>, applying both demand density and FY-month seasonal adjustments at each step.
+                  Simulates both <strong>FAD and DoF month by month</strong>. Each future bulletin month samples from historical movement patterns instead of assuming one smooth, fixed rate.
                 </p>
                 <p>
-                  For each month: <code className="bg-slate-200 px-1 rounded">effective_rate = base_rate × season_factor ÷ √(demand ÷ ref_demand)</code>
+                  For each simulated month: <code className="bg-slate-200 px-1 rounded">delta = base_rate × (seasonality + residual sample) ÷ √(demand ÷ ref)</code>
                 </p>
                 <p>
-                  <strong>Hybrid density:</strong> Uses <strong>USCIS I-485 pending inventory</strong> (Oct 2025) where available — actual queue depth by PD year. Falls back to <strong>I-140 approval counts</strong> (FY2025 Q3) for PD years beyond inventory coverage, scaled to I-485 magnitude at the overlap year. Reference = weighted mean across all years. EB-2 India: PD-2014 = 17,092 pending, PD-2015 = 21,559 (scaled), PD-2016 = 32,436 (scaled, densest).
+                  <strong>Demand curve:</strong> Uses <strong>USCIS I-485 pending inventory</strong> (Oct 2025) where available and falls back to <strong>I-140 approval counts</strong> (FY2025 Q3) beyond inventory coverage. The fallback is scaled using the <strong>median overlap ratio</strong>, and demand ratios are clipped before applying the square-root slowdown.
                 </p>
                 <p>
-                  <strong>Seasonality:</strong> Derived from 43 months of verified bulletin data. Each FY-month gets a factor based on its historical median advance vs overall median.
+                  <strong>Seasonality and volatility:</strong> Derived from 43 months of verified bulletin data. Each FY-month has its own bucket of historical residuals, which means the live model can simulate both surges and retrogression.
                 </p>
                 <p>
-                  <strong>DoF model:</strong> Independent — uses rolling median of historical DoF-FAD gap instead of fixed offset.
+                  <strong>DoF model:</strong> Independent — DoF is simulated from its own historical movement series instead of being forced to equal FAD minus a fixed offset.
                 </p>
-                <p>Scenario rates calibrated against 43 months of verified visa bulletin data (Oct 2022–Apr 2026). Data sources: DOS Visa Bulletins (travel.state.gov), USCIS I-485 Inventory & I-140 Performance Data (uscis.gov), Cato Institute policy analysis.</p>
+                <p>Scenario assumptions in the Scenarios tab are unchanged. They still scale the base FAD rate through spillover, ban duration, and wastage multipliers before the simulator runs.</p>
                 <p>
-                  DoF estimate = FAD estimate − {cat.dofLeadMonths} months. GC receipt estimate = FAD estimate + {cat.gcLagMonths} months.
+                  Forecast cards show the <strong>median (P50)</strong> date plus an <strong>80% interval</strong>. The backtest badge reports 6-month FAD MAE and how often the actual bulletin landed inside the model's 80% interval.
                 </p>
                 <p className="text-slate-400">Disclaimer: Estimates are probabilistic and may change with policy shifts, retrogression, or legislative action.</p>
               </div>
@@ -2372,9 +2125,9 @@ export default function Home() {
                     <div className="bg-slate-50 rounded-lg p-4">
                       <p className="text-xs font-bold text-slate-800 mb-1">How the Model Works</p>
                       <p className="text-xs text-slate-600 leading-relaxed">
-                        Projects FAD forward <strong>month by month</strong>. Each step adjusts for demand density (I-485 inventory + I-140 data) and FY-month seasonality. These controls scale the base advance rate — the combined multiplier applies to every projected month.
+                        Runs 500 simulated bulletin paths per scenario. Each month samples historical movement, then adjusts for demand density before applying the same spillover, ban-duration, and wastage controls shown above.
                       </p>
-                      <div className="mt-2 text-xs text-slate-500 font-mono bg-white rounded px-2 py-1 leading-relaxed">each month: rate × (spillover × ban × wastage) × season ÷ √density</div>
+                      <div className="mt-2 text-xs text-slate-500 font-mono bg-white rounded px-2 py-1 leading-relaxed">each month: rate × (season + residual sample) × assumptions ÷ sqrt(density)</div>
                     </div>
                   </div>
                 </div>
@@ -2401,19 +2154,25 @@ export default function Home() {
                     <p className="text-xs text-slate-600 mb-3">{s.description}</p>
                     <div className="border-t border-slate-100 pt-3 grid grid-cols-3 gap-2 text-xs">
                       <div>
-                        <p className="text-slate-500 mb-0.5">DoF Reaches</p>
+                        <p className="text-slate-500 mb-0.5">DoF P50</p>
                         <p className="font-bold font-mono text-slate-900">{p.isAlreadyCurrent ? 'Current' : fmtDate(p.dofDate)}</p>
+                        {!p.isAlreadyCurrent && <p className="text-[11px] text-slate-400 mt-1">{fmtDate(p.dofRange.p10)} - {fmtDate(p.dofRange.p90)}</p>}
                       </div>
                       <div>
-                        <p className="text-slate-500 mb-0.5">FAD Reaches</p>
+                        <p className="text-slate-500 mb-0.5">FAD P50</p>
                         <p className="font-bold font-mono text-slate-900">{p.isAlreadyCurrent ? 'Current' : fmtDate(p.fadDate)}</p>
+                        {!p.isAlreadyCurrent && <p className="text-[11px] text-slate-400 mt-1">{fmtDate(p.fadRange.p10)} - {fmtDate(p.fadRange.p90)}</p>}
                       </div>
                       <div>
-                        <p className="text-slate-500 mb-0.5">GC Receipt</p>
+                        <p className="text-slate-500 mb-0.5">GC P50</p>
                         <p className="font-bold font-mono text-slate-900">{p.isAlreadyCurrent ? 'Current' : fmtDate(p.gcDate)}</p>
+                        {!p.isAlreadyCurrent && <p className="text-[11px] text-slate-400 mt-1">{fmtDate(p.gcRange.p10)} - {fmtDate(p.gcRange.p90)}</p>}
                       </div>
                     </div>
-                    <div className="mt-2 text-xs text-slate-400">{p.isAlreadyCurrent ? 'Already current' : `FAD in ${fmtDuration(p.monthsFromToday)}`}</div>
+                    <div className="mt-2 text-xs text-slate-400 flex items-center justify-between gap-2">
+                      <span>{p.isAlreadyCurrent ? 'Already current' : `FAD median in ${fmtDuration(p.monthsFromToday)}`}</span>
+                      <span>Retro risk {Math.round(p.retrogressionRisk * 100)}%</span>
+                    </div>
                   </div>
                 );
               })}
@@ -2445,36 +2204,41 @@ export default function Home() {
               </ResponsiveContainer>
             </Card>
 
-            {/* Research-backed scenario table */}
+            {/* Model-generated scenario table */}
             <Card className="p-5">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">Research-Backed Ranges (Aug 2016 PD)</h3>
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Model Ranges (80% interval)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50">
                       <th className="px-3 py-2 text-left font-semibold text-slate-700">Scenario</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-700">DoF Reaches Aug 2016</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-700">FAD Reaches Aug 2016</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-700">GC Receipt</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-700">DoF Range</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-700">FAD Range</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-700">GC Range</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-700">Retrogression Risk</th>
                       <th className="px-3 py-2 text-left font-semibold text-slate-700">Probability</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(Object.entries(SCENARIOS) as Array<[keyof typeof SCENARIOS, (typeof SCENARIOS)[keyof typeof SCENARIOS]]>).map(([key, s]) => (
-                      <tr key={key} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="px-3 py-2 font-semibold" style={{ color: s.color }}>
-                          {s.label}
-                        </td>
-                        <td className="px-3 py-2 font-mono text-slate-700">{s.dofRange}</td>
-                        <td className="px-3 py-2 font-mono text-slate-700">{s.fadRange}</td>
-                        <td className="px-3 py-2 font-mono text-slate-700">{s.gcRange}</td>
-                        <td className="px-3 py-2 text-slate-600">{s.probability}</td>
-                      </tr>
-                    ))}
+                    {(Object.entries(SCENARIOS) as Array<[keyof typeof SCENARIOS, (typeof SCENARIOS)[keyof typeof SCENARIOS]]>).map(([key, s]) => {
+                      const p = projections[key];
+                      return (
+                        <tr key={key} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="px-3 py-2 font-semibold" style={{ color: s.color }}>
+                            {s.label}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-slate-700">{p.isAlreadyCurrent ? 'Current' : `${fmtDate(p.dofRange.p10)} - ${fmtDate(p.dofRange.p90)}`}</td>
+                          <td className="px-3 py-2 font-mono text-slate-700">{p.isAlreadyCurrent ? 'Current' : `${fmtDate(p.fadRange.p10)} - ${fmtDate(p.fadRange.p90)}`}</td>
+                          <td className="px-3 py-2 font-mono text-slate-700">{p.isAlreadyCurrent ? 'Current' : `${fmtDate(p.gcRange.p10)} - ${fmtDate(p.gcRange.p90)}`}</td>
+                          <td className="px-3 py-2 text-slate-600">{Math.round(p.retrogressionRisk * 100)}%</td>
+                          <td className="px-3 py-2 text-slate-600">{s.probability}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-slate-400 mt-2">Sources: DOS Visa Bulletins (travel.state.gov), USCIS I-485 Inventory & I-140 Performance Data (uscis.gov)</p>
+              <p className="text-xs text-slate-400 mt-2">Ranges are generated from 500 simulated bulletin paths per scenario using the same engine used in the live forecast cards.</p>
             </Card>
           </div>
         )}

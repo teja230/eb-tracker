@@ -30,28 +30,31 @@ The tracker is updated monthly when new visa bulletins are released by the U.S. 
 
 ---
 
-## Projection Algorithm (v7)
+## Projection Algorithm (v8)
 
-### Density + Seasonality Month-by-Month Model
+### Probabilistic Dual-Cutoff Simulator
 
-The tracker projects FAD forward **one calendar month at a time**, applying demand density and seasonal adjustments at each step:
+The tracker runs **500 Monte Carlo paths per scenario**, simulating both FAD and DoF month by month. Each simulated bulletin month:
 
 ```
-each month: effectiveRate = fadAdvanceRate × seasonFactor / √densityFactor
+delta = baseRate × clamp(seasonality + residualSample, -2.25, 3.25) / √clamp(demand/ref, 0.6, 1.8)
 ```
 
 **Where:**
-- `fadAdvanceRate` — Calibrated PD-months/calendar-month (scenario-dependent, adjusted by simulator multipliers)
-- `seasonFactor` — FY-month seasonal factor derived from historical bulletin movement (median advance for that FY-month ÷ overall median)
-- `densityFactor` — `sqrt(yearDemand / refDemand)` for the PD-year the cursor is currently in
+- `baseRate` — Scenario's calibrated FAD rate, scaled by assumption multipliers (spillover × ban × wastage)
+- `seasonality` — FY-month factor derived from historical bulletin movement (clamped 0.65–1.6)
+- `residualSample` — Randomly drawn from that FY-month's historical residual bucket (70% bucket / 30% overall)
+- `demand/ref` — Hybrid demand curve value for the current PD-year cursor ÷ median reference
 
-**Demand density data (hybrid model):**
+**Demand curve (hybrid model):**
 - **Primary**: USCIS I-485 Pending Inventory (Oct 2025) — actual queue depth by PD year
-- **Fallback**: USCIS I-140 Approval Data (FY2025 Q3) — scaled to I-485 magnitude at the overlap year, used for PD years beyond inventory coverage (2015+)
+- **Fallback**: USCIS I-140 Approval Data (FY2025 Q3) — scaled to I-485 magnitude using median overlap ratio
 
-**Derived estimates:**
-- **Dates for Filing (DoF)** — Independent model using rolling median of historical DoF–FAD gap from bulletin data
-- **GC Receipt** = FAD estimate + category-specific lag (EB-2: ~15 months)
+**Output per scenario:**
+- **P10 / P50 / P90** quantile dates for DoF, FAD, and GC receipt
+- **Retrogression risk** — % of paths where at least one negative month occurred
+- **DoF** modeled independently from its own historical series (not FAD minus fixed offset)
+- **GC Receipt** = FAD + category-specific lag (EB-2: ~15 months)
 
 ### Scenario Rates (EB-2 India)
 
@@ -62,7 +65,7 @@ each month: effectiveRate = fadAdvanceRate × seasonFactor / √densityFactor
 | Conservative | 0.45               | 30%         | No spillover, reversion to pre-FY2026 pace   |
 | Pessimistic  | 0.275              | 10–15%      | Ban reversed, stagnation / retrogression     |
 
-Rates are calibrated from historical visa bulletin data (Oct 2022–Apr 2026). Backtesting uses a rolling 6-month window to compute MAE (Mean Absolute Error) against historical actuals.
+Rates are calibrated from 43 months of verified visa bulletin data (Oct 2022–Apr 2026). Backtesting uses rolling 6-month windows to compute MAE and 80% interval coverage.
 
 ### Simulator Multipliers
 
@@ -124,16 +127,9 @@ Presidential Proclamations 10949 & 10998 (January 2026) indefinitely paused immi
 
 ---
 
-## Estimate for August 2016 Priority Date (EB-2 India)
+## Example: August 2016 Priority Date (EB-2 India)
 
-As of April 2026, the EB-2 India FAD is **Jul 15, 2014** — 25 priority-date months away from Aug 2016.
-
-| Scenario     | DoF Reaches Aug 2016   | FAD Reaches Aug 2016 | GC Receipt  | Probability |
-|--------------|------------------------|----------------------|-------------|-------------|
-| Optimistic   | Late 2026 – Early 2027 | Late 2027 – 2028     | 2028 – 2029 | 15–20%      |
-| Base Case    | Mid–Late 2027          | 2028 – 2029          | 2029 – 2031 | 40%         |
-| Conservative | 2028 – 2029            | 2030 – 2033          | 2031 – 2035 | 30%         |
-| Pessimistic  | 2030 – 2033            | 2032 – 2036          | 2033 – 2038 | 10–15%      |
+As of April 2026, the EB-2 India FAD is **Jul 15, 2014** — 25 priority-date months away from Aug 2016. The simulator generates 500 paths per scenario; displayed dates are P50 medians with 80% intervals (P10–P90). Actual ranges are dynamically computed — see the live app for current output.
 
 ---
 
