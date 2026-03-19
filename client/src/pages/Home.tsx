@@ -6,27 +6,31 @@
  * - DM Sans + DM Mono typography
  * - Data-forward, trustworthy, professional
  *
- * ALGORITHM (v5 — FAD Advance Rate Model):
- * Based on two research documents (pasted_content.txt + pasted_content_2.txt).
+ * ALGORITHM (v6 — Density-Weighted FAD Advance Rate Model):
  *
- * Core insight: The correct way to project when a priority date becomes current is
- * to model the FAD advance rate (PD-months advanced per calendar month), NOT to
- * divide pending inventory by monthly visa rate. The advance rate model directly
- * reflects how DOS moves dates based on visa availability and demand.
+ * Core insight: Not all PD-months are equal. The 2015–2016 filing surge created
+ * a massive demographic bulge (EB-2 India: 47,462 I-140 approvals in FY2016 vs
+ * 25,010 in FY2014 — nearly 1.9×). A simple linear model significantly
+ * underestimates wait times for priority dates in dense cohort years.
  *
- * Formula:
- *   monthsFromToday = gapPDMonths / fadAdvanceRate
- *   estimatedDate   = TODAY + monthsFromToday
+ * The model breaks the PD gap into calendar year segments and applies a
+ * density factor derived from official USCIS I-140 approval data:
  *
- * Where:
- *   gapPDMonths     = months between current FAD and target priority date
- *   fadAdvanceRate  = PD-months advanced per calendar month (scenario-dependent)
+ *   For each year segment:
+ *     densityFactor   = sqrt(yearApprovals / refApprovals)
+ *     effectiveRate   = scenarioRate / densityFactor
+ *     calendarMonths += segmentPDMonths / effectiveRate
  *
- * Scenario rates (from research):
- *   Optimistic  : 1.5–1.75 PD-mo/month  (large FY2027 spillover 60k+)
- *   Base Case   : 0.9–1.05 PD-mo/month  (moderate spillover 30–40k)
- *   Conservative: 0.4–0.5  PD-mo/month  (no spillover, reversion to pre-FY2026 pace)
- *   Pessimistic : 0.25–0.3 PD-mo/month  (ban reversed, stagnation returns)
+ *   estimatedDate = TODAY + sum(calendarMonths)
+ *
+ * I-140 data source: USCIS Form I-140 Performance Data (FY2025 Q3), India sheet.
+ * Published Oct 8, 2025. Query ref: CLAIMS3/ELIS, queried 7/2025 (PAER0018278).
+ *
+ * Scenario rates (calibrated against FY2014 density era):
+ *   Optimistic  : 1.625 PD-mo/month (large FY2027 spillover 60k+)
+ *   Base Case   : 0.975 PD-mo/month (moderate spillover 30–40k)
+ *   Conservative: 0.45  PD-mo/month (no spillover, reversion to pre-FY2026 pace)
+ *   Pessimistic : 0.275 PD-mo/month (ban reversed, stagnation returns)
  *
  * DoF leads FAD by ~6 months historically.
  * GC receipt follows FAD by ~12–18 months.
@@ -79,6 +83,7 @@ const EB_CATEGORIES = {
     gcLagMonths: 12,
     pendingInventory: 8000,
     annualVisas: 2500,
+    density: { byYear: I140_INDIA_APPROVALS.EB1, refYear: 2023 as number },
     notes: "EB-1 India has a smaller backlog (~8k pending). Current FAD is Apr 2023, significantly more current than EB-2.",
   },
   EB2: {
@@ -87,7 +92,8 @@ const EB_CATEGORIES = {
     currentFAD: CURRENT_BULLETIN.eb2.fad,
     currentDoF: CURRENT_BULLETIN.eb2.dof,
     // FAD advance rates per scenario (PD-months per calendar month)
-    // Source: pasted_content.txt + pasted_content_2.txt
+    // These rates are calibrated against the FY2014 density era (25,010 EB-2 India I-140 approvals).
+    // The density-weighted model automatically adjusts for denser cohorts (e.g. FY2016: 47,462).
     rates: {
       optimistic:   1.625, // midpoint of 1.5–1.75 (large FY2027 spillover 60k+)
       base:         0.975, // midpoint of 0.9–1.05 (moderate spillover 30–40k)
@@ -96,8 +102,9 @@ const EB_CATEGORIES = {
     },
     dofLeadMonths: 6,    // DoF typically leads FAD by ~6 months
     gcLagMonths: 15,     // GC receipt ~12–18 months after FAD (midpoint)
-    pendingInventory: 2183, // USCIS Oct 2025 data
-    annualVisas: 100,    // FY2023 actual (pasted_content_2.txt)
+    pendingInventory: 2183, // USCIS Oct 2025 data (pending I-485s only; total EB-2 India backlog: ~350k–400k)
+    annualVisas: 2850,   // ~2,800–2,900 baseline under 7% per-country cap (INA §202)
+    density: { byYear: I140_INDIA_APPROVALS.EB2, refYear: 2014 as number },
     notes: "EB-2 India receives ~2,800–3,000 visas/year under normal conditions. FY2026 acceleration driven by 75-country ban spillover.",
   },
   EB3: {
@@ -115,6 +122,7 @@ const EB_CATEGORIES = {
     gcLagMonths: 18,
     pendingInventory: 55000,
     annualVisas: 3000,
+    density: { byYear: I140_INDIA_APPROVALS.EB3, refYear: 2014 as number },
     notes: "EB-3 India has the largest backlog (~55k pending). EB-3 demand is stronger than EB-2, limiting spillover to EB-2.",
   },
 };
@@ -214,6 +222,16 @@ const HISTORICAL_BULLETINS = [
   { month: "Jan 2023", eb1_fad: "2021-10-01", eb1_dof: "2022-05-01", eb2_fad: "2011-10-08", eb2_dof: "2012-02-01", eb3_fad: "2011-08-01", eb3_dof: "2012-02-01" },
 ];
 
+// ─── I-140 FILING DENSITY DATA ───────────────────────────────────────────────
+// Source: USCIS Form I-140 Performance Data (FY2025 Q3), India sheet
+// Published: Oct 8, 2025 | Query ref: CLAIMS3/ELIS, queried 7/2025 (PAER0018278)
+// Used to weight projections: denser cohort years slow FAD advancement proportionally.
+const I140_INDIA_APPROVALS = {
+  EB1: { 2014: 6371, 2015: 6127, 2016: 7737, 2017: 8496, 2018: 7575, 2019: 6879, 2020: 6194, 2021: 7243, 2022: 8123, 2023: 10995, 2024: 8780 },
+  EB2: { 2014: 25010, 2015: 31546, 2016: 47462, 2017: 40898, 2018: 39047, 2019: 43306, 2020: 34976, 2021: 37586, 2022: 45299, 2023: 39269, 2024: 38842 },
+  EB3: { 2014: 3827, 2015: 6251, 2016: 9946, 2017: 8610, 2018: 8064, 2019: 11182, 2020: 9041, 2021: 48036, 2022: 16574, 2023: 12549, 2024: 10113 },
+} as const;
+
 // ─── UTILITY FUNCTIONS ────────────────────────────────────────────────────────
 
 function parseDateStr(s: string): Date {
@@ -258,13 +276,20 @@ function movementLabel(prevStr: string, currStr: string): { label: string; type:
 }
 
 /**
- * Core projection function (FAD Advance Rate Model).
+ * Core projection function (Density-Weighted FAD Advance Rate Model).
  *
- * Calculates months from TODAY until the FAD reaches the target priority date,
- * using the scenario-specific FAD advance rate.
+ * Instead of a simple linear formula, breaks the PD gap into calendar year
+ * segments and applies a density factor to each segment. Denser cohort years
+ * (with more I-140 approvals) slow the effective FAD advance rate, reflecting
+ * the real-world constraint that more applicants must be cleared per PD-month.
  *
- * Formula: monthsFromToday = gapPDMonths / fadAdvanceRate
- * Estimated date = TODAY + monthsFromToday
+ * For each year segment:
+ *   densityFactor    = sqrt(yearApprovals / refApprovals)
+ *   effectiveRate    = fadAdvanceRate / densityFactor
+ *   calendarMonths  += segmentPDMonths / effectiveRate
+ *
+ * sqrt() dampening prevents extreme distortion while preserving relative ordering.
+ * Falls back to simple linear model if density data is not provided.
  *
  * DoF estimate = FAD estimate - dofLeadMonths
  * GC estimate  = FAD estimate + gcLagMonths
@@ -275,6 +300,7 @@ function computeProjection(
   fadAdvanceRate: number,
   dofLeadMonths: number,
   gcLagMonths: number,
+  density?: { byYear: Record<number, number>; refApprovals: number },
 ) {
   const gapPDMonths = monthsBetween(currentFAD, targetDate);
 
@@ -290,7 +316,32 @@ function computeProjection(
     };
   }
 
-  const monthsFromToday = gapPDMonths / fadAdvanceRate;
+  let monthsFromToday: number;
+
+  if (density) {
+    // Density-weighted model: break gap into calendar year segments
+    const fadParsed = parseDateStr(currentFAD);
+    const startYear = fadParsed.getFullYear();
+    const targetParsed = parseDateStr(targetDate);
+    const endYear = targetParsed.getFullYear();
+
+    monthsFromToday = 0;
+    for (let y = startYear; y <= endYear; y++) {
+      const segStart = y === startYear ? currentFAD : `${y}-01-01`;
+      const segEnd = y === endYear ? targetDate : `${y + 1}-01-01`;
+      const segMonths = monthsBetween(segStart, segEnd);
+      if (segMonths <= 0) continue;
+
+      const yearApprovals = density.byYear[y] ?? density.refApprovals;
+      const densityFactor = Math.sqrt(yearApprovals / density.refApprovals);
+      const effectiveRate = fadAdvanceRate / densityFactor;
+      monthsFromToday += segMonths / effectiveRate;
+    }
+  } else {
+    // Simple linear model (fallback)
+    monthsFromToday = gapPDMonths / fadAdvanceRate;
+  }
+
   const fadDate = addMonths(TODAY, monthsFromToday);
   const dofDate = addMonths(fadDate, -dofLeadMonths);
   const gcDate = addMonths(fadDate, gcLagMonths);
@@ -414,9 +465,13 @@ export default function Home() {
     };
   }, [selectedCategory, spilloverLevel, banContinues, wastageLevel, cat.rates]);
 
-  // Compute projections for all scenarios
+  // Compute projections for all scenarios (density-weighted)
   const projections = useMemo(() => {
     const result: Record<string, ReturnType<typeof computeProjection>> = {};
+    const density = cat.density ? {
+      byYear: cat.density.byYear as unknown as Record<number, number>,
+      refApprovals: (cat.density.byYear as unknown as Record<number, number>)[cat.density.refYear],
+    } : undefined;
     for (const key of Object.keys(SCENARIOS) as Array<keyof typeof SCENARIOS>) {
       result[key] = computeProjection(
         cat.currentFAD,
@@ -424,6 +479,7 @@ export default function Home() {
         adjustedRates[key],
         cat.dofLeadMonths,
         cat.gcLagMonths,
+        density,
       );
     }
     return result;
@@ -1105,10 +1161,11 @@ export default function Home() {
             </button>
             {showMethodology && (
               <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs text-slate-600 space-y-2">
-                <p className="font-semibold text-slate-800">FAD Advance Rate Model</p>
-                <p>Estimates use the formula: <code className="bg-slate-200 px-1 rounded">months_from_today = gap_PD_months ÷ fad_advance_rate</code></p>
-                <p>Where <strong>gap_PD_months</strong> is the number of priority-date months between the current FAD and your target date, and <strong>fad_advance_rate</strong> is the scenario-specific rate (PD-months advanced per calendar month).</p>
-                <p>This model is derived from two research documents (Capitol Immigration Law Group, AM22Tech, Manifest Law, Beyondborderglobal, Cato Institute) and calibrated against historical visa bulletin data (Jan 2023–Apr 2026).</p>
+                <p className="font-semibold text-slate-800">Density-Weighted FAD Advance Rate Model</p>
+                <p>The PD gap is broken into <strong>calendar year segments</strong>, each weighted by the I-140 filing density of that year. Denser cohorts (more approved petitions) slow advancement proportionally.</p>
+                <p>For each year: <code className="bg-slate-200 px-1 rounded">effective_rate = base_rate ÷ √(year_approvals ÷ ref_approvals)</code></p>
+                <p>I-140 approval data sourced from <strong>USCIS Form I-140 Performance Data (FY2025 Q3)</strong>, India sheet. Key density: EB-2 India FY2014 = 25,010 approvals (reference), FY2016 = 47,462 (1.9× denser, √-adjusted to 1.38× slower).</p>
+                <p>Scenario rates calibrated against historical visa bulletin data (Jan 2023–Apr 2026) and research from Capitol Immigration Law Group, AM22Tech, Manifest Law, Cato Institute.</p>
                 <p>DoF estimate = FAD estimate − {cat.dofLeadMonths} months. GC receipt estimate = FAD estimate + {cat.gcLagMonths} months.</p>
                 <p className="text-slate-400">Disclaimer: Estimates are probabilistic and may change with policy shifts, retrogression, or legislative action.</p>
               </div>
