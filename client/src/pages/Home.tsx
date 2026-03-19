@@ -49,6 +49,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { TrendingUp, Calendar, Clock, Download, CheckCircle2, AlertTriangle, Info, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import PriorityDatePicker from '@/components/PriorityDatePicker';
+import { ConfidenceRangeChart } from '@/components/ConfidenceRangeChart';
 import { useIsMobile } from '@/hooks/useMobile';
 import {
   BULLETIN_TRACKER_HISTORY,
@@ -1015,6 +1016,36 @@ export default function Home() {
                     <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtDuration(Math.round(overviewProjection.fadMonths.p10))} - {fmtDuration(Math.round(overviewProjection.fadMonths.p90))}</p>
                   </div>
                 </div>
+
+                {/* Confidence Range Visualization */}
+                <div className="mt-6 pt-6 border-t border-slate-600">
+                  <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-300">80% Confidence Timeline</p>
+                  <ConfidenceRangeChart
+                    data={[
+                      {
+                        label: 'Filing Date (DoF)',
+                        p10: overviewProjection.dofRange.p10,
+                        p50: overviewProjection.dofDate,
+                        p90: overviewProjection.dofRange.p90,
+                      },
+                      {
+                        label: 'Final Action Date (FAD)',
+                        p10: overviewProjection.fadRange.p10,
+                        p50: overviewProjection.fadDate,
+                        p90: overviewProjection.fadRange.p90,
+                      },
+                      {
+                        label: 'GC Receipt Estimate',
+                        p10: overviewProjection.gcRange.p10,
+                        p50: overviewProjection.gcDate,
+                        p90: overviewProjection.gcRange.p90,
+                      },
+                    ]}
+                    minDate={overviewProjection.dofRange.p10}
+                    maxDate={overviewProjection.gcRange.p90}
+                  />
+                </div>
+
                 <div className="mt-5 flex flex-col gap-2 border-t border-slate-600 pt-3 text-xs text-slate-300 md:flex-row md:items-center md:justify-between">
                   <p>Best case uses the optimistic scenario with {overviewAssumptionSummary}. See Scenarios tab for the full range.</p>
                   <div className="flex items-center gap-3 text-[10px] shrink-0">
