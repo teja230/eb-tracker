@@ -770,6 +770,11 @@ function fmtDateStr(s: string): string {
   return fmtDate(parseDateStr(s));
 }
 
+function fmtCompactMonthYear(s: string): string {
+  const d = parseDateStr(s);
+  return `${MONTH_LABELS[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
+}
+
 function fmtBulletinMonthLabel(value: string): string {
   const [month, year] = value.split(' ');
   return `${month} '${year.slice(2)}`;
@@ -1646,9 +1651,9 @@ export default function Home() {
   };
 
   const tabs = [
-    { id: 'overview', label: '📊 Overview' },
-    { id: 'scenarios', label: '📈 Scenarios' },
-    { id: 'tracker', label: '📋 Bulletin Tracker' },
+    { id: 'overview', label: '📊 Overview', mobileLabel: '📊 Overview' },
+    { id: 'scenarios', label: '📈 Scenarios', mobileLabel: '📈 Scenarios' },
+    { id: 'tracker', label: '📋 Bulletin Tracker', mobileLabel: '📋 Tracker' },
   ];
 
   return (
@@ -1657,61 +1662,59 @@ export default function Home() {
       <header className="bg-white sticky top-0 z-10" style={{ boxShadow: '0 1px 0 #e2e8f0' }}>
         {/* ── MOBILE: two-row layout (< md) ── */}
         <div className="md:hidden">
-          {/* Row 1: brand + utilities */}
-          <div className="flex items-center h-11 px-4 gap-3">
-            <div className="bg-slate-900 text-white rounded-md px-2.5 py-1 font-black text-[11px] tracking-[0.15em] leading-none shrink-0">EB</div>
-            <div className="flex-1" />
-            <div className="flex items-center gap-1 text-[10px] text-slate-400">
-              <Calendar className="w-3 h-3" />
-              <span className="font-medium">{nextBulletinDays === 0 ? 'Today' : `+${nextBulletinDays}d`}</span>
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <div className="bg-slate-900 text-white rounded-md px-2.5 py-1 font-black text-[11px] tracking-[0.15em] leading-none shrink-0">EB</div>
+                <p className="truncate text-sm font-semibold text-slate-900">Priority Date Tracker</p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-500">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>{nextBulletinDays === 0 ? 'Today' : nextBulletinDays === 1 ? 'Tomorrow' : `+${nextBulletinDays}d`}</span>
+                </div>
+                <button
+                  onClick={handleShare}
+                  aria-label="Share estimate"
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition-all ${
+                    shareCopied ? 'border-emerald-200 bg-emerald-100 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  {shareCopied ? <CheckCircle2 className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
-            <button onClick={handleShare} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${shareCopied ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-              {shareCopied ? (
-                <>
-                  <CheckCircle2 className="w-3 h-3" /> Copied!
-                </>
-              ) : (
-                <>
-                  <Share2 className="w-3 h-3" /> Share
-                </>
-              )}
-            </button>
-          </div>
-          {/* Row 2: scrollable controls with fade hint */}
-          <div className="relative border-t border-slate-100">
-            <div
-              className="flex items-stretch overflow-x-auto"
-              style={
-                {
-                  scrollbarWidth: 'none',
-                  WebkitOverflowScrolling: 'touch',
-                } as React.CSSProperties
-              }
-            >
-              {/* Category pills */}
-              <div className="flex items-center gap-1.5 px-4 py-2 shrink-0">
+
+            <div className="mt-3 rounded-xl bg-slate-100 p-1">
+              <div className="grid grid-cols-3 gap-1">
                 {(Object.keys(EB_CATEGORIES) as Array<keyof typeof EB_CATEGORIES>).map(c => (
-                  <button key={c} onClick={() => setSelectedCategory(c)} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all whitespace-nowrap ${selectedCategory === c ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  <button
+                    key={c}
+                    onClick={() => setSelectedCategory(c)}
+                    className={`rounded-lg px-2 py-2.5 text-sm font-semibold transition-all ${
+                      selectedCategory === c ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                    }`}
+                  >
                     {EB_CATEGORIES[c].label}
                   </button>
                 ))}
               </div>
-              {/* Divider */}
-              <div className="w-px bg-slate-100 my-2 shrink-0" />
-              {/* Nav tabs */}
-              <nav className="flex items-stretch px-2 shrink-0">
-                {tabs.map(t => (
-                  <button key={t.id} onClick={() => setActiveTab(t.id)} className={`relative px-4 text-sm font-semibold transition-colors flex items-center whitespace-nowrap ${activeTab === t.id ? 'text-slate-900' : 'text-slate-400'}`}>
-                    {t.label}
-                    {activeTab === t.id && <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-slate-900 rounded-full" />}
-                  </button>
-                ))}
-              </nav>
-              {/* Right padding sentinel */}
-              <div className="w-4 shrink-0" />
             </div>
-            {/* Fade-right scroll hint */}
-            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent" />
+
+            <nav className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
+              {tabs.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  className={`rounded-lg px-2 py-2 text-xs font-semibold transition-all ${
+                    activeTab === t.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  {t.mobileLabel}
+                </button>
+              ))}
+            </nav>
           </div>
         </div>
 
@@ -1925,7 +1928,7 @@ export default function Home() {
                   </span>
                   <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
                     <span className="inline-block w-5 border-b-2 border-dashed border-amber-500" />
-                    Your priority date
+                    PD {fmtCompactMonthYear(targetDate)}
                   </span>
                   {accelZone && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
@@ -2001,15 +2004,9 @@ export default function Home() {
                         <ReferenceLine
                           y={parseDateStr(targetDate).getTime()}
                           stroke="#f59e0b"
-                          strokeDasharray="7 5"
-                          strokeWidth={1.75}
-                          label={{
-                            value: 'Your PD',
-                            position: 'right',
-                            fill: '#b45309',
-                            fontSize: 11,
-                            fontWeight: 700,
-                          }}
+                          strokeDasharray="6 5"
+                          strokeWidth={isMobile ? 1.25 : 1.5}
+                          strokeOpacity={0.85}
                         />
 
                         <Area type="monotone" dataKey="fad" fill="url(#fadAreaGrad)" stroke="none" />
