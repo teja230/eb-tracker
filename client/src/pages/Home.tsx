@@ -767,32 +767,6 @@ type BulletinDofKey = 'eb1_dof' | 'eb2_dof' | 'eb3_dof';
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-/**
- * Returns the next visa bulletin release date (second Tuesday of next month).
- * Bulletins for month M are released in month M-1 on the second Tuesday.
- */
-function getNextBulletinDate(): Date {
-  const now = new Date();
-  // The next bulletin covers the month after the one it's released in.
-  // We look for the second Tuesday of the current month; if it's already past,
-  // we look at next month instead.
-  function secondTuesdayOf(year: number, month: number): Date {
-    // month is 0-indexed
-    const d = new Date(year, month, 1);
-    // Find first Tuesday
-    const dayOfWeek = d.getDay(); // 0=Sun, 2=Tue
-    const daysUntilTue = (2 - dayOfWeek + 7) % 7;
-    d.setDate(1 + daysUntilTue + 7); // second Tuesday = first Tuesday + 7
-    return d;
-  }
-  const thisMonthRelease = secondTuesdayOf(now.getFullYear(), now.getMonth());
-  if (now < thisMonthRelease) return thisMonthRelease;
-  // Already past — next release is second Tuesday of next month
-  const nextMonth = now.getMonth() === 11 ? 0 : now.getMonth() + 1;
-  const nextYear = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
-  return secondTuesdayOf(nextYear, nextMonth);
-}
-
 export default function Home() {
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState('overview');
@@ -822,13 +796,6 @@ export default function Home() {
   const [wastageLevel, setWastageLevel] = useState<'low' | 'moderate' | 'high'>('low');
 
   const cat = EB_CATEGORIES[selectedCategory];
-
-  // ── Next bulletin countdown (pure computation, no fetch) ──
-  const nextBulletinDays = useMemo(() => {
-    const next = getNextBulletinDate();
-    const diff = Math.ceil((next.getTime() - Date.now()) / 86400000);
-    return Math.max(0, diff);
-  }, []);
 
   // ── Read URL params on mount ──
   useEffect(() => {
@@ -1182,8 +1149,11 @@ export default function Home() {
     const fadMonthYear = overviewFadDate ? `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][overviewFadDate.getMonth()]} ${overviewFadDate.getFullYear()}` : 'unknown';
     const overviewDofDate = overviewProjection?.dofDate;
     const dofMonthYear = overviewDofDate ? `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][overviewDofDate.getMonth()]} ${overviewDofDate.getFullYear()}` : null;
-    const sentence = dofMonthYear ? `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) — can file I-485 around ${dofMonthYear}, become current around ${fadMonthYear} (best case). ${url}` : `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) is estimated to become current around ${fadMonthYear} (best case). ${url}`;
-    try {
+    const summary = dofMonthYear
+      ? `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) — can file I-485 around ${dofMonthYear}, become current around ${fadMonthYear} (best case).`
+      : `My ${cat.label} India priority date (${fmtDateStr(targetDate)}) is estimated to become current around ${fadMonthYear} (best case).`;
+    const sentence = `${summary} ${url}`;
+    const copyShareText = async () => {
       await navigator.clipboard.writeText(sentence);
       setShareCopied(true);
       toast.success('Estimate copied to clipboard!', {
@@ -1192,11 +1162,35 @@ export default function Home() {
         position: 'bottom-right',
       });
       setTimeout(() => setShareCopied(false), 3000);
-    } catch {
+    };
+
+    try {
+      if (isMobile && typeof navigator.share === 'function') {
+        await navigator.share({
+          title: `${cat.label} India estimate`,
+          text: summary,
+          url,
+        });
+        return;
+      }
+
+      await copyShareText();
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
+
+      try {
+        await copyShareText();
+        return;
+      } catch {
+        // Fall through to prompt fallback below.
+      }
+
       // Fallback: show in prompt
       window.prompt('Copy this to share your estimate:', sentence);
     }
-  }, [generateShareUrl, overviewProjection, cat.label, targetDate]);
+  }, [generateShareUrl, overviewProjection, cat.label, targetDate, isMobile]);
 
   const generateExport = () => {
     const doc = new jsPDF({
@@ -1486,10 +1480,6 @@ export default function Home() {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-500">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span>{nextBulletinDays === 0 ? 'Today' : nextBulletinDays === 1 ? 'Tomorrow' : `+${nextBulletinDays}d`}</span>
-                </div>
                 <button
                   onClick={handleShare}
                   aria-label="Share estimate"
@@ -1563,10 +1553,6 @@ export default function Home() {
             </nav>
             {/* Utilities */}
             <div className="flex items-center gap-2 pl-2 shrink-0">
-              <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                <Calendar className="w-3 h-3" />
-                <span className="font-medium whitespace-nowrap">{nextBulletinDays === 0 ? 'New bulletin today' : nextBulletinDays === 1 ? 'Tomorrow' : `+${nextBulletinDays}d`}</span>
-              </div>
               <button onClick={handleShare} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${shareCopied ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'}`}>
                 {shareCopied ? (
                   <>
