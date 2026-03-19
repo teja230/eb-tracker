@@ -1710,10 +1710,10 @@ export default function Home() {
               const paceColor = (v: number) => (v > 10 ? 'text-emerald-600' : v < -10 ? 'text-red-600' : 'text-amber-600');
               const paceLabel = (v: number) => (v > 0 ? `+${v}d/mo` : `${v}d/mo`);
               const PaceTile = ({ label, v6, v12 }: { label: string; v6: number | null; v12: number | null }) => (
-                <div className="flex flex-col bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 min-w-[140px]">
+                <div className="flex min-w-0 flex-col rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5">
                   <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide whitespace-nowrap">{label}</p>
                   {v6 !== null && (
-                    <p className={`text-base font-bold font-mono mt-0.5 ${paceColor(v6)}`}>
+                    <p className={`mt-0.5 text-base font-bold font-mono ${paceColor(v6)}`}>
                       6mo: {paceLabel(v6)}
                       {v12 !== null && <span className={`ml-2 text-sm font-normal ${paceColor(v12)}`}>· 12mo: {paceLabel(v12)}</span>}
                     </p>
@@ -1722,13 +1722,13 @@ export default function Home() {
                 </div>
               );
               return (
-                <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="flex-1 text-sm text-slate-600">
+                <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="min-w-0 flex-1 text-sm text-slate-600">
                     Historical visa bulletins for India. Δ columns show month-over-month movement.
                     <span className="text-emerald-600 font-semibold"> Green = advancement</span>,<span className="text-red-600 font-semibold"> Red = retrogression</span>.
                     <span className="block text-xs text-slate-500 mt-1">Tracker tables now run continuously from Oct 2019 through the latest bulletin, including archived FY2020-FY2022 rows. Forecasts, charts, and backtests remain calibrated on the contiguous Oct 2022–Apr 2026 series.</span>
                   </div>
-                  <div className="flex gap-3 shrink-0 flex-wrap">
+                  <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:min-w-[320px]">
                     <PaceTile label="FAD Pace" v6={fad6} v12={fad12} />
                     <PaceTile label="DoF Pace" v6={dof6} v12={dof12} />
                   </div>
