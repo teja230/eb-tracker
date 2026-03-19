@@ -59,6 +59,7 @@ import {
   I140_INDIA_APPROVALS,
   I485_INDIA_PENDING,
   SCENARIOS,
+  type HistoricalBulletinRow,
   type TrackerCategoryKey,
 } from '@/data/trackerData';
 import { jsPDF } from 'jspdf';
@@ -111,6 +112,55 @@ function getHistoricalPointInsight(point: { month: string; fadRaw: number; dofRa
   };
 }
 
+function historicalCategoryKeys(category: TrackerCategoryKey) {
+  if (category === 'EB1') return { fadKey: 'eb1_fad', dofKey: 'eb1_dof' } as const;
+  if (category === 'EB3') return { fadKey: 'eb3_fad', dofKey: 'eb3_dof' } as const;
+  return { fadKey: 'eb2_fad', dofKey: 'eb2_dof' } as const;
+}
+
+function buildHistoricalSeries(rows: HistoricalBulletinRow[], category: TrackerCategoryKey) {
+  const { fadKey, dofKey } = historicalCategoryKeys(category);
+
+  return [...rows].reverse().map((row, index) => {
+    const fadDate = parseDateStr(row[fadKey]);
+    const dofDate = parseDateStr(row[dofKey]);
+    return {
+      month: row.month,
+      idx: index,
+      fad: fadDate.getTime(),
+      dof: dofDate.getTime(),
+      fadRaw: fadDate.getTime(),
+      dofRaw: dofDate.getTime(),
+      fadLabel: fmtDate(fadDate),
+      dofLabel: fmtDate(dofDate),
+    };
+  });
+}
+
+function clipHistoricalSeries<T extends { fadRaw: number; dofRaw: number }>(points: T[], quantile: number = 0.1) {
+  if (points.length === 0) return points;
+  const sortedFads = points.map(point => point.fadRaw).sort((a, b) => a - b);
+  const floor = sortedFads[Math.floor(sortedFads.length * quantile)];
+
+  return points.map(point => ({
+    ...point,
+    fad: Math.max(point.fadRaw, floor),
+    dof: Math.max(point.dofRaw, floor),
+  }));
+}
+
+const FULL_HISTORY_CHRONO = [...BULLETIN_TRACKER_HISTORY].reverse();
+const DEFAULT_HISTORY_START_INDEX = FULL_HISTORY_CHRONO.findIndex(row => row.month === 'Oct 2022');
+const ARCHIVE_HISTORY_END_INDEX = FULL_HISTORY_CHRONO.findIndex(row => row.month === 'Sep 2022');
+const DEFAULT_HISTORY_WINDOW = {
+  start: DEFAULT_HISTORY_START_INDEX >= 0 ? DEFAULT_HISTORY_START_INDEX : Math.max(0, FULL_HISTORY_CHRONO.length - 43),
+  end: FULL_HISTORY_CHRONO.length - 1,
+};
+const ARCHIVE_HISTORY_WINDOW = {
+  start: 0,
+  end: ARCHIVE_HISTORY_END_INDEX >= 0 ? ARCHIVE_HISTORY_END_INDEX : Math.max(0, DEFAULT_HISTORY_WINDOW.start - 1),
+};
+
 // Forecast simulation now lives in client/src/lib/forecast.ts.
 
 type BulletinFadKey = 'eb1_fad' | 'eb2_fad' | 'eb3_fad';
@@ -148,6 +198,7 @@ export default function Home() {
   const fadStarRowRef = useRef<HTMLTableRowElement>(null);
   const dofStarRowRef = useRef<HTMLTableRowElement>(null);
   const [activeHistoricalPoint, setActiveHistoricalPoint] = useState<any | null>(null);
+  const [historyWindow, setHistoryWindow] = useState(DEFAULT_HISTORY_WINDOW);
 
   // Simulator controls (affect scenario rates)
   const [spilloverLevel, setSpilloverLevel] = useState<'low' | 'moderate' | 'high'>('high');
@@ -293,38 +344,24 @@ export default function Home() {
     return `${spilloverSummary}, ${banSummary}, and ${wastageSummary}`;
   }, [spilloverLevel, banContinues, wastageLevel]);
 
-  // Chart data: historical FAD movement
-  // Uses timestamp (ms) on Y-axis for accurate date spacing; X-axis shows bulletin months
+  const fullHistoricalChartData = useMemo(
+    () => buildHistoricalSeries(BULLETIN_TRACKER_HISTORY, selectedCategory),
+    [selectedCategory]
+  );
+
+  const clampedHistoryWindow = useMemo(() => {
+    const maxIndex = Math.max(0, fullHistoricalChartData.length - 1);
+    const start = Math.max(0, Math.min(historyWindow.start, maxIndex));
+    const end = Math.max(start, Math.min(historyWindow.end, maxIndex));
+    return { start, end };
+  }, [fullHistoricalChartData.length, historyWindow]);
+
   const historicalChartData = useMemo(() => {
-    const raw = [...HISTORICAL_BULLETINS].reverse().map((b, i) => {
-      const key = selectedCategory === 'EB1' ? 'eb1_fad' : selectedCategory === 'EB3' ? 'eb3_fad' : 'eb2_fad';
-      const dofKey = selectedCategory === 'EB1' ? 'eb1_dof' : selectedCategory === 'EB3' ? 'eb3_dof' : 'eb2_dof';
-      const fadDate = parseDateStr(b[key as keyof typeof b] as string);
-      const dofDate = parseDateStr(b[dofKey as keyof typeof b] as string);
-      return {
-        month: b.month,
-        idx: i,
-        fad: fadDate.getTime(),
-        dof: dofDate.getTime(),
-        fadLabel: fmtDate(fadDate),
-        dofLabel: fmtDate(dofDate),
-      };
-    });
+    return clipHistoricalSeries(
+      fullHistoricalChartData.slice(clampedHistoryWindow.start, clampedHistoryWindow.end + 1)
+    );
+  }, [clampedHistoryWindow.end, clampedHistoryWindow.start, fullHistoricalChartData]);
 
-    // Clip: compute a floor to prevent deep retrogression dips from distorting the Y-axis
-    // Use the 10th percentile of FAD values as the floor
-    const sortedFads = raw.map(d => d.fad).sort((a, b) => a - b);
-    const p10 = sortedFads[Math.floor(sortedFads.length * 0.1)];
-    return raw.map(d => ({
-      ...d,
-      fad: Math.max(d.fad, p10),
-      dof: Math.max(d.dof, p10),
-      fadRaw: d.fad, // keep unclipped for tooltip
-      dofRaw: d.dof,
-    }));
-  }, [selectedCategory]);
-
-  // Y-axis domain: ensure target PD is visible, with some padding
   const chartYDomain = useMemo(() => {
     const allVals = historicalChartData.flatMap(d => [d.fad, d.dof]);
     const targetTs = parseDateStr(targetDate).getTime();
@@ -335,12 +372,10 @@ export default function Home() {
     return [min - pad, max + pad];
   }, [historicalChartData, targetDate]);
 
-  // FY boundary indices (Oct of each year) for vertical reference lines
   const fyBoundaries = useMemo(() => {
     return historicalChartData.filter(d => d.month.startsWith('Oct ')).map(d => d.month);
   }, [historicalChartData]);
 
-  // Acceleration zone: find Oct 2025 and Apr 2026 indices
   const accelZone = useMemo(() => {
     const start = historicalChartData.find(d => d.month === 'Oct 2025')?.month;
     const end = historicalChartData.find(d => d.month === 'Apr 2026')?.month;
@@ -380,8 +415,32 @@ export default function Home() {
     return ticks;
   }, [historicalChartData, isMobile, targetDate]);
 
+  const historyWindowSummary = useMemo(() => {
+    const start = fullHistoricalChartData[clampedHistoryWindow.start];
+    const end = fullHistoricalChartData[clampedHistoryWindow.end];
+    if (!start || !end) return null;
+    return {
+      startLabel: fmtBulletinMonthLabel(start.month),
+      endLabel: fmtBulletinMonthLabel(end.month),
+      count: clampedHistoryWindow.end - clampedHistoryWindow.start + 1,
+    };
+  }, [clampedHistoryWindow.end, clampedHistoryWindow.start, fullHistoricalChartData]);
+
+  const isRecentHistoryWindow =
+    clampedHistoryWindow.start === DEFAULT_HISTORY_WINDOW.start &&
+    clampedHistoryWindow.end === DEFAULT_HISTORY_WINDOW.end;
+  const isArchiveHistoryWindow =
+    clampedHistoryWindow.start === ARCHIVE_HISTORY_WINDOW.start &&
+    clampedHistoryWindow.end === ARCHIVE_HISTORY_WINDOW.end;
+  const isFullHistoryWindow =
+    clampedHistoryWindow.start === 0 && clampedHistoryWindow.end === fullHistoricalChartData.length - 1;
+
   useEffect(() => {
-    setActiveHistoricalPoint(historicalChartData[historicalChartData.length - 1] ?? null);
+    setActiveHistoricalPoint((prev: any) => {
+      if (historicalChartData.length === 0) return null;
+      if (!prev) return historicalChartData[historicalChartData.length - 1];
+      return historicalChartData.find(point => point.month === prev.month) ?? historicalChartData[historicalChartData.length - 1];
+    });
   }, [historicalChartData]);
 
   const activeHistoricalInsight = useMemo(() => {
@@ -1108,7 +1167,7 @@ export default function Home() {
               <div className="flex flex-col gap-3 border-b border-slate-200/80 px-5 py-4 md:flex-row md:items-start md:justify-between md:px-6">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900 md:text-base">{cat.label} India priority date movement</h3>
-                  <p className="mt-1 text-xs text-slate-500">X-axis is bulletin month. Y-axis is priority date, so the lines move up as cutoff dates advance.</p>
+                  <p className="mt-1 text-xs text-slate-500">Switch between recent movement and archived years without adding extra chart controls.</p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 md:justify-end">
@@ -1134,6 +1193,44 @@ export default function Home() {
               </div>
 
               <div className="p-3 md:p-4">
+                <div className="mb-3 flex flex-col gap-2 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">History Range</p>
+                    {historyWindowSummary && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        Showing {historyWindowSummary.startLabel} to {historyWindowSummary.endLabel} · {historyWindowSummary.count} bulletins
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setHistoryWindow(DEFAULT_HISTORY_WINDOW)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+                        isRecentHistoryWindow ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-600'
+                      }`}
+                    >
+                      Recent
+                    </button>
+                    <button
+                      onClick={() => setHistoryWindow(ARCHIVE_HISTORY_WINDOW)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+                        isArchiveHistoryWindow ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-600'
+                      }`}
+                    >
+                      FY2020-2022
+                    </button>
+                    <button
+                      onClick={() => setHistoryWindow({ start: 0, end: fullHistoricalChartData.length - 1 })}
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+                        isFullHistoryWindow ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-600'
+                      }`}
+                    >
+                      Full history
+                    </button>
+                  </div>
+                </div>
+
                 <div className="rounded-xl border border-slate-200/80 bg-white p-2 md:p-3">
                   <div className="h-[330px] md:h-[390px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1261,7 +1358,7 @@ export default function Home() {
                         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Selected Bulletin</p>
                         <div className="mt-1 flex items-center gap-2">
                           <p className="text-sm font-semibold text-slate-900">{activeHistoricalInsight.month}</p>
-                          {activeHistoricalPoint?.idx === historicalChartData.length - 1 && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Latest</span>}
+                          {activeHistoricalPoint?.month === historicalChartData[historicalChartData.length - 1]?.month && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Latest</span>}
                         </div>
                         <p className="mt-1 text-[11px] text-slate-500">{isMobile ? 'Tap the chart to inspect earlier months.' : 'Hover the chart to inspect earlier months.'}</p>
                       </div>
