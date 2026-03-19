@@ -41,11 +41,8 @@ export function ConfidenceRangeChart({ data, minDate, maxDate }: ConfidenceRange
 
         return (
           <div key={item.label} className="space-y-2">
-            {/* Label with median date */}
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-100">{item.label}</p>
-              <p className="text-sm font-mono font-bold text-emerald-300">{fmtDate(item.p50)}</p>
-            </div>
+            {/* Label */}
+            <p className="text-sm font-semibold text-slate-100">{item.label}</p>
 
             {/* Timeline container with hover tooltip */}
             <div
