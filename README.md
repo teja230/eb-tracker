@@ -16,15 +16,15 @@ The tracker is updated monthly when new visa bulletins are released by the U.S. 
 
 ## Features
 
-| Feature | Description |
-|---|---|
-| **Priority Date Calculator** | Enter any priority date and instantly see DoF, FAD, and GC receipt estimates |
-| **Multi-Category Support** | EB-1 (Priority Workers), EB-2 (Advanced Degree), EB-3 (Skilled Workers) |
-| **Four Scenario Projections** | Optimistic, Base Case, Conservative, and Pessimistic with probability weights |
-| **Bulletin Tracker** | Historical Final Action Dates and Dates for Filing with Δ movement columns |
-| **Wastage Simulator** | Adjust spillover level, ban duration, and GC wastage to model custom scenarios |
-| **PDF/Text Export** | Export personalized scenario estimates for sharing with immigration attorneys |
-| **Live Data Status** | Displays current bulletin month and ROW category status |
+| Feature                       | Description                                                                    |
+|-------------------------------|--------------------------------------------------------------------------------|
+| **Priority Date Calculator**  | Enter any priority date and instantly see DoF, FAD, and GC receipt estimates   |
+| **Multi-Category Support**    | EB-1 (Priority Workers), EB-2 (Advanced Degree), EB-3 (Skilled Workers)        |
+| **Four Scenario Projections** | Optimistic, Base Case, Conservative, and Pessimistic with probability weights  |
+| **Bulletin Tracker**          | Historical Final Action Dates and Dates for Filing with Δ movement columns     |
+| **Wastage Simulator**         | Adjust spillover level, ban duration, and GC wastage to model custom scenarios |
+| **PDF/Text Export**           | Export personalized scenario estimates for sharing with immigration attorneys  |
+| **Live Data Status**          | Displays current bulletin month and ROW category status                        |
 
 ---
 
@@ -49,12 +49,12 @@ estimated_date    = TODAY + months_from_today
 
 ### Scenario Rates (EB-2 India)
 
-| Scenario | Rate (PD-mo/month) | Probability | Condition |
-|---|---|---|---|
-| Optimistic | 1.625 | 15–20% | 60k+ extra EB visas (large FY2027 spillover) |
-| Base Case | 0.975 | 40% | 30–40k extra EB visas (moderate spillover) |
-| Conservative | 0.45 | 30% | No spillover, reversion to pre-FY2026 pace |
-| Pessimistic | 0.275 | 10–15% | Ban reversed, stagnation / retrogression |
+| Scenario     | Rate (PD-mo/month) | Probability | Condition                                    |
+|--------------|--------------------|-------------|----------------------------------------------|
+| Optimistic   | 1.625              | 15–20%      | 60k+ extra EB visas (large FY2027 spillover) |
+| Base Case    | 0.975              | 40%         | 30–40k extra EB visas (moderate spillover)   |
+| Conservative | 0.45               | 30%         | No spillover, reversion to pre-FY2026 pace   |
+| Pessimistic  | 0.275              | 10–15%      | Ban reversed, stagnation / retrogression     |
 
 Rates are calibrated from historical visa bulletin data (Jan 2023–Apr 2026) and two research documents synthesizing findings from Capitol Immigration Law Group, AM22Tech, Manifest Law, and Beyondborderglobal.
 
@@ -62,37 +62,37 @@ Rates are calibrated from historical visa bulletin data (Jan 2023–Apr 2026) an
 
 The Wastage Simulator adjusts the base rates using three multipliers:
 
-| Control | Low | Moderate | High |
-|---|---|---|---|
-| Spillover Level | ×0.75 | ×1.00 | ×1.25 |
-| Ban Duration | ×0.85 (ends 2027) | ×1.00 (through 2028) | ×1.15 (through 2029) |
-| GC Wastage | ×1.10 (5–10%) | ×1.00 (15–20%) | ×0.80 (25–30%) |
+| Control         | Low               | Moderate             | High                 |
+|-----------------|-------------------|----------------------|----------------------|
+| Spillover Level | ×0.75             | ×1.00                | ×1.25                |
+| Ban Duration    | ×0.85 (ends 2027) | ×1.00 (through 2028) | ×1.15 (through 2029) |
+| GC Wastage      | ×1.10 (5–10%)     | ×1.00 (15–20%)       | ×0.80 (25–30%)       |
 
 ---
 
 ## Data Sources
 
-| Source | Usage |
-|---|---|
-| [U.S. Department of State Visa Bulletins](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html) | Monthly FAD and DoF data (Apr 2026 is current) |
-| [USCIS I-485 Pending Inventory (Oct 2025)](https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates) | Pending application counts by category and priority date |
-| [Cato Institute — GC Wastage Analysis](https://www.cato.org/blog/agencies-wasted-1/4-employment-green-cards-2021) | FY2021 wastage rates by category |
-| [CLINIC v. Rubio Lawsuit](https://www.nilc.org/resources/questions-and-answers-about-the-75-country-visa-ban-lawsuit/) | Legal status of 75-country visa ban |
-| [VisaHQ — 75-Country Ban Spillover Analysis](https://www.visahq.com/news/2026-01-24/in/us-pause-on-immigrant-visas-for-75-countries-could-add-50000-employment-green-cards-big-win-for-indian-professionals/) | Estimated 50k–70k spillover range |
-| Capitol Immigration Law Group, AM22Tech, Manifest Law, Beyondborderglobal | Scenario range research synthesis |
+| Source                                                                                                                                                                                                        | Usage                                                    |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|
+| [U.S. Department of State Visa Bulletins](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html)                                                                                      | Monthly FAD and DoF data (Apr 2026 is current)           |
+| [USCIS I-485 Pending Inventory (Oct 2025)](https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates)                                                             | Pending application counts by category and priority date |
+| [Cato Institute — GC Wastage Analysis](https://www.cato.org/blog/agencies-wasted-1/4-employment-green-cards-2021)                                                                                             | FY2021 wastage rates by category                         |
+| [CLINIC v. Rubio Lawsuit](https://www.nilc.org/resources/questions-and-answers-about-the-75-country-visa-ban-lawsuit/)                                                                                        | Legal status of 75-country visa ban                      |
+| [VisaHQ — 75-Country Ban Spillover Analysis](https://www.visahq.com/news/2026-01-24/in/us-pause-on-immigrant-visas-for-75-countries-could-add-50000-employment-green-cards-big-win-for-indian-professionals/) | Estimated 50k–70k spillover range                        |
+| Capitol Immigration Law Group, AM22Tech, Manifest Law, Beyondborderglobal                                                                                                                                     | Scenario range research synthesis                        |
 
 ---
 
 ## Current Bulletin Data (April 2026)
 
-| Category | Final Action Date | Dates for Filing |
-|---|---|---|
-| EB-1 India | Apr 1, 2023 | Dec 1, 2023 |
-| EB-2 India | **Jul 15, 2014** | Jan 15, 2015 |
-| EB-3 India | Nov 15, 2013 | Jan 15, 2015 |
-| EB-1 ROW | CURRENT | CURRENT |
-| EB-2 ROW | CURRENT | CURRENT |
-| EB-3 ROW | CURRENT | CURRENT |
+| Category   | Final Action Date | Dates for Filing |
+|------------|-------------------|------------------|
+| EB-1 India | Apr 1, 2023       | Dec 1, 2023      |
+| EB-2 India | **Jul 15, 2014**  | Jan 15, 2015     |
+| EB-3 India | Nov 15, 2013      | Jan 15, 2015     |
+| EB-1 ROW   | CURRENT           | CURRENT          |
+| EB-2 ROW   | CURRENT           | CURRENT          |
+| EB-3 ROW   | CURRENT           | CURRENT          |
 
 > **Note:** EB-1 ROW and EB-2 ROW being CURRENT is significant — it means all family-based visa spillover flows directly to backlogged countries (India, China) rather than being absorbed by ROW demand. This is the primary driver of the FY2027 optimistic scenario.
 
@@ -118,27 +118,27 @@ Presidential Proclamations 10949 & 10998 (January 2026) paused immigrant visas f
 
 As of April 2026, the EB-2 India FAD is **Jul 15, 2014** — 25 priority-date months away from Aug 2016.
 
-| Scenario | DoF Reaches Aug 2016 | FAD Reaches Aug 2016 | GC Receipt | Probability |
-|---|---|---|---|---|
-| Optimistic | Late 2026 – Early 2027 | Late 2027 – 2028 | 2028 – 2029 | 15–20% |
-| Base Case | Mid–Late 2027 | 2028 – 2029 | 2029 – 2031 | 40% |
-| Conservative | 2028 – 2029 | 2030 – 2033 | 2031 – 2035 | 30% |
-| Pessimistic | 2030 – 2033 | 2032 – 2036 | 2033 – 2038 | 10–15% |
+| Scenario     | DoF Reaches Aug 2016   | FAD Reaches Aug 2016 | GC Receipt  | Probability |
+|--------------|------------------------|----------------------|-------------|-------------|
+| Optimistic   | Late 2026 – Early 2027 | Late 2027 – 2028     | 2028 – 2029 | 15–20%      |
+| Base Case    | Mid–Late 2027          | 2028 – 2029          | 2029 – 2031 | 40%         |
+| Conservative | 2028 – 2029            | 2030 – 2033          | 2031 – 2035 | 30%         |
+| Pessimistic  | 2030 – 2033            | 2032 – 2036          | 2033 – 2038 | 10–15%      |
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | React 19 + TypeScript |
-| Styling | Tailwind CSS 4 |
-| Charts | Recharts 2 |
-| UI Components | shadcn/ui (Radix UI) |
-| Routing | Wouter |
-| Notifications | Sonner |
-| Build | Vite 7 |
-| Hosting | Manus (manus.space) |
+| Layer         | Technology            |
+|---------------|-----------------------|
+| Framework     | React 19 + TypeScript |
+| Styling       | Tailwind CSS 4        |
+| Charts        | Recharts 2            |
+| UI Components | shadcn/ui (Radix UI)  |
+| Routing       | Wouter                |
+| Notifications | Sonner                |
+| Build         | Vite 7                |
+| Hosting       | Manus (manus.space)   |
 
 ---
 
