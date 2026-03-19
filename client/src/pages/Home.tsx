@@ -1585,49 +1585,49 @@ export default function Home() {
                 <p className="text-sm text-slate-600 mt-1">{fmtDateStr(targetDate)} is already current as of the April 2026 bulletin.</p>
               </div>
             ) : (
-              <div className="bg-gradient-to-br from-slate-800 to-slate-700 rounded-xl p-6 text-white relative -mt-2 md:-mt-0">
+              <div className="relative -mt-2 overflow-hidden rounded-xl border border-slate-600/80 border-l-4 border-l-emerald-400 bg-gradient-to-br from-slate-800 via-slate-800 to-slate-700 p-6 text-white md:-mt-0">
                 <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-300 mb-1">Your Projection</h2>
                 <div className="flex items-center gap-2 mb-5">
-                  <span className="text-xs font-mono text-slate-400">{fmtDateStr(targetDate)}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider bg-emerald-600/80 text-emerald-50 px-2 py-0.5 rounded-full">Best Case</span>
+                  <span className="text-xs font-mono text-slate-300">{fmtDateStr(targetDate)}</span>
+                  <span className="rounded-full border border-emerald-400/35 bg-emerald-500/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-100">Best Case</span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6">
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Filing Date (DoF)</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(overviewProjection.dofDate)}</p>
-                    <p className="text-xs text-slate-500 mt-1.5">P50 estimate</p>
-                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(overviewProjection.dofRange.p10)} - {fmtDate(overviewProjection.dofRange.p90)}</p>
+                    <p className="mb-1.5 text-xs uppercase tracking-wide text-slate-300">Filing Date (DoF)</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtDate(overviewProjection.dofDate)}</p>
+                    <p className="mt-1.5 text-xs text-slate-500">P50 estimate</p>
+                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtDate(overviewProjection.dofRange.p10)} - {fmtDate(overviewProjection.dofRange.p90)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Final Action Date</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(overviewProjection.fadDate)}</p>
-                    <p className="text-xs text-slate-500 mt-1.5">P50 estimate</p>
-                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(overviewProjection.fadRange.p10)} - {fmtDate(overviewProjection.fadRange.p90)}</p>
+                    <p className="mb-1.5 text-xs uppercase tracking-wide text-slate-300">Final Action Date</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtDate(overviewProjection.fadDate)}</p>
+                    <p className="mt-1.5 text-xs text-slate-500">P50 estimate</p>
+                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtDate(overviewProjection.fadRange.p10)} - {fmtDate(overviewProjection.fadRange.p90)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">GC Receipt Est.</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDate(overviewProjection.gcDate)}</p>
-                    <p className="text-xs text-slate-500 mt-1.5">P50 estimate</p>
-                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDate(overviewProjection.gcRange.p10)} - {fmtDate(overviewProjection.gcRange.p90)}</p>
+                    <p className="mb-1.5 text-xs uppercase tracking-wide text-slate-300">GC Receipt Est.</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtDate(overviewProjection.gcDate)}</p>
+                    <p className="mt-1.5 text-xs text-slate-500">P50 estimate</p>
+                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtDate(overviewProjection.gcRange.p10)} - {fmtDate(overviewProjection.gcRange.p90)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1.5">Time to FAD</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight">{fmtDuration(overviewProjection.monthsFromToday)}</p>
-                    <p className="text-xs text-slate-500 mt-1">Best case median</p>
-                    <p className="text-[11px] text-slate-400 mt-1">80% range: {fmtDuration(Math.round(overviewProjection.fadMonths.p10))} - {fmtDuration(Math.round(overviewProjection.fadMonths.p90))}</p>
+                    <p className="mb-1.5 text-xs uppercase tracking-wide text-slate-300">Time to FAD</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtDuration(overviewProjection.monthsFromToday)}</p>
+                    <p className="mt-1 text-xs text-slate-500">Best case median</p>
+                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtDuration(Math.round(overviewProjection.fadMonths.p10))} - {fmtDuration(Math.round(overviewProjection.fadMonths.p90))}</p>
                   </div>
                 </div>
-                <div className="text-xs text-slate-400 mt-5 border-t border-slate-600 pt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div className="mt-5 flex flex-col gap-2 border-t border-slate-600 pt-3 text-xs text-slate-300 md:flex-row md:items-center md:justify-between">
                   <p>Best case uses the optimistic scenario with {overviewAssumptionSummary}. See Scenarios tab for the full range.</p>
                   <div className="flex items-center gap-3 text-[10px] shrink-0">
                     {backtestResult.predictions > 0 && (
-                      <span className="flex items-center gap-1 bg-slate-600/50 px-2 py-0.5 rounded-full" title={`6-month backtest on ${backtestResult.predictions} rolling windows`}>
+                      <span className="flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-700/60 px-2 py-0.5 text-slate-200" title={`6-month backtest on ${backtestResult.predictions} rolling windows`}>
                         <Info className="w-3 h-3" />
                         MAE: ±{backtestResult.mae} mo
                       </span>
                     )}
-                    {backtestResult.predictions > 0 && <span className="flex items-center gap-1 bg-slate-600/50 px-2 py-0.5 rounded-full" title="Share of 6-month backtest windows where the actual FAD landed inside the model's 80% interval">80% hit: {Math.round(backtestResult.coverage80 * 100)}%</span>}
-                    <span className="flex items-center gap-1 bg-slate-600/50 px-2 py-0.5 rounded-full" title="Share of simulated paths where at least one monthly retrogression occurred before the target became current">Retrogression risk: {Math.round(overviewProjection.retrogressionRisk * 100)}%</span>
+                    {backtestResult.predictions > 0 && <span className="flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-700/60 px-2 py-0.5 text-slate-200" title="Share of 6-month backtest windows where the actual FAD landed inside the model's 80% interval">80% hit: {Math.round(backtestResult.coverage80 * 100)}%</span>}
+                    <span className="flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-700/60 px-2 py-0.5 text-slate-200" title="Share of simulated paths where at least one monthly retrogression occurred before the target became current">Retrogression risk: {Math.round(overviewProjection.retrogressionRisk * 100)}%</span>
                   </div>
                 </div>
               </div>
