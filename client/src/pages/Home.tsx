@@ -162,11 +162,10 @@ const EB_CATEGORIES = {
     },
     dofLeadMonths: 8,
     gcLagMonths: 12,
-    pendingInventory: 8000,
     annualVisas: 2500,
     // Density: hybrid I-485 (2016–2022) + I-140 (2023+). Ref = weighted mean.
     density: { category: 'EB1' },
-    notes: 'EB-1 India has ~15.4k pending I-485s. Current FAD is Apr 2023. Massive spike at PD-2022 (10,953 cases).',
+    notes: 'EB-1 India has ~14.3k pending I-485s. Current FAD is Apr 2023. Massive spike at PD-2022 (10,953 cases).',
   },
   EB2: {
     label: 'EB-2',
@@ -183,7 +182,6 @@ const EB_CATEGORIES = {
     },
     dofLeadMonths: 6, // fallback; independent DoF model used when data available
     gcLagMonths: 15, // GC receipt ~12–18 months after FAD (midpoint)
-    pendingInventory: 28080, // USCIS Oct 2025 I-485 inventory total
     annualVisas: 2850, // ~2,800–2,900 baseline under 7% per-country cap (INA §202)
     // Density: hybrid I-485 (2010–2014) + I-140 (2015+, scaled to I-485 magnitude).
     // Ref = weighted mean across all years. Near-term: I-485 shows 10k–17k at PD-2013/2014.
@@ -204,12 +202,11 @@ const EB_CATEGORIES = {
     },
     dofLeadMonths: 6,
     gcLagMonths: 18,
-    pendingInventory: 55000,
     annualVisas: 3000,
     // Density: hybrid I-485 (2012–2014) + I-140 (2015+, scaled to I-485 magnitude).
     // Ref = weighted mean across all years.
     density: { category: 'EB3' },
-    notes: 'EB-3 India has ~15k pending I-485s. 98% in PD-2013/2014.',
+    notes: 'EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014.',
   },
 };
 
@@ -669,10 +666,17 @@ const HISTORICAL_BULLETINS = [
 // ─── UTILITY FUNCTIONS ────────────────────────────────────────────────────────
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const FULL_MONTH_LABELS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function parseDateStr(s: string): Date {
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
+}
+
+function parseBulletinMonth(value: string): Date {
+  const [month, year] = value.split(' ');
+  const monthIndex = MONTH_LABELS.indexOf(month) !== -1 ? MONTH_LABELS.indexOf(month) : FULL_MONTH_LABELS.indexOf(month);
+  return new Date(Number(year), monthIndex, 1);
 }
 
 function monthsBetweenDates(from: Date, to: Date): number {
@@ -716,6 +720,10 @@ function fmtDuration(months: number): string {
   const yrs = Math.floor(months / 12);
   const rem = months % 12;
   return rem > 0 ? `${yrs} yr${yrs !== 1 ? 's' : ''} ${rem} mo` : `${yrs} yr${yrs !== 1 ? 's' : ''}`;
+}
+
+function sumRecordValues(values: Record<number, number>): number {
+  return Object.values(values).reduce((sum, value) => sum + value, 0);
 }
 
 function movementLabel(
@@ -904,6 +912,10 @@ export default function Home() {
     [categoryBulletins, demandInputs]
   );
 
+  const forecastStartMonthIndex = useMemo(() => (parseBulletinMonth(CURRENT_BULLETIN.month).getMonth() + 1) % 12, []);
+
+  const pendingInventoryTotal = useMemo(() => sumRecordValues(demandInputs.i485), [demandInputs]);
+
   // Compute projections for all scenarios (probabilistic dual-cutoff simulator)
   const projections = useMemo(() => {
     const result: Record<string, ForecastProjection> = {};
@@ -916,13 +928,14 @@ export default function Home() {
         targetDate,
         baseFadRate: adjustedRates[key],
         gcLagMonths: cat.gcLagMonths,
+        seasonalityStartMonth: forecastStartMonthIndex,
         paths: 500,
         maxMonths: 240,
         seed: `${selectedCategory}:${targetDate}:${key}:${spilloverLevel}:${banContinues}:${wastageLevel}`,
       });
     }
     return result;
-  }, [forecastContext, cat.currentFAD, cat.currentDoF, cat.gcLagMonths, targetDate, adjustedRates, selectedCategory, spilloverLevel, banContinues, wastageLevel]);
+  }, [forecastContext, cat.currentFAD, cat.currentDoF, cat.gcLagMonths, targetDate, adjustedRates, selectedCategory, spilloverLevel, banContinues, wastageLevel, forecastStartMonthIndex]);
 
   // Backtest the same simulator used for live forecasts.
   const backtestResult: BacktestSummary = useMemo(
@@ -1049,6 +1062,47 @@ export default function Home() {
     if (!activeHistoricalPoint) return null;
     return getHistoricalPointInsight(activeHistoricalPoint, targetDate);
   }, [activeHistoricalPoint, targetDate]);
+
+  const recentPaceInsight = useMemo(() => {
+    if (HISTORICAL_BULLETINS.length < 2) return null;
+
+    const monthlyMoves = [];
+    for (let i = 0; i < HISTORICAL_BULLETINS.length - 1; i++) {
+      const current = HISTORICAL_BULLETINS[i];
+      const previous = HISTORICAL_BULLETINS[i + 1];
+      const move = movementLabel(previous[fadKey] as string, current[fadKey] as string);
+      monthlyMoves.push({
+        month: current.month,
+        ...move,
+        months: Math.round((move.days / 30.44) * 10) / 10,
+      });
+    }
+
+    const latest = monthlyMoves[0];
+    const trailingMoves = monthlyMoves.slice(0, Math.min(6, monthlyMoves.length));
+    const trailingTotal = Math.round(trailingMoves.reduce((sum, move) => sum + move.months, 0) * 10) / 10;
+    const maxAdvanceDays = Math.max(...monthlyMoves.map(move => move.days), 0);
+
+    const headline =
+      latest.type === 'stable'
+        ? `No change in ${latest.month}`
+        : `${latest.days > 0 ? '+' : ''}${Math.round(latest.months)} mo in ${latest.month}`;
+
+    const trailingSummary = `${trailingTotal > 0 ? '+' : ''}${trailingTotal} PD-months total across the last ${trailingMoves.length} moves.`;
+
+    let detail = trailingSummary;
+    if (latest.type === 'advancement' && latest.days === maxAdvanceDays) {
+      detail = `Largest single-month ${cat.label} India advancement in this tracker. ${trailingSummary}`;
+    } else if (latest.type === 'advancement') {
+      detail = `Latest bulletin advanced by ${Math.abs(Math.round(latest.months))} PD-months. ${trailingSummary}`;
+    } else if (latest.type === 'retrogression') {
+      detail = `Latest bulletin retrogressed by ${Math.abs(Math.round(latest.months))} PD-months. ${trailingSummary}`;
+    } else {
+      detail = `Latest bulletin was unchanged. ${trailingSummary}`;
+    }
+
+    return { headline, detail };
+  }, [cat.label, fadKey]);
 
   // Demand density chart data: pending I-485s + scaled I-140 by PD year
   const demandDensityData = useMemo(() => {
@@ -1582,7 +1636,7 @@ export default function Home() {
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center">
                 <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
                 <p className="text-xl font-bold text-emerald-700">Already Current!</p>
-                <p className="text-sm text-slate-600 mt-1">{fmtDateStr(targetDate)} is already current as of the April 2026 bulletin.</p>
+                <p className="text-sm text-slate-600 mt-1">{fmtDateStr(targetDate)} is already current as of the {CURRENT_BULLETIN.month} bulletin.</p>
               </div>
             ) : (
               <div className="relative -mt-2 overflow-hidden rounded-xl border border-slate-600/80 border-l-4 border-l-emerald-400 bg-gradient-to-br from-slate-800 via-slate-800 to-slate-700 p-6 text-white md:-mt-0">
@@ -1938,8 +1992,8 @@ export default function Home() {
                   <TrendingUp className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Recent Pace</p>
-                    <p className="text-sm font-bold text-slate-900">+10 months in Apr 2026</p>
-                    <p className="text-xs text-slate-500 mt-1">Largest single-month jump in EB-2 India history. Oct 2025–Apr 2026: +15.5 PD-months in 7 bulletins.</p>
+                    <p className="text-sm font-bold text-slate-900">{recentPaceInsight?.headline ?? 'Waiting for data'}</p>
+                    <p className="text-xs text-slate-500 mt-1">{recentPaceInsight?.detail ?? 'Need at least two bulletin rows to compute a monthly movement.'}</p>
                   </div>
                 </div>
               </Card>
@@ -1948,8 +2002,8 @@ export default function Home() {
                   <Calendar className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Pending Inventory</p>
-                    <p className="text-sm font-bold text-slate-900">{cat.pendingInventory.toLocaleString()} I-485s</p>
-                    <p className="text-xs text-slate-500 mt-1">USCIS Oct 2025 data. Total EB-2 India backlog: ~350k–400k principal applicants.</p>
+                    <p className="text-sm font-bold text-slate-900">{pendingInventoryTotal.toLocaleString()} I-485s</p>
+                    <p className="text-xs text-slate-500 mt-1">USCIS Oct 2025 filed I-485 inventory used by the demand model. This does not include future demand that has not yet reached the filing stage.</p>
                   </div>
                 </div>
               </Card>
@@ -1959,7 +2013,7 @@ export default function Home() {
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Key Risk</p>
                     <p className="text-sm font-bold text-slate-900">Retrogression possible</p>
-                    <p className="text-xs text-slate-500 mt-1">Apr 2026 bulletin warns "retrogression may be necessary later in the fiscal year."</p>
+                    <p className="text-xs text-slate-500 mt-1">{CURRENT_BULLETIN.month} bulletin notes that retrogression may be necessary later in the fiscal year.</p>
                   </div>
                 </div>
               </Card>

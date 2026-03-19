@@ -260,6 +260,7 @@ function simulatePath(args: {
   targetDate?: string;
   baseFadRate: number;
   gcLagMonths: number;
+  seasonalityStartMonth: number;
   maxMonths: number;
   context: ForecastContext;
   seed: string;
@@ -277,7 +278,7 @@ function simulatePath(args: {
   let hadRetrogression = false;
 
   for (let step = 0; step < args.maxMonths; step++) {
-    const monthIdx = (args.today.getMonth() + step) % 12;
+    const monthIdx = (args.seasonalityStartMonth + step) % 12;
     const fyMonth = toFyMonth(monthIdx);
 
     const fadDelta = drawMonthlyAdvance(args.context.fadStats, args.baseFadRate, args.context.demandCurve, fadCursor.getFullYear(), fyMonth, rng);
@@ -341,6 +342,7 @@ export function forecastScenario(args: {
   targetDate: string;
   baseFadRate: number;
   gcLagMonths: number;
+  seasonalityStartMonth: number;
   paths?: number;
   maxMonths?: number;
   seed?: string;
@@ -380,6 +382,7 @@ export function forecastScenario(args: {
       targetDate: args.targetDate,
       baseFadRate: args.baseFadRate,
       gcLagMonths: args.gcLagMonths,
+      seasonalityStartMonth: args.seasonalityStartMonth,
       maxMonths,
       context: args.context,
       seed: `${args.seed ?? 'forecast'}:${i}`,
@@ -436,6 +439,7 @@ export function backtestForecast(args: {
     const future = args.bulletins[t + horizonMonths];
     const context = createForecastContext({ bulletins: training, demand: args.demand });
     const today = bulletinMonthToDate(current.month);
+    const seasonalityStartMonth = (today.getMonth() + 1) % 12;
     const advances: number[] = [];
 
     for (let i = 0; i < pathCount; i++) {
@@ -445,6 +449,7 @@ export function backtestForecast(args: {
         currentDof: current.dof,
         baseFadRate: args.baseFadRate,
         gcLagMonths: args.gcLagMonths,
+        seasonalityStartMonth,
         maxMonths: horizonMonths,
         context,
         seed: `${args.seed ?? 'backtest'}:${t}:${i}`,

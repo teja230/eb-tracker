@@ -16,17 +16,17 @@ The tracker is updated monthly when new visa bulletins are released by the U.S. 
 
 ## Features
 
-| Feature                       | Description                                                                   |
-|-------------------------------|-------------------------------------------------------------------------------|
-| **Priority Date Calculator**  | Enter any priority date and instantly see DoF, FAD, and GC receipt estimates  |
-| **Multi-Category Support**    | EB-1 (Priority Workers), EB-2 (Advanced Degree), EB-3 (Skilled Workers)       |
-| **Four Scenario Projections** | Optimistic, Base, Conservative, Pessimistic — each with P10/P50/P90 ranges    |
-| **Historical Movement Chart** | Interactive chart with FAD/DoF lines, FY boundaries, and acceleration zones   |
-| **Queue Depth Chart**         | Demand density by PD year using hybrid I-485 inventory + I-140 approval data  |
-| **Bulletin Tracker**          | Historical Final Action Dates and Dates for Filing with Δ movement columns    |
-| **Adjust Assumptions**        | Tune spillover level, ban duration, and GC wastage to model custom scenarios  |
-| **Backtesting**               | Rolling 6-month MAE + 80% interval coverage for model transparency            |
-| **PDF/Text Export**           | Export personalized scenario estimates for sharing with immigration attorneys |
+| Feature                       | Description                                                                  |
+|-------------------------------|------------------------------------------------------------------------------|
+| **Priority Date Calculator**  | Enter any priority date and instantly see DoF, FAD, and GC receipt estimates |
+| **Multi-Category Support**    | EB-1 (Priority Workers), EB-2 (Advanced Degree), EB-3 (Skilled Workers)      |
+| **Four Scenario Projections** | Optimistic, Base, Conservative, Pessimistic — each with P10/P50/P90 ranges   |
+| **Historical Movement Chart** | Interactive chart with FAD/DoF lines, FY boundaries, and acceleration zones  |
+| **Queue Depth Chart**         | Demand density by PD year using hybrid I-485 inventory + I-140 approval data |
+| **Bulletin Tracker**          | Historical Final Action Dates and Dates for Filing with Δ movement columns   |
+| **Adjust Assumptions**        | Tune spillover level, ban duration, and GC wastage to model custom scenarios |
+| **Backtesting**               | Rolling 6-month MAE + 80% interval coverage for model transparency           |
+| **PDF + Share Export**        | Export a personalized PDF and copy a shareable estimate summary to clipboard |
 
 ---
 
@@ -97,6 +97,8 @@ adjustedRate = baseRate × spilloverMultiplier × banMultiplier × wastageMultip
 ---
 
 ## Current Bulletin Data (April 2026)
+
+`Current bulletin` in this README means the **latest released U.S. Department of State Visa Bulletin**, not the calendar month on today's date. As of **March 19, 2026**, the latest released bulletin is **April 2026**.
 
 | Category   | Final Action Date | Dates for Filing |
 |------------|-------------------|------------------|
@@ -185,7 +187,9 @@ When a new visa bulletin is released (typically the second Tuesday of each month
 4. Verify `TODAY` is set to `new Date()` (auto-updates, do not hardcode)
 5. If new I-485 inventory data is available, update `I485_INDIA_PENDING`
 6. If new I-140 approval data is available, update `I140_INDIA_APPROVALS`
-7. Save and deploy
+7. Recalculate and verify any displayed category totals, notes, or inventory summaries that depend on those tables (for example `pendingInventory` values and backlog copy)
+8. Check for month- or category-specific hardcoded UI text outside the data tables (for example "Already Current" copy, pace cards, and explanatory notes)
+9. Save and deploy
 
 ---
 
