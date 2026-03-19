@@ -50,7 +50,7 @@ import { TrendingUp, Calendar, Clock, Download, CheckCircle2, AlertTriangle, Inf
 import { toast } from 'sonner';
 import PriorityDatePicker from '@/components/PriorityDatePicker';
 import { ConfidenceRangeChart } from '@/components/ConfidenceRangeChart';
-import { AnimatedTimelineChart } from '@/components/AnimatedTimelineChart';
+
 import { useIsMobile } from '@/hooks/useMobile';
 import {
   BULLETIN_TRACKER_HISTORY,
@@ -1163,18 +1163,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Animated Historical Timeline Chart */}
-            <div className="mt-8">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Historical Priority Date Movement</h3>
-              <AnimatedTimelineChart
-                data={fullHistoricalChartData}
-                category={selectedCategory}
-                title={`${cat.label} India — Filing Date & Final Action Date Timeline`}
-              />
-            </div>
-
             {/* Historical Chart */}
-            <Card className="overflow-hidden gap-0 border-slate-200 bg-white p-0 shadow-sm mt-8">
+            <Card className="overflow-hidden gap-0 border-slate-200 bg-white p-0 shadow-sm">
               <div className="flex flex-col gap-3 border-b border-slate-200/80 px-5 py-4 md:flex-row md:items-start md:justify-between md:px-6">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900 md:text-base">{cat.label} India priority date movement</h3>
