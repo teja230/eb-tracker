@@ -10,9 +10,9 @@ export type HistoricalBulletinRow = {
   eb3_dof: string;
 };
 
-// April 2026 Visa Bulletin data (most recent)
+// May 2026 Visa Bulletin data (most recent)
 export const CURRENT_BULLETIN = {
-  month: 'April 2026',
+  month: 'May 2026',
   eb1: { fad: '2023-04-01', dof: '2023-12-01' },
   eb2: { fad: '2014-07-15', dof: '2015-01-15' },
   eb3: { fad: '2013-11-15', dof: '2015-01-15' },
@@ -119,7 +119,7 @@ export const EB_CATEGORIES = {
     currentDoF: CURRENT_BULLETIN.eb2.dof,
     rates: {
       optimistic: 1.625,
-      base: 0.975,
+      base: 0.85,
       conservative: 0.45,
       pessimistic: 0.275,
     },
@@ -127,7 +127,7 @@ export const EB_CATEGORIES = {
     gcLagMonths: 15,
     annualVisas: 2850,
     density: { category: 'EB2' as const },
-    notes: 'EB-2 India has ~28k pending I-485s. 97% in PD-2013/2014. FY2026 acceleration driven by 75-country ban spillover.',
+    notes: 'EB-2 India has ~28k pending I-485s. 97% in PD-2013/2014. FY2026 rapid movement was artificial (75-country ban); mid-year correction underway with USCIS switching to Table A.',
   },
   EB3: {
     label: 'EB-3',
@@ -136,7 +136,7 @@ export const EB_CATEGORIES = {
     currentDoF: CURRENT_BULLETIN.eb3.dof,
     rates: {
       optimistic: 1.2,
-      base: 0.7,
+      base: 0.6,
       conservative: 0.35,
       pessimistic: 0.2,
     },
@@ -144,49 +144,50 @@ export const EB_CATEGORIES = {
     gcLagMonths: 18,
     annualVisas: 3000,
     density: { category: 'EB3' as const },
-    notes: 'EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014.',
+    notes: 'EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014. Mid-year correction: lost ~14 months of filing eligibility with Table A switch.',
   },
 };
 
 export const SCENARIOS = {
   optimistic: {
     label: 'Optimistic',
-    probability: '15–20%',
+    probability: '10–15%',
     color: '#10b981',
     tailwindColor: 'emerald',
     spillover: '60k+ extra EB visas (FY2027 materializes at scale)',
-    description: 'Large FY2027 spillover materializes. 75-country ban persists through Sept 2026, generating 60k+ extra EB visas. Historical parallel: COVID FY2021–22 created 120k+ extra EB visas.',
+    description: 'Large FY2027 spillover materializes. 75-country ban persists through Sept 2026, generating 60k+ extra EB visas. Movement resumes in FY2027 after mid-year stall. Historical parallel: COVID FY2021–22 created 120k+ extra EB visas.',
   },
   base: {
     label: 'Base Case',
-    probability: '40%',
+    probability: '35%',
     color: '#3b82f6',
     tailwindColor: 'blue',
     spillover: '30–40k extra EB visas (moderate spillover)',
-    description: 'Moderate spillover with some retrogression. Ban generates 30–40k extra visas but offset by surge in I-485 filings and mid-year retrogression.',
+    description: 'Moderate FY2027 spillover but mid-year correction continues through summer 2026. USCIS stays on Table A (Final Action Dates). Minimal movement Jun–Sep, recovery in FY2027.',
   },
   conservative: {
     label: 'Conservative',
-    probability: '30%',
+    probability: '35%',
     color: '#f59e0b',
     tailwindColor: 'amber',
     spillover: 'No spillover, reversion to pre-FY2026 pace',
-    description: 'Ban reversed by courts, no spillover materializes. Movement reverts to pre-FY2026 pace of 2–4 months/year.',
+    description: 'Ban reversed or scaled back, spillover limited. Feb–Apr movement confirmed artificial ("boomerang effect" per Oppenheim). Reverts to pre-FY2026 pace of 2–4 months/year.',
   },
   pessimistic: {
     label: 'Pessimistic',
-    probability: '10–15%',
+    probability: '15–20%',
     color: '#ef4444',
     tailwindColor: 'red',
     spillover: 'Stagnation / retrogression',
-    description: 'Ban reversed, retrogression occurs, pace drops below pre-FY2026 levels. At FY2024 pace (3.5 months/year), Aug 2016 would not clear until ~2033.',
+    description: 'DOS retrogresses dates before Sept 2026 as warned in May bulletin. Ban reversed, demand surge from pent-up I-485 filings. Pace drops below pre-FY2026 levels.',
   },
 };
 
 // Forecast-model history (most recent first)
-// ALL values verified against official travel.state.gov bulletins (Oct 2022 – Apr 2026)
+// ALL values verified against official travel.state.gov bulletins (Oct 2022 – May 2026)
 // EB-1 India "C" (Current) in Oct–Dec 2022 represented using bulletin month date.
 export const HISTORICAL_BULLETINS: HistoricalBulletinRow[] = [
+  { month: 'May 2026', eb1_fad: '2023-04-01', eb1_dof: '2023-12-01', eb2_fad: '2014-07-15', eb2_dof: '2015-01-15', eb3_fad: '2013-11-15', eb3_dof: '2015-01-15' },
   { month: 'Apr 2026', eb1_fad: '2023-04-01', eb1_dof: '2023-12-01', eb2_fad: '2014-07-15', eb2_dof: '2015-01-15', eb3_fad: '2013-11-15', eb3_dof: '2015-01-15' },
   { month: 'Mar 2026', eb1_fad: '2023-03-01', eb1_dof: '2023-12-01', eb2_fad: '2013-09-15', eb2_dof: '2014-11-01', eb3_fad: '2013-11-15', eb3_dof: '2014-08-15' },
   { month: 'Feb 2026', eb1_fad: '2023-02-01', eb1_dof: '2023-08-01', eb2_fad: '2013-07-15', eb2_dof: '2013-12-01', eb3_fad: '2013-11-15', eb3_dof: '2014-08-15' },

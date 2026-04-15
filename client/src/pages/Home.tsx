@@ -28,7 +28,7 @@
  *
  * Scenario rates (calibrated against PD-2012 density era for EB-2/EB-3):
  *   Optimistic  : 1.625 PD-mo/month (large FY2027 spillover 60k+)
- *   Base Case   : 0.975 PD-mo/month (moderate spillover 30–40k)
+ *   Base Case   : 0.85  PD-mo/month (moderate spillover, mid-year correction)
  *   Conservative: 0.45  PD-mo/month (no spillover, reversion to pre-FY2026 pace)
  *   Pessimistic : 0.275 PD-mo/month (ban reversed, stagnation returns)
  *
@@ -36,7 +36,7 @@
  * GC receipt follows FAD by ~12–18 months.
  *
  * Sources:
- *   - DOS Visa Bulletins Oct 2022–Apr 2026 (travel.state.gov)
+ *   - DOS Visa Bulletins Oct 2022–May 2026 (travel.state.gov)
  *   - USCIS I-485 Pending Inventory, Oct 2025 (uscis.gov)
  *   - USCIS I-140 Performance Data, FY2025 Q3 (uscis.gov)
  *   - Cato Institute immigration policy analysis
@@ -46,7 +46,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
 import { Card } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine, ReferenceDot, Area, ReferenceArea } from 'recharts';
-import { TrendingUp, Calendar, Clock, Download, CheckCircle2, AlertTriangle, Info, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
+import { TrendingUp, Calendar, Clock, Download, CheckCircle2, AlertTriangle, Info, ChevronDown, ChevronUp, Share2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import PriorityDatePicker from '@/components/PriorityDatePicker';
 import { ConfidenceRangeChart } from '@/components/ConfidenceRangeChart';
@@ -92,6 +92,19 @@ import {
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const TODAY = new Date(); // Always the current date — do NOT hardcode this
+
+const MONTH_FULL_NAMES: Record<string, string> = {
+  Jan: 'january', Feb: 'february', Mar: 'march', Apr: 'april',
+  May: 'may', Jun: 'june', Jul: 'july', Aug: 'august',
+  Sep: 'september', Oct: 'october', Nov: 'november', Dec: 'december',
+};
+
+function bulletinUrl(month: string): string {
+  const [mon, year] = month.split(' ');
+  const monthName = MONTH_FULL_NAMES[mon] ?? mon.toLowerCase();
+  const fy = Number(mon === 'Oct' || mon === 'Nov' || mon === 'Dec' ? Number(year) + 1 : year);
+  return `https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin/${fy}/visa-bulletin-for-${monthName}-${year}.html`;
+}
 
 // Tracker data and shared helpers live in dedicated modules to keep Home focused
 // on UI state, derived view models, and rendering.
@@ -384,18 +397,29 @@ export default function Home() {
   }, [historicalChartData]);
 
   const historicalXAxisTicks = useMemo(() => {
-    return Array.from(
-      new Set(
-        historicalChartData
-          .filter((d, index) => {
-            const isAnchor = index === 0 || index === historicalChartData.length - 1;
-            const isDesktopTick = d.month.startsWith('Apr ') || d.month.startsWith('Oct ');
-            const isMobileTick = d.month.startsWith('Oct ');
-            return isAnchor || (isMobile ? isMobileTick : isDesktopTick);
-          })
-          .map(d => d.month)
-      )
-    );
+    const lastIdx = historicalChartData.length - 1;
+    const firstIdx = 0;
+    const anchors = new Set([firstIdx, lastIdx]);
+
+    const ticks: string[] = [];
+
+    historicalChartData.forEach((d, index) => {
+      const isDesktopTick = d.month.startsWith('Apr ') || d.month.startsWith('Oct ');
+      const isMobileTick = d.month.startsWith('Oct ');
+      const isRegular = isMobile ? isMobileTick : isDesktopTick;
+
+      // Drop regular ticks that are within 2 months of an anchor
+      if (isRegular && !anchors.has(index)) {
+        const tooCloseToAnchor = Array.from(anchors).some(a => Math.abs(index - a) < 3);
+        if (!tooCloseToAnchor) ticks.push(d.month);
+      }
+    });
+
+    // Anchors always win
+    ticks.unshift(historicalChartData[firstIdx].month);
+    ticks.push(historicalChartData[lastIdx].month);
+
+    return Array.from(new Set(ticks));
   }, [historicalChartData, isMobile]);
 
   const historicalYAxisTicks = useMemo(() => {
@@ -1168,7 +1192,7 @@ export default function Home() {
               <div className="flex flex-col gap-3 border-b border-slate-200/80 px-5 py-4 md:flex-row md:items-start md:justify-between md:px-6">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900 md:text-base">{cat.label} India priority date movement</h3>
-                  <p className="mt-1 text-xs text-slate-500">Switch between recent movement and archived years without adding extra chart controls.</p>
+                  <p className="mt-1 text-xs text-slate-500">Source: <a href={bulletinUrl(CURRENT_BULLETIN.month)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline underline-offset-2">DOS Visa Bulletin</a> · {isMobile ? 'Tap' : 'Click'} any point to view its official bulletin</p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 md:justify-end">
@@ -1243,9 +1267,13 @@ export default function Home() {
                           if (point) setActiveHistoricalPoint(point);
                         }}
                         onMouseLeave={() => setActiveHistoricalPoint(historicalChartData[historicalChartData.length - 1] ?? null)}
+                        style={{ cursor: 'pointer' }}
                         onClick={(state: any) => {
                           const point = state?.activePayload?.[0]?.payload;
-                          if (point) setActiveHistoricalPoint(point);
+                          if (point) {
+                            setActiveHistoricalPoint(point);
+                            window.open(bulletinUrl(point.month), '_blank', 'noopener,noreferrer');
+                          }
                         }}
                       >
                         <defs>
@@ -1361,7 +1389,7 @@ export default function Home() {
                           <p className="text-sm font-semibold text-slate-900">{activeHistoricalInsight.month}</p>
                           {activeHistoricalPoint?.month === historicalChartData[historicalChartData.length - 1]?.month && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Latest</span>}
                         </div>
-                        <p className="mt-1 text-[11px] text-slate-500">{isMobile ? 'Tap the chart to inspect earlier months.' : 'Hover the chart to inspect earlier months.'}</p>
+                        <p className="mt-1 text-[11px] text-slate-500">{isMobile ? 'Tap' : 'Click'} any point to open that month's official visa bulletin.</p>
                       </div>
 
                       <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
@@ -1824,7 +1852,7 @@ export default function Home() {
                   <div className="min-w-0 flex-1 text-sm text-slate-600">
                     Historical visa bulletins for India. Δ columns show month-over-month movement.
                     <span className="text-emerald-600 font-semibold"> Green = advancement</span>,<span className="text-red-600 font-semibold"> Red = retrogression</span>.
-                    <span className="block text-xs text-slate-500 mt-1">Tracker tables now run continuously from Oct 2019 through the latest bulletin, including archived FY2020-FY2022 rows. Forecasts, charts, and backtests remain calibrated on the contiguous Oct 2022–Apr 2026 series.</span>
+                    <span className="block text-xs text-slate-500 mt-1">Tracker tables now run continuously from Oct 2019 through the latest bulletin, including archived FY2020-FY2022 rows. Forecasts, charts, and backtests remain calibrated on the contiguous Oct 2022–May 2026 series.</span>
                   </div>
                   <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:min-w-[320px]">
                     <PaceTile label="FAD Pace" v6={fad6} v12={fad12} />

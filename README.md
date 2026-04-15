@@ -53,7 +53,7 @@ delta = baseRate × clamp(seasonality + residualSample, -2.25, 3.25) / √clamp(
 **Output per scenario:**
 - **P10 / P50 / P90** quantile dates for DoF, FAD, and GC receipt
 - **Retrogression risk** — % of paths where at least one negative month occurred
-- **DoF** modeled independently from its own historical series (not FAD minus fixed offset)
+- **DoF** modeled independently of its own historical series (not FAD minus fixed offset)
 - **GC Receipt** = FAD + category-specific lag (EB-2: ~15 months)
 
 ### Scenario Rates (EB-2 India)

@@ -22,7 +22,7 @@ function expectDofNotBeforeFad(history: HistoricalBulletinRow[]) {
 describe('tracker bulletin data', () => {
   it('keeps the model history aligned with CURRENT_BULLETIN', () => {
     expect(HISTORICAL_BULLETINS[0]).toEqual({
-      month: 'Apr 2026',
+      month: 'May 2026',
       eb1_fad: CURRENT_BULLETIN.eb1.fad,
       eb1_dof: CURRENT_BULLETIN.eb1.dof,
       eb2_fad: CURRENT_BULLETIN.eb2.fad,
