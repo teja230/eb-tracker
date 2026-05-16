@@ -13,9 +13,9 @@ export type HistoricalBulletinRow = {
 // June 2026 Visa Bulletin data (most recent)
 export const CURRENT_BULLETIN = {
   month: 'June 2026',
-  eb1: { fad: '2023-04-01', dof: '2023-12-01' },
-  eb2: { fad: '2021-09-01', dof: '2022-01-01' },
-  eb3: { fad: '2021-08-01', dof: '2022-01-01' },
+  eb1: { fad: '2022-12-15', dof: '2023-12-01' },
+  eb2: { fad: '2013-09-01', dof: '2015-01-15' },
+  eb3: { fad: '2013-12-15', dof: '2015-01-15' },
 };
 
 // ─── DEMAND DENSITY DATA (HYBRID: I-485 INVENTORY + I-140 APPROVALS) ─────────
@@ -110,7 +110,7 @@ export const EB_CATEGORIES = {
     gcLagMonths: 12,
     annualVisas: 2500,
     density: { category: 'EB1' as const },
-    notes: 'EB-1 India has ~14.3k pending I-485s. Current FAD is Apr 2023. Massive spike at PD-2022 (10,953 cases).',
+    notes: 'EB-1 India has ~14.3k pending I-485s. Current FAD is Dec 2022 after June retrogression. Massive spike at PD-2022 (10,953 cases).',
   },
   EB2: {
     label: 'EB-2',
@@ -119,15 +119,15 @@ export const EB_CATEGORIES = {
     currentDoF: CURRENT_BULLETIN.eb2.dof,
     rates: {
       optimistic: 1.625,
-      base: 0.5,
-    conservative: 0.3,
-    pessimistic: 0.15,
+      base: 0.85,
+      conservative: 0.45,
+      pessimistic: 0.275,
     },
     dofLeadMonths: 6,
     gcLagMonths: 15,
     annualVisas: 2850,
     density: { category: 'EB2' as const },
-    notes: 'EB-2 India has ~28k pending I-485s. 97% in PD-2013/2014. June retrogression: FAD fell from Jul 2014 to Sep 2021 (10+ months). Mid-year correction confirmed; USCIS on Table A (Final Action Dates).',
+    notes: 'EB-2 India has ~28k pending I-485s. 97% in PD-2013/2014. June retrogression reset FAD to Sep 2013 after earlier FY2026 rapid movement.',
   },
   EB3: {
     label: 'EB-3',
@@ -136,15 +136,15 @@ export const EB_CATEGORIES = {
     currentDoF: CURRENT_BULLETIN.eb3.dof,
     rates: {
       optimistic: 1.2,
-      base: 0.4,
-    conservative: 0.2,
-    pessimistic: 0.1,
+      base: 0.6,
+      conservative: 0.35,
+      pessimistic: 0.2,
     },
     dofLeadMonths: 6,
     gcLagMonths: 18,
     annualVisas: 3000,
     density: { category: 'EB3' as const },
-    notes: 'EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014. June retrogression: FAD fell from Nov 2013 to Aug 2021. Mid-year correction underway with Table A.',
+    notes: 'EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014. June FAD advanced to Dec 2013 while DoF stayed at Jan 2015.',
   },
 };
 
@@ -163,7 +163,7 @@ export const SCENARIOS = {
     color: '#3b82f6',
     tailwindColor: 'blue',
     spillover: '30–40k extra EB visas (moderate spillover)',
-    description: 'Moderate FY2027 spillover but mid-year correction continues through summer 2026. USCIS stays on Table A (Final Action Dates). Minimal movement Jun–Sep, recovery in FY2027.',
+    description: 'Moderate FY2027 spillover but mid-year correction continues through summer 2026. USCIS stays on Table A (Final Action Dates). Minimal or corrective movement Jul–Sep, recovery in FY2027.',
   },
   conservative: {
     label: 'Conservative',
@@ -179,15 +179,15 @@ export const SCENARIOS = {
     color: '#ef4444',
     tailwindColor: 'red',
     spillover: 'Stagnation / retrogression',
-    description: 'DOS retrogresses dates before Sept 2026 as warned in May bulletin. Ban reversed, demand surge from pent-up I-485 filings. Pace drops below pre-FY2026 levels.',
+    description: 'DOS continues retrogression or makes categories unavailable before Sept 2026 as warned in the June bulletin. Ban reversed, demand surge from pent-up I-485 filings. Pace drops below pre-FY2026 levels.',
   },
 };
 
 // Forecast-model history (most recent first)
-// ALL values verified against official travel.state.gov bulletins (Oct 2022 – May 2026)
+// ALL values verified against official travel.state.gov bulletins (Oct 2022 – June 2026)
 // EB-1 India "C" (Current) in Oct–Dec 2022 represented using bulletin month date.
 export const HISTORICAL_BULLETINS: HistoricalBulletinRow[] = [
-  { month: 'June 2026', eb1_fad: '2023-04-01', eb1_dof: '2023-12-01', eb2_fad: '2021-09-01', eb2_dof: '2022-01-01', eb3_fad: '2021-08-01', eb3_dof: '2022-01-01' },
+  { month: 'June 2026', eb1_fad: '2022-12-15', eb1_dof: '2023-12-01', eb2_fad: '2013-09-01', eb2_dof: '2015-01-15', eb3_fad: '2013-12-15', eb3_dof: '2015-01-15' },
   { month: 'May 2026', eb1_fad: '2023-04-01', eb1_dof: '2023-12-01', eb2_fad: '2014-07-15', eb2_dof: '2015-01-15', eb3_fad: '2013-11-15', eb3_dof: '2015-01-15' },
   { month: 'Apr 2026', eb1_fad: '2023-04-01', eb1_dof: '2023-12-01', eb2_fad: '2014-07-15', eb2_dof: '2015-01-15', eb3_fad: '2013-11-15', eb3_dof: '2015-01-15' },
   { month: 'Mar 2026', eb1_fad: '2023-03-01', eb1_dof: '2023-12-01', eb2_fad: '2013-09-15', eb2_dof: '2014-11-01', eb3_fad: '2013-11-15', eb3_dof: '2014-08-15' },

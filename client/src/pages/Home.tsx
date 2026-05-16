@@ -36,7 +36,7 @@
  * GC receipt follows FAD by ~12–18 months.
  *
  * Sources:
- *   - DOS Visa Bulletins Oct 2022–May 2026 (travel.state.gov)
+ *   - DOS Visa Bulletins Oct 2022–June 2026 (travel.state.gov)
  *   - USCIS I-485 Pending Inventory, Oct 2025 (uscis.gov)
  *   - USCIS I-140 Performance Data, FY2025 Q3 (uscis.gov)
  *   - Cato Institute immigration policy analysis
@@ -1539,7 +1539,7 @@ export default function Home() {
                   <strong>Demand curve:</strong> Uses <strong>USCIS I-485 pending inventory</strong> (Oct 2025) where available and falls back to <strong>I-140 approval counts</strong> (FY2025 Q3) beyond inventory coverage. The fallback is scaled using the <strong>median overlap ratio</strong>, and demand ratios are clipped before applying the square-root slowdown.
                 </p>
                 <p>
-                  <strong>Seasonality and volatility:</strong> Derived from 43 months of verified bulletin data. Each FY-month has its own bucket of historical residuals, which means the live model can simulate both surges and retrogression.
+                  <strong>Seasonality and volatility:</strong> Derived from {HISTORICAL_BULLETINS.length} months of verified bulletin data. Each FY-month has its own bucket of historical residuals, which means the live model can simulate both surges and retrogression.
                 </p>
                 <p>
                   <strong>DoF model:</strong> Independent — DoF is simulated from its own historical movement series instead of being forced to equal FAD minus a fixed offset.
@@ -1852,7 +1852,7 @@ export default function Home() {
                   <div className="min-w-0 flex-1 text-sm text-slate-600">
                     Historical visa bulletins for India. Δ columns show month-over-month movement.
                     <span className="text-emerald-600 font-semibold"> Green = advancement</span>,<span className="text-red-600 font-semibold"> Red = retrogression</span>.
-                    <span className="block text-xs text-slate-500 mt-1">Tracker tables now run continuously from Oct 2019 through the latest bulletin, including archived FY2020-FY2022 rows. Forecasts, charts, and backtests remain calibrated on the contiguous Oct 2022–May 2026 series.</span>
+                    <span className="block text-xs text-slate-500 mt-1">Tracker tables now run continuously from Oct 2019 through the latest bulletin, including archived FY2020-FY2022 rows. Forecasts, charts, and backtests remain calibrated on the contiguous Oct 2022–June 2026 series.</span>
                   </div>
                   <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:min-w-[320px]">
                     <PaceTile label="FAD Pace" v6={fad6} v12={fad12} />
