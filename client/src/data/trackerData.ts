@@ -10,12 +10,12 @@ export type HistoricalBulletinRow = {
   eb3_dof: string;
 };
 
-// May 2026 Visa Bulletin data (most recent)
+// June 2026 Visa Bulletin data (most recent)
 export const CURRENT_BULLETIN = {
-  month: 'May 2026',
+  month: 'June 2026',
   eb1: { fad: '2023-04-01', dof: '2023-12-01' },
-  eb2: { fad: '2014-07-15', dof: '2015-01-15' },
-  eb3: { fad: '2013-11-15', dof: '2015-01-15' },
+  eb2: { fad: '2021-09-01', dof: '2022-01-01' },
+  eb3: { fad: '2021-08-01', dof: '2022-01-01' },
 };
 
 // ─── DEMAND DENSITY DATA (HYBRID: I-485 INVENTORY + I-140 APPROVALS) ─────────
@@ -119,15 +119,15 @@ export const EB_CATEGORIES = {
     currentDoF: CURRENT_BULLETIN.eb2.dof,
     rates: {
       optimistic: 1.625,
-      base: 0.85,
-      conservative: 0.45,
-      pessimistic: 0.275,
+      base: 0.5,
+    conservative: 0.3,
+    pessimistic: 0.15,
     },
     dofLeadMonths: 6,
     gcLagMonths: 15,
     annualVisas: 2850,
     density: { category: 'EB2' as const },
-    notes: 'EB-2 India has ~28k pending I-485s. 97% in PD-2013/2014. FY2026 rapid movement was artificial (75-country ban); mid-year correction underway with USCIS switching to Table A.',
+    notes: 'EB-2 India has ~28k pending I-485s. 97% in PD-2013/2014. June retrogression: FAD fell from Jul 2014 to Sep 2021 (10+ months). Mid-year correction confirmed; USCIS on Table A (Final Action Dates).',
   },
   EB3: {
     label: 'EB-3',
@@ -136,15 +136,15 @@ export const EB_CATEGORIES = {
     currentDoF: CURRENT_BULLETIN.eb3.dof,
     rates: {
       optimistic: 1.2,
-      base: 0.6,
-      conservative: 0.35,
-      pessimistic: 0.2,
+      base: 0.4,
+    conservative: 0.2,
+    pessimistic: 0.1,
     },
     dofLeadMonths: 6,
     gcLagMonths: 18,
     annualVisas: 3000,
     density: { category: 'EB3' as const },
-    notes: 'EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014. Mid-year correction: lost ~14 months of filing eligibility with Table A switch.',
+    notes: 'EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014. June retrogression: FAD fell from Nov 2013 to Aug 2021. Mid-year correction underway with Table A.',
   },
 };
 
@@ -187,6 +187,7 @@ export const SCENARIOS = {
 // ALL values verified against official travel.state.gov bulletins (Oct 2022 – May 2026)
 // EB-1 India "C" (Current) in Oct–Dec 2022 represented using bulletin month date.
 export const HISTORICAL_BULLETINS: HistoricalBulletinRow[] = [
+  { month: 'June 2026', eb1_fad: '2023-04-01', eb1_dof: '2023-12-01', eb2_fad: '2021-09-01', eb2_dof: '2022-01-01', eb3_fad: '2021-08-01', eb3_dof: '2022-01-01' },
   { month: 'May 2026', eb1_fad: '2023-04-01', eb1_dof: '2023-12-01', eb2_fad: '2014-07-15', eb2_dof: '2015-01-15', eb3_fad: '2013-11-15', eb3_dof: '2015-01-15' },
   { month: 'Apr 2026', eb1_fad: '2023-04-01', eb1_dof: '2023-12-01', eb2_fad: '2014-07-15', eb2_dof: '2015-01-15', eb3_fad: '2013-11-15', eb3_dof: '2015-01-15' },
   { month: 'Mar 2026', eb1_fad: '2023-03-01', eb1_dof: '2023-12-01', eb2_fad: '2013-09-15', eb2_dof: '2014-11-01', eb3_fad: '2013-11-15', eb3_dof: '2014-08-15' },
