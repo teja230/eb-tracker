@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { EB_CATEGORIES, HISTORICAL_BULLETINS, I140_INDIA_APPROVALS, I485_INDIA_PENDING } from '@/data/trackerData';
+
 import { backtestForecast, buildDemandCurve, createForecastContext, forecastScenario, type ForecastBulletin } from './forecast';
 import { MONTH_LABELS } from './trackerUtils';
 
@@ -124,6 +126,41 @@ describe('forecast engine', () => {
     expect(result.fadDate.getFullYear()).toBe(2014);
     expect(result.fadDate.getMonth()).toBe(6);
     expect(result.fadDate.getDate()).toBe(15);
+  });
+
+  it('uses a large current-bulletin retrogression as risk pressure, not repeated backward movement', () => {
+    const category = EB_CATEGORIES.EB2;
+    const bulletins = [...HISTORICAL_BULLETINS].reverse().map(row => ({
+      month: row.month,
+      fad: row.eb2_fad,
+      dof: row.eb2_dof,
+    }));
+    const context = createForecastContext({
+      bulletins,
+      demand: {
+        i485: I485_INDIA_PENDING.EB2,
+        i140: I140_INDIA_APPROVALS.EB2,
+      },
+    });
+
+    const result = forecastScenario({
+      context,
+      today: new Date(2026, 5, 1),
+      currentFad: category.currentFAD,
+      currentDof: category.currentDoF,
+      targetDate: '2016-08-01',
+      baseFadRate: category.rates.base,
+      gcLagMonths: category.gcLagMonths,
+      seasonalityStartMonth: 6,
+      paths: 120,
+      maxMonths: 240,
+      seed: 'june-2026-eb2-retrogression',
+    });
+
+    expect(result.isAlreadyCurrent).toBe(false);
+    expect(result.fadMonths.p50).toBeLessThan(120);
+    expect(result.fadMonths.p90).toBeLessThan(240);
+    expect(result.retrogressionRisk).toBeLessThan(1);
   });
 
   it('backtestForecast returns an empty summary when there is not enough history', () => {

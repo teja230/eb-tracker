@@ -1140,7 +1140,7 @@ export default function Home() {
                       </span>
                     )}
                     {backtestResult.predictions > 0 && <span className="flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-700/60 px-2 py-0.5 text-slate-200" title="Share of 6-month backtest windows where the actual FAD landed inside the model's 80% interval">80% hit: {Math.round(backtestResult.coverage80 * 100)}%</span>}
-                    <span className="flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-700/60 px-2 py-0.5 text-slate-200" title="Share of simulated paths where at least one monthly retrogression occurred before the target became current">Retrogression risk: {Math.round(overviewProjection.retrogressionRisk * 100)}%</span>
+                    <span className="flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-700/60 px-2 py-0.5 text-slate-200" title="Share of simulated paths with near-term retrogression or stall pressure in the next 12 bulletin months">Retrogression risk: {Math.round(overviewProjection.retrogressionRisk * 100)}%</span>
                   </div>
                 </div>
               </div>

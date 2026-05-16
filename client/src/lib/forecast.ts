@@ -75,6 +75,13 @@ type PathResult = {
   finalFadAdvance: number;
 };
 
+type MonthlyAdvance = {
+  delta: number;
+  hadRetrogressionPressure: boolean;
+};
+
+const RETROGRESSION_RISK_WINDOW_MONTHS = 12;
+
 function bulletinMonthToDate(label: string): Date {
   return parseBulletinMonth(label);
 }
@@ -183,11 +190,15 @@ function sampleResidual(stats: SeriesStats, fyMonth: number, rng: () => number):
   return bucket.length > 0 ? bucketSample * 0.7 + overallSample * 0.3 : overallSample;
 }
 
-function drawMonthlyAdvance(stats: SeriesStats, baseRate: number, demandCurve: DemandCurve, pdYear: number, fyMonth: number, rng: () => number): number {
+function drawMonthlyAdvance(stats: SeriesStats, baseRate: number, demandCurve: DemandCurve, pdYear: number, fyMonth: number, rng: () => number): MonthlyAdvance {
   const yearDemand = demandCurve.byYear[pdYear] ?? demandCurve.reference;
   const demandRatio = clamp(yearDemand / demandCurve.reference, 0.6, 1.8);
-  const multiplier = clamp(stats.seasonality[fyMonth] + sampleResidual(stats, fyMonth, rng), -2.25, 3.25);
-  return (baseRate * multiplier) / Math.sqrt(demandRatio);
+  const rawMultiplier = stats.seasonality[fyMonth] + sampleResidual(stats, fyMonth, rng);
+  const multiplier = clamp(rawMultiplier, 0, 3.25);
+  return {
+    delta: (baseRate * multiplier) / Math.sqrt(demandRatio),
+    hadRetrogressionPressure: rawMultiplier < -0.05,
+  };
 }
 
 export function buildDemandCurve({ i485, i140 }: DemandInputs): DemandCurve {
@@ -260,10 +271,12 @@ function simulatePath(args: {
     const monthIdx = (args.seasonalityStartMonth + step) % 12;
     const fyMonth = toFyMonth(monthIdx);
 
-    const fadDelta = drawMonthlyAdvance(args.context.fadStats, args.baseFadRate, args.context.demandCurve, fadCursor.getFullYear(), fyMonth, rng);
-    const dofDelta = drawMonthlyAdvance(args.context.dofStats, baseDofRate, args.context.demandCurve, dofCursor.getFullYear(), fyMonth, rng);
+    const fadAdvance = drawMonthlyAdvance(args.context.fadStats, args.baseFadRate, args.context.demandCurve, fadCursor.getFullYear(), fyMonth, rng);
+    const dofAdvance = drawMonthlyAdvance(args.context.dofStats, baseDofRate, args.context.demandCurve, dofCursor.getFullYear(), fyMonth, rng);
+    const fadDelta = fadAdvance.delta;
+    const dofDelta = dofAdvance.delta;
 
-    if (fadDelta < 0 || dofDelta < 0) hadRetrogression = true;
+    if (step < RETROGRESSION_RISK_WINDOW_MONTHS && (fadAdvance.hadRetrogressionPressure || dofAdvance.hadRetrogressionPressure)) hadRetrogression = true;
 
     if (target) {
       const fadRemaining = monthsBetweenDates(fadCursor, target);
