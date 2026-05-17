@@ -1,4 +1,4 @@
-const CACHE_NAME = "eb-tracker-shell-v2";
+const CACHE_NAME = "eb-tracker-shell-v3";
 const SHELL_ASSETS = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", event => {
@@ -54,9 +54,8 @@ self.addEventListener("fetch", event => {
         if (cached) return cached;
         return fetch(request).then(response => {
           if (response.ok && url.origin === self.location.origin) {
-            caches
-              .open(CACHE_NAME)
-              .then(cache => cache.put(request, response.clone()));
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
           }
           return response;
         });
@@ -70,9 +69,8 @@ self.addEventListener("fetch", event => {
     fetch(request)
       .then(response => {
         if (response.ok && url.origin === self.location.origin) {
-          caches
-            .open(CACHE_NAME)
-            .then(cache => cache.put(request, response.clone()));
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
         }
         return response;
       })

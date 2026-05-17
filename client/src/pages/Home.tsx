@@ -48,6 +48,9 @@ const ScenariosTab = lazy(() =>
 const TrackerTab = lazy(() =>
   import("@/pages/tabs/TrackerTab").then(m => ({ default: m.TrackerTab }))
 );
+const CompareTab = lazy(() =>
+  import("@/pages/tabs/CompareTab").then(m => ({ default: m.CompareTab }))
+);
 
 export default function Home() {
   const isMobile = useIsMobile();
@@ -121,6 +124,9 @@ export default function Home() {
     activeHistoricalInsight,
     chartYDomain,
     fyBoundaries,
+    forecastContext,
+    forecastPolicies,
+    forecastStartMonthIndex,
   } = useForecastData({
     selectedCategory,
     targetDate,
@@ -308,6 +314,7 @@ export default function Home() {
     { id: "overview", label: "📊 Overview", mobileLabel: "📊 Overview" },
     { id: "scenarios", label: "📈 Scenarios", mobileLabel: "📈 Scenarios" },
     { id: "tracker", label: "📋 Bulletin Tracker", mobileLabel: "📋 Tracker" },
+    { id: "compare", label: "⚖️ Compare", mobileLabel: "⚖️ Compare" },
   ];
 
   return (
@@ -574,12 +581,16 @@ export default function Home() {
                 accelZone={accelZone}
                 activeHistoricalInsight={activeHistoricalInsight}
                 activeHistoricalPoint={activeHistoricalPoint}
+                adjustedRates={adjustedRates}
                 backtestResult={backtestResult}
                 cat={cat}
                 categoryComparisonRows={categoryComparisonRows}
                 chartYDomain={chartYDomain}
                 currentCutoffs={currentCutoffs}
                 demandDensityData={demandDensityData}
+                forecastContext={forecastContext}
+                forecastPolicies={forecastPolicies}
+                forecastStartMonthIndex={forecastStartMonthIndex}
                 fullHistoricalChartData={fullHistoricalChartData}
                 fyBoundaries={fyBoundaries}
                 generateShareUrl={generateShareUrl}
@@ -604,6 +615,7 @@ export default function Home() {
                 targetDate={targetDate}
                 trackerSourceLinks={trackerSourceLinks}
                 updateSelectedCategory={updateSelectedCategory}
+                onCompareDate={() => setActiveTab("compare")}
               />
             </ErrorBoundary>
           )}
@@ -629,6 +641,20 @@ export default function Home() {
                 updateSpilloverLevel={updateSpilloverLevel}
                 updateWastageLevel={updateWastageLevel}
                 wastageLevel={wastageLevel}
+              />
+            </ErrorBoundary>
+          )}
+
+          {activeTab === "compare" && (
+            <ErrorBoundary>
+              <CompareTab
+                adjustedRates={adjustedRates}
+                cat={cat}
+                forecastContext={forecastContext}
+                forecastPolicies={forecastPolicies}
+                forecastStartMonthIndex={forecastStartMonthIndex}
+                selectedCategory={selectedCategory}
+                targetDate={targetDate}
               />
             </ErrorBoundary>
           )}

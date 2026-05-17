@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
+import { DateComparisonPanel } from "@/components/DateComparisonPanel";
 import {
   CategoryComparison,
   WatchlistPanel,
@@ -22,11 +23,15 @@ type OverviewTabProps = Pick<
   UseForecastDataResult,
   | "accelZone"
   | "activeHistoricalInsight"
+  | "adjustedRates"
   | "backtestResult"
   | "categoryComparisonRows"
   | "chartYDomain"
   | "currentCutoffs"
   | "demandDensityData"
+  | "forecastContext"
+  | "forecastPolicies"
+  | "forecastStartMonthIndex"
   | "fullHistoricalChartData"
   | "fyBoundaries"
   | "historicalChartData"
@@ -56,18 +61,23 @@ type OverviewTabProps = Pick<
   showMethodology: boolean;
   targetDate: string;
   updateSelectedCategory: (category: TrackerCategoryKey) => void;
+  onCompareDate?: () => void;
 };
 
 export function OverviewTab({
   accelZone,
   activeHistoricalInsight,
   activeHistoricalPoint,
+  adjustedRates,
   backtestResult,
   cat,
   categoryComparisonRows,
   chartYDomain,
   currentCutoffs,
   demandDensityData,
+  forecastContext,
+  forecastPolicies,
+  forecastStartMonthIndex,
   fullHistoricalChartData,
   fyBoundaries,
   generateShareUrl,
@@ -92,6 +102,7 @@ export function OverviewTab({
   targetDate,
   trackerSourceLinks,
   updateSelectedCategory,
+  onCompareDate,
 }: OverviewTabProps) {
   return (
     <div className="space-y-6">
@@ -100,6 +111,7 @@ export function OverviewTab({
         backtestResult={backtestResult}
         targetDate={targetDate}
         overviewAssumptionSummary={overviewAssumptionSummary}
+        onCompare={onCompareDate}
       />
       <CategoryComparison
         rows={categoryComparisonRows}

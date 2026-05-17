@@ -15,6 +15,7 @@ type ProjectionHeroCardProps = {
   backtestResult: BacktestSummary;
   targetDate: string;
   overviewAssumptionSummary: string;
+  onCompare?: () => void;
 };
 
 export function ProjectionHeroCard({
@@ -22,6 +23,7 @@ export function ProjectionHeroCard({
   backtestResult,
   targetDate,
   overviewAssumptionSummary,
+  onCompare,
 }: ProjectionHeroCardProps) {
   if (overviewProjection.isAlreadyCurrent) {
     return (
@@ -38,9 +40,19 @@ export function ProjectionHeroCard({
 
   return (
     <div className="relative -mt-2 overflow-hidden rounded-xl border border-slate-600/80 border-l-4 border-l-emerald-400 bg-gradient-to-br from-slate-800 via-slate-800 to-slate-700 p-6 text-white md:-mt-0">
-      <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-300 mb-1">
-        Your Projection
-      </h2>
+      <div className="flex justify-between items-start mb-1">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-300">
+          Your Projection
+        </h2>
+        {onCompare && (
+          <button
+            onClick={onCompare}
+            className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-400/10 border border-emerald-400/30 px-2 py-1 rounded"
+          >
+            ⚖️ Compare dates
+          </button>
+        )}
+      </div>
       <div className="flex items-center gap-2 mb-5">
         <span className="text-xs font-mono text-slate-300">
           {fmtDateStr(targetDate)}
