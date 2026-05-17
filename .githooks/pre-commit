@@ -1,5 +1,12 @@
 #!/bin/sh
 set -e
 
+# Format staged JS/TS/TSX/CSS/JSON files before committing
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|js|jsx|css|json)$' || true)
+if [ -n "$STAGED" ]; then
+  npx prettier --write $STAGED
+  git add $STAGED
+fi
+
 npm run check
 npm run test

@@ -10,6 +10,15 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
+  app.use(express.json({ limit: "16kb" }));
+
+  // Error beacon endpoint — receives client-side ErrorBoundary reports
+  app.post("/api/errors", (req, res) => {
+    const { message, url, timestamp, stack } = req.body ?? {};
+    console.error("[client-error]", { message, url, timestamp, stack });
+    res.status(204).end();
+  });
+
   // Serve static files from dist/public in production
   const staticPath =
     process.env.NODE_ENV === "production"

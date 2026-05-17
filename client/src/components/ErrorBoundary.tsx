@@ -42,6 +42,16 @@ class ErrorBoundary extends Component<Props, State> {
     } catch {
       /* best-effort local error capture */
     }
+
+    // Best-effort telemetry beacon (sendBeacon doesn't block page unload)
+    try {
+      const body = JSON.stringify(payload);
+      if (typeof navigator.sendBeacon === "function") {
+        navigator.sendBeacon("/api/errors", body);
+      }
+    } catch {
+      /* no-op if endpoint unavailable */
+    }
   }
 
   render() {

@@ -112,3 +112,4 @@ temp/
 .project-config.json
 .manus-logs/
 client/public/__manus__/version.json
+.package.lock.json
