@@ -17,7 +17,7 @@ The tracker is updated monthly when new visa bulletins are released by the U.S. 
 ## Features
 
 | Feature                       | Description                                                                                                      |
-|-------------------------------|------------------------------------------------------------------------------------------------------------------|
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | **Priority Date Calculator**  | Enter any priority date and instantly see DoF, FAD, and GC receipt estimates                                     |
 | **Multi-Category Support**    | EB-1 (Priority Workers), EB-2 (Advanced Degree), EB-3 (Skilled Workers)                                          |
 | **Four Scenario Projections** | Optimistic, Base, Conservative, Pessimistic — each with P10/P50/P90 ranges                                       |
@@ -45,16 +45,19 @@ delta = baseRate × clamp(seasonality + residualSample, -2.25, 3.25) / √clamp(
 ```
 
 **Where:**
+
 - `baseRate` — Scenario's calibrated FAD rate, scaled by assumption multipliers (spillover × ban × wastage)
 - `seasonality` — FY-month factor derived from historical bulletin movement (clamped 0.65–1.6)
 - `residualSample` — Randomly drawn from that FY-month's historical residual bucket (70% bucket / 30% overall)
 - `demand/ref` — Hybrid demand curve value for the current PD-year cursor ÷ median reference
 
 **Demand curve (hybrid model):**
+
 - **Primary**: USCIS I-485 Pending Inventory (Oct 2025) — actual queue depth by PD year
 - **Fallback**: USCIS I-140 Approval Data (FY2025 Q3) — scaled to I-485 magnitude using median overlap ratio
 
 **Output per scenario:**
+
 - **P10 / P50 / P90** quantile dates for DoF, FAD, and GC receipt
 - **Retrogression risk** — % of paths where at least one negative month occurred
 - **DoF** modeled independently of its own historical series (not FAD minus fixed offset)
@@ -63,13 +66,13 @@ delta = baseRate × clamp(seasonality + residualSample, -2.25, 3.25) / √clamp(
 ### Scenario Rates (EB-2 India)
 
 | Scenario     | Rate (PD-mo/month) | Probability | Condition                                    |
-|--------------|--------------------|-------------|----------------------------------------------|
+| ------------ | ------------------ | ----------- | -------------------------------------------- |
 | Optimistic   | 1.625              | 15–20%      | 60k+ extra EB visas (large FY2027 spillover) |
 | Base Case    | 0.975              | 40%         | 30–40k extra EB visas (moderate spillover)   |
 | Conservative | 0.45               | 30%         | No spillover, reversion to pre-FY2026 pace   |
 | Pessimistic  | 0.275              | 10–15%      | Ban reversed, stagnation / retrogression     |
 
-Rates are calibrated from 43 months of verified visa bulletin data (Oct 2022–Apr 2026). The Bulletin Tracker tab also includes FY2020-FY2022 archival rows, but those older rows are kept out of the forecast model so seasonality and backtests stay anchored to the contiguous recent series. Backtesting uses rolling 6-month windows to compute MAE and 80% interval coverage.
+Rates are calibrated from 46 months of verified visa bulletin data (Oct 2022–June 2026). The Bulletin Tracker tab also includes FY2020-FY2022 archival rows, but those older rows are kept out of the forecast model so seasonality and backtests stay anchored to the contiguous recent series. Backtesting uses rolling 6-month windows to compute MAE and 80% interval coverage.
 
 ### Simulator Multipliers
 
@@ -79,19 +82,19 @@ The Adjust Assumptions panel modifies the base rates using three multipliers. Th
 adjustedRate = baseRate × spilloverMultiplier × banMultiplier × wastageMultiplier
 ```
 
-| Control         | Low                                    | Moderate (Base)              | High                                    |
-|-----------------|----------------------------------------|------------------------------|-----------------------------------------|
-| Spillover Level | ×0.75 (~30k extra EB visas)            | ×1.00 (~50k extra)           | ×1.25 (~70k+ extra)                     |
-| Ban Duration    | ×0.85 (ends 2027 — court reversal)     | ×1.00 (through 2028)         | ×1.15 (through 2029 — full term)        |
-| GC Wastage      | ×1.10 (5–10%, efficient processing)    | ×1.00 (15–20%, typical)      | ×0.80 (25–30%, systemic delays)         |
+| Control         | Low                                 | Moderate (Base)         | High                             |
+| --------------- | ----------------------------------- | ----------------------- | -------------------------------- |
+| Spillover Level | ×0.75 (~30k extra EB visas)         | ×1.00 (~50k extra)      | ×1.25 (~70k+ extra)              |
+| Ban Duration    | ×0.85 (ends 2027 — court reversal)  | ×1.00 (through 2028)    | ×1.15 (through 2029 — full term) |
+| GC Wastage      | ×1.10 (5–10%, efficient processing) | ×1.00 (15–20%, typical) | ×0.80 (25–30%, systemic delays)  |
 
 ---
 
 ## Data Sources
 
 | Source                                                                                                                                                                                                        | Usage                                                    |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|
-| [U.S. Department of State Visa Bulletins](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html)                                                                                      | Monthly FAD and DoF data (Apr 2026 is current)           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| [U.S. Department of State Visa Bulletins](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html)                                                                                      | Monthly FAD and DoF data (June 2026 is current)          |
 | [USCIS I-485 Pending Inventory (Oct 2025)](https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates)                                                             | Pending application counts by category and priority date |
 | [Cato Institute — GC Wastage Analysis](https://www.cato.org/blog/agencies-wasted-1/4-employment-green-cards-2021)                                                                                             | FY2021 wastage rates by category                         |
 | [CLINIC v. Rubio Lawsuit](https://www.nilc.org/resources/questions-and-answers-about-the-75-country-visa-ban-lawsuit/)                                                                                        | Legal status of 75-country visa ban                      |
@@ -100,15 +103,15 @@ adjustedRate = baseRate × spilloverMultiplier × banMultiplier × wastageMultip
 
 ---
 
-## Current Bulletin Data (April 2026)
+## Current Bulletin Data (June 2026)
 
-`Current bulletin` in this README means the **latest released U.S. Department of State Visa Bulletin**, not the calendar month on today's date. As of **March 19, 2026**, the latest released bulletin is **April 2026**.
+`Current bulletin` in this README means the **latest released U.S. Department of State Visa Bulletin**, not the calendar month on today's date. As of **May 16, 2026**, the latest released bulletin is **June 2026**, published by DOS on **May 4, 2026**.
 
 | Category   | Final Action Date | Dates for Filing |
-|------------|-------------------|------------------|
-| EB-1 India | Apr 1, 2023       | Dec 1, 2023      |
-| EB-2 India | **Jul 15, 2014**  | Jan 15, 2015     |
-| EB-3 India | Nov 15, 2013      | Jan 15, 2015     |
+| ---------- | ----------------- | ---------------- |
+| EB-1 India | Dec 15, 2022      | Dec 1, 2023      |
+| EB-2 India | **Sep 1, 2013**   | Jan 15, 2015     |
+| EB-3 India | Dec 15, 2013      | Jan 15, 2015     |
 | EB-1 ROW   | CURRENT           | CURRENT          |
 | EB-2 ROW   | CURRENT           | CURRENT          |
 | EB-3 ROW   | CURRENT           | CURRENT          |
@@ -120,29 +123,33 @@ adjustedRate = baseRate × spilloverMultiplier × banMultiplier × wastageMultip
 ## Key Concepts
 
 ### Per-Country Cap
+
 U.S. immigration law limits any single country to no more than 7% of annual employment-based green cards (~9,800 visas/year at the 140,000 annual EB cap). India, despite representing the largest share of EB applicants, is subject to this cap, creating the multi-decade backlog.
 
 ### Visa Spillover
+
 Under INA §201(d), unused family-based visas spill over to employment-based categories. When other countries cannot use their family-based allocation (e.g., due to the 75-country ban), those visas become available to EB applicants. Critically, spillover **favors backlogged countries** when ROW categories are current — meaning India receives a disproportionately large share.
 
 ### Green Card Wastage
+
 Visas go unused due to processing friction — medical exams, security clearances, or interview windows. FY2021: 25% overall wastage (66k of 262k available). FY2022: near 0% after USCIS processing reforms. Higher visa supply combined with processing gaps increases wastage risk.
 
 ### FY2027 Spillover Context
-Presidential Proclamations 10949 & 10998 (January 2026) indefinitely paused immigrant visas for 75+ countries. India, China, Mexico, and the Philippines are **exempt**. Unused family-based visas from banned countries are estimated to generate 50k–70k additional EB visas in FY2027 (Oct 1, 2026 – Sep 30, 2027), projecting a total EB quota of 190k–211k. The legal challenge (*CLINIC v. Rubio*, SDNY, filed Feb 2026) remains active.
+
+Presidential Proclamations 10949 & 10998 (January 2026) indefinitely paused immigrant visas for 75+ countries. India, China, Mexico, and the Philippines are **exempt**. Unused family-based visas from banned countries are estimated to generate 50k–70k additional EB visas in FY2027 (Oct 1, 2026 – Sep 30, 2027), projecting a total EB quota of 190k–211k. The legal challenge (_CLINIC v. Rubio_, SDNY, filed Feb 2026) remains active.
 
 ---
 
 ## Example: August 2016 Priority Date (EB-2 India)
 
-As of April 2026, the EB-2 India FAD is **Jul 15, 2014** — 25 priority-date months away from Aug 2016. The simulator generates 500 paths per scenario; displayed dates are P50 medians with 80% intervals (P10–P90). Actual ranges are dynamically computed — see the live app for current output.
+As of June 2026, the EB-2 India FAD is **Sep 1, 2013** — about 35 priority-date months away from Aug 2016. The simulator generates 500 paths per scenario; displayed dates are P50 medians with 80% intervals (P10–P90). Actual ranges are dynamically computed — see the live app for current output.
 
 ---
 
 ## Tech Stack
 
 | Layer         | Technology            |
-|---------------|-----------------------|
+| ------------- | --------------------- |
 | Framework     | React 19 + TypeScript |
 | Styling       | Tailwind CSS 4        |
 | Charts        | Recharts 2            |

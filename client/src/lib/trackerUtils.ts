@@ -1,33 +1,109 @@
 export const DAYS_PER_PD_MONTH = 30.44;
-export const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
-const FULL_MONTH_LABELS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const FULL_MONTH_LABELS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+function assertValidDateParts(
+  year: number,
+  month: number,
+  day: number,
+  source: string
+): Date {
+  const date = new Date(year, month - 1, day);
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    throw new RangeError(`Invalid date string: ${source}`);
+  }
+  return date;
+}
+
+export function isValidDateStr(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  try {
+    parseDateStr(s);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function parseDateStr(s: string): Date {
-  const [y, m, d] = s.split('-').map(Number);
-  return new Date(y, m - 1, d);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!match) {
+    throw new RangeError(`Invalid date string: ${s}`);
+  }
+  const [, y, m, d] = match;
+  return assertValidDateParts(Number(y), Number(m), Number(d), s);
 }
 
 export function parseBulletinMonth(value: string): Date {
-  const [month, year] = value.split(' ');
+  const [month, year] = value.split(" ");
   const shortIndex = MONTH_LABELS.indexOf(month);
   const fullIndex = FULL_MONTH_LABELS.indexOf(month);
   const monthIndex = shortIndex !== -1 ? shortIndex : fullIndex;
+  if (monthIndex === -1 || !/^\d{4}$/.test(year ?? "")) {
+    throw new RangeError(`Invalid bulletin month label: ${value}`);
+  }
   return new Date(Number(year), monthIndex, 1);
 }
 
-export function bulletinMonthDiffInMonths(laterLabel: string, earlierLabel: string): number {
+export function bulletinMonthDiffInMonths(
+  laterLabel: string,
+  earlierLabel: string
+): number {
   const later = parseBulletinMonth(laterLabel);
   const earlier = parseBulletinMonth(earlierLabel);
-  return (later.getFullYear() - earlier.getFullYear()) * 12 + (later.getMonth() - earlier.getMonth());
+  return (
+    (later.getFullYear() - earlier.getFullYear()) * 12 +
+    (later.getMonth() - earlier.getMonth())
+  );
 }
 
-export function areConsecutiveBulletinMonths(laterLabel: string, earlierLabel: string): boolean {
+export function areConsecutiveBulletinMonths(
+  laterLabel: string,
+  earlierLabel: string
+): boolean {
   return bulletinMonthDiffInMonths(laterLabel, earlierLabel) === 1;
 }
 
 export function monthsBetweenDates(from: Date, to: Date): number {
-  return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth()) + (to.getDate() - from.getDate()) / DAYS_PER_PD_MONTH;
+  return (
+    (to.getFullYear() - from.getFullYear()) * 12 +
+    (to.getMonth() - from.getMonth()) +
+    (to.getDate() - from.getDate()) / DAYS_PER_PD_MONTH
+  );
 }
 
 export function monthsBetween(from: string, to: string): number {
@@ -54,7 +130,7 @@ export function fmtCompactMonthYear(s: string): string {
 }
 
 export function fmtBulletinMonthLabel(value: string): string {
-  const [month, year] = value.split(' ');
+  const [month, year] = value.split(" ");
   return `${month} '${year.slice(2)}`;
 }
 
@@ -66,7 +142,9 @@ export function fmtDuration(months: number): string {
   if (months < 12) return `${months} mo`;
   const yrs = Math.floor(months / 12);
   const rem = months % 12;
-  return rem > 0 ? `${yrs} yr${yrs !== 1 ? 's' : ''} ${rem} mo` : `${yrs} yr${yrs !== 1 ? 's' : ''}`;
+  return rem > 0
+    ? `${yrs} yr${yrs !== 1 ? "s" : ""} ${rem} mo`
+    : `${yrs} yr${yrs !== 1 ? "s" : ""}`;
 }
 
 export function sumRecordValues(values: Record<number, number>): number {
@@ -75,7 +153,7 @@ export function sumRecordValues(values: Record<number, number>): number {
 
 export type MovementInfo = {
   label: string;
-  type: 'advancement' | 'retrogression' | 'stable';
+  type: "advancement" | "retrogression" | "stable";
   days: number;
 };
 
@@ -84,7 +162,11 @@ export function movementLabel(prevStr: string, currStr: string): MovementInfo {
   const curr = parseDateStr(currStr);
   const days = Math.round((curr.getTime() - prev.getTime()) / 86400000);
   const months = Math.round(days / DAYS_PER_PD_MONTH);
-  const type = days > 5 ? 'advancement' : days < -5 ? 'retrogression' : 'stable';
-  const label = type === 'stable' ? '—' : `${days > 0 ? '+' : ''}${months}mo (${days > 0 ? '+' : ''}${days}d)`;
+  const type =
+    days > 5 ? "advancement" : days < -5 ? "retrogression" : "stable";
+  const label =
+    type === "stable"
+      ? "—"
+      : `${days > 0 ? "+" : ""}${months}mo (${days > 0 ? "+" : ""}${days}d)`;
   return { label, type, days };
 }
