@@ -45,19 +45,6 @@ export function TrackerTab({
 }: TrackerTabProps) {
   return (
     <div className="space-y-6">
-      <DataFreshnessPanel
-        currentMonth={CURRENT_BULLETIN.month}
-        currentBulletinUrl={bulletinUrl(CURRENT_BULLETIN.month)}
-        modelVersion={DATA_FRESHNESS.modelVersion}
-        lastVerified={DATA_FRESHNESS.lastVerified}
-        currentBulletinPublished={DATA_FRESHNESS.currentBulletinPublished}
-        nextExpectedUpdate={DATA_FRESHNESS.nextExpectedUpdate}
-        adjustmentChartNote={DATA_FRESHNESS.adjustmentChartNote}
-        modelHistoryCount={HISTORICAL_BULLETINS.length}
-        trackerHistoryCount={BULLETIN_TRACKER_HISTORY.length}
-        sourceLinks={trackerSourceLinks}
-      />
-
       <TrackerPaceSummary
         category={selectedCategory}
         categoryLabel={cat.label}
@@ -86,6 +73,19 @@ export function TrackerTab({
         onToggleFY={toggleDofFY}
         onExpandFY={onExpandDofFY}
         starRowRef={dofStarRowRef}
+      />
+
+      <DataFreshnessPanel
+        currentMonth={CURRENT_BULLETIN.month}
+        currentBulletinUrl={bulletinUrl(CURRENT_BULLETIN.month)}
+        modelVersion={DATA_FRESHNESS.modelVersion}
+        lastVerified={DATA_FRESHNESS.lastVerified}
+        currentBulletinPublished={DATA_FRESHNESS.currentBulletinPublished}
+        nextExpectedUpdate={DATA_FRESHNESS.nextExpectedUpdate}
+        adjustmentChartNote={DATA_FRESHNESS.adjustmentChartNote}
+        modelHistoryCount={HISTORICAL_BULLETINS.length}
+        trackerHistoryCount={BULLETIN_TRACKER_HISTORY.length}
+        sourceLinks={trackerSourceLinks}
       />
     </div>
   );
