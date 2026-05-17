@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   BULLETIN_TRACKER_HISTORY,
@@ -203,7 +203,13 @@ export function useForecastData({
     return policies;
   }, [deferredBan, deferredSpillover, deferredWastage, selectedCategory]);
 
-  const projections = useMemo(() => {
+  // ─── Web Worker: off-main-thread Monte Carlo ─────────────────────────────────
+  const workerRef = useRef<Worker | null>(null);
+  const pendingProjectionsId = useRef<string | null>(null);
+  const pendingBacktestId = useRef<string | null>(null);
+
+  // Compute synchronous initial values (runs once, avoids loading flash)
+  const initialProjections = useMemo(() => {
     const result: Record<string, ForecastProjection> = {};
     for (const key of Object.keys(SCENARIOS) as Array<keyof typeof SCENARIOS>) {
       result[key] = forecastScenario({
@@ -222,6 +228,90 @@ export function useForecastData({
       });
     }
     return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — only runs on mount
+
+  const initialBacktest: BacktestSummary = useMemo(
+    () =>
+      backtestForecast({
+        bulletins: categoryBulletins,
+        demand: demandInputs,
+        baseFadRate: cat.rates.base,
+        gcLagMonths: cat.gcLagMonths,
+        horizonMonths: 6,
+        paths: 200,
+        seed: `${selectedCategory}:backtest`,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [] // intentionally empty — only runs on mount
+  );
+
+  const [projections, setProjections] =
+    useState<Record<string, ForecastProjection>>(initialProjections);
+  const [backtestResult, setBacktestResult] =
+    useState<BacktestSummary>(initialBacktest);
+
+  // Spawn worker once
+  useEffect(() => {
+    const worker = new Worker(
+      new URL("@/workers/forecast.worker.ts", import.meta.url),
+      { type: "module" }
+    );
+    worker.onmessage = (
+      e: MessageEvent<
+        | {
+            id: string;
+            type: "projections_result";
+            projections: Record<string, ForecastProjection>;
+          }
+        | {
+            id: string;
+            type: "backtest_result";
+            backtestResult: BacktestSummary;
+          }
+      >
+    ) => {
+      if (
+        e.data.type === "projections_result" &&
+        e.data.id === pendingProjectionsId.current
+      ) {
+        setProjections(e.data.projections);
+        pendingProjectionsId.current = null;
+      } else if (
+        e.data.type === "backtest_result" &&
+        e.data.id === pendingBacktestId.current
+      ) {
+        setBacktestResult(e.data.backtestResult);
+        pendingBacktestId.current = null;
+      }
+    };
+    workerRef.current = worker;
+    return () => worker.terminate();
+  }, []);
+
+  // Send new projections request when deferred inputs change
+  useEffect(() => {
+    const worker = workerRef.current;
+    if (!worker) return;
+    const id = `proj-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    pendingProjectionsId.current = id;
+    worker.postMessage({
+      id,
+      type: "projections",
+      forecastContext,
+      today: TODAY.toISOString(),
+      currentFad: cat.currentFAD,
+      currentDof: cat.currentDoF,
+      targetDate,
+      gcLagMonths: cat.gcLagMonths,
+      forecastStartMonthIndex,
+      adjustedRates,
+      forecastPolicies,
+      selectedCategory,
+      deferredSpillover,
+      deferredBan,
+      deferredWastage,
+    });
   }, [
     adjustedRates,
     cat.currentDoF,
@@ -237,25 +327,28 @@ export function useForecastData({
     targetDate,
   ]);
 
-  const backtestResult: BacktestSummary = useMemo(
-    () =>
-      backtestForecast({
-        bulletins: categoryBulletins,
-        demand: demandInputs,
-        baseFadRate: cat.rates.base,
-        gcLagMonths: cat.gcLagMonths,
-        horizonMonths: 6,
-        paths: 200,
-        seed: `${selectedCategory}:backtest`,
-      }),
-    [
-      categoryBulletins,
-      cat.gcLagMonths,
-      cat.rates.base,
-      demandInputs,
+  // Send new backtest request when category inputs change
+  useEffect(() => {
+    const worker = workerRef.current;
+    if (!worker) return;
+    const id = `bt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    pendingBacktestId.current = id;
+    worker.postMessage({
+      id,
+      type: "backtest",
+      bulletins: categoryBulletins,
+      demand: demandInputs,
+      baseRate: cat.rates.base,
+      gcLagMonths: cat.gcLagMonths,
       selectedCategory,
-    ]
-  );
+    });
+  }, [
+    categoryBulletins,
+    cat.gcLagMonths,
+    cat.rates.base,
+    demandInputs,
+    selectedCategory,
+  ]);
 
   const overviewProjection = projections.optimistic;
   const gapMonths = Math.max(

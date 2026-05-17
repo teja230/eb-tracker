@@ -12,6 +12,7 @@ import {
 import { CheckCircle2, Moon, Share2, Sun } from "lucide-react";
 import { toast } from "sonner";
 
+import ErrorBoundary from "@/components/ErrorBoundary";
 import PriorityDatePicker from "@/components/PriorityDatePicker";
 import { FloatingChatWidget } from "@/components/TrackerEnhancements";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -568,81 +569,87 @@ export default function Home() {
           }
         >
           {activeTab === "overview" && (
-            <OverviewTab
-              accelZone={accelZone}
-              activeHistoricalInsight={activeHistoricalInsight}
-              activeHistoricalPoint={activeHistoricalPoint}
-              backtestResult={backtestResult}
-              cat={cat}
-              categoryComparisonRows={categoryComparisonRows}
-              chartYDomain={chartYDomain}
-              currentCutoffs={currentCutoffs}
-              demandDensityData={demandDensityData}
-              fullHistoricalChartData={fullHistoricalChartData}
-              fyBoundaries={fyBoundaries}
-              generateShareUrl={generateShareUrl}
-              historicalChartData={historicalChartData}
-              historicalXAxisTicks={historicalXAxisTicks}
-              historicalYAxisTicks={historicalYAxisTicks}
-              historyWindowSummary={historyWindowSummary}
-              isArchiveHistoryWindow={isArchiveHistoryWindow}
-              isFullHistoryWindow={isFullHistoryWindow}
-              isMobile={isMobile}
-              isRecentHistoryWindow={isRecentHistoryWindow}
-              overviewAssumptionSummary={overviewAssumptionSummary}
-              overviewProjection={overviewProjection}
-              pendingInventoryTotal={pendingInventoryTotal}
-              projections={projections}
-              recentPaceInsight={recentPaceInsight}
-              selectedCategory={selectedCategory}
-              setActiveHistoricalPoint={setActiveHistoricalPoint}
-              setHistoryWindow={setHistoryWindow}
-              setShowMethodology={setShowMethodology}
-              showMethodology={showMethodology}
-              targetDate={targetDate}
-              trackerSourceLinks={trackerSourceLinks}
-              updateSelectedCategory={updateSelectedCategory}
-            />
+            <ErrorBoundary>
+              <OverviewTab
+                accelZone={accelZone}
+                activeHistoricalInsight={activeHistoricalInsight}
+                activeHistoricalPoint={activeHistoricalPoint}
+                backtestResult={backtestResult}
+                cat={cat}
+                categoryComparisonRows={categoryComparisonRows}
+                chartYDomain={chartYDomain}
+                currentCutoffs={currentCutoffs}
+                demandDensityData={demandDensityData}
+                fullHistoricalChartData={fullHistoricalChartData}
+                fyBoundaries={fyBoundaries}
+                generateShareUrl={generateShareUrl}
+                historicalChartData={historicalChartData}
+                historicalXAxisTicks={historicalXAxisTicks}
+                historicalYAxisTicks={historicalYAxisTicks}
+                historyWindowSummary={historyWindowSummary}
+                isArchiveHistoryWindow={isArchiveHistoryWindow}
+                isFullHistoryWindow={isFullHistoryWindow}
+                isMobile={isMobile}
+                isRecentHistoryWindow={isRecentHistoryWindow}
+                overviewAssumptionSummary={overviewAssumptionSummary}
+                overviewProjection={overviewProjection}
+                pendingInventoryTotal={pendingInventoryTotal}
+                projections={projections}
+                recentPaceInsight={recentPaceInsight}
+                selectedCategory={selectedCategory}
+                setActiveHistoricalPoint={setActiveHistoricalPoint}
+                setHistoryWindow={setHistoryWindow}
+                setShowMethodology={setShowMethodology}
+                showMethodology={showMethodology}
+                targetDate={targetDate}
+                trackerSourceLinks={trackerSourceLinks}
+                updateSelectedCategory={updateSelectedCategory}
+              />
+            </ErrorBoundary>
           )}
 
           {activeTab === "scenarios" && (
-            <ScenariosTab
-              adjustedRates={adjustedRates}
-              backtestResult={backtestResult}
-              banContinues={banContinues}
-              cat={cat}
-              generateExport={generateExport}
-              isAssumptionPending={isAssumptionPending}
-              overviewAssumptionSummary={overviewAssumptionSummary}
-              projections={projections}
-              scenarioChartData={scenarioChartData}
-              selectedCategory={selectedCategory}
-              sensitivityByOption={sensitivityByOption}
-              sensitivityRows={sensitivityRows}
-              spilloverLevel={spilloverLevel}
-              targetDate={targetDate}
-              updateBanContinues={updateBanContinues}
-              updateSpilloverLevel={updateSpilloverLevel}
-              updateWastageLevel={updateWastageLevel}
-              wastageLevel={wastageLevel}
-            />
+            <ErrorBoundary>
+              <ScenariosTab
+                adjustedRates={adjustedRates}
+                backtestResult={backtestResult}
+                banContinues={banContinues}
+                cat={cat}
+                generateExport={generateExport}
+                isAssumptionPending={isAssumptionPending}
+                overviewAssumptionSummary={overviewAssumptionSummary}
+                projections={projections}
+                scenarioChartData={scenarioChartData}
+                selectedCategory={selectedCategory}
+                sensitivityByOption={sensitivityByOption}
+                sensitivityRows={sensitivityRows}
+                spilloverLevel={spilloverLevel}
+                targetDate={targetDate}
+                updateBanContinues={updateBanContinues}
+                updateSpilloverLevel={updateSpilloverLevel}
+                updateWastageLevel={updateWastageLevel}
+                wastageLevel={wastageLevel}
+              />
+            </ErrorBoundary>
           )}
 
           {activeTab === "tracker" && (
-            <TrackerTab
-              cat={cat}
-              dofStarRowRef={dofStarRowRef}
-              expandedDofFYs={expandedDofFYs}
-              expandedFadFYs={expandedFadFYs}
-              fadStarRowRef={fadStarRowRef}
-              onExpandDofFY={expandDofFY}
-              onExpandFadFY={expandFadFY}
-              selectedCategory={selectedCategory}
-              targetDate={targetDate}
-              toggleDofFY={toggleDofFY}
-              toggleFadFY={toggleFadFY}
-              trackerSourceLinks={trackerSourceLinks}
-            />
+            <ErrorBoundary>
+              <TrackerTab
+                cat={cat}
+                dofStarRowRef={dofStarRowRef}
+                expandedDofFYs={expandedDofFYs}
+                expandedFadFYs={expandedFadFYs}
+                fadStarRowRef={fadStarRowRef}
+                onExpandDofFY={expandDofFY}
+                onExpandFadFY={expandFadFY}
+                selectedCategory={selectedCategory}
+                targetDate={targetDate}
+                toggleDofFY={toggleDofFY}
+                toggleFadFY={toggleFadFY}
+                trackerSourceLinks={trackerSourceLinks}
+              />
+            </ErrorBoundary>
           )}
         </Suspense>
       </main>
