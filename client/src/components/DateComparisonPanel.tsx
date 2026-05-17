@@ -338,14 +338,14 @@ export function DateComparisonPanel({
               {copied ? "Copied!" : "Copy comparison"}
             </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:items-stretch">
             {/* Primary Date (Read-only reference) */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
                 <Calendar className="w-3.5 h-3.5 text-emerald-500" />
                 Your Primary Date
               </div>
-              <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-xl p-4 flex items-center justify-between shadow-sm">
+              <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-xl p-4 flex items-center justify-between shadow-sm h-full">
                 <div>
                   <p className="text-xl font-black font-mono text-emerald-700 dark:text-emerald-400 leading-none">
                     {fmtDate(parseDateFromYMD(primaryDate))}
@@ -393,16 +393,14 @@ export function DateComparisonPanel({
                   ))}
                 </div>
               </div>
-              <div className="relative group">
+              <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 shadow-sm h-full flex flex-col justify-center">
                 <PriorityDatePicker
                   value={compareDate}
                   onChange={setCompareDate}
                 />
-                <div className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  <span className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-lg uppercase tracking-widest">
-                    Adjustable
-                  </span>
-                </div>
+                <p className="text-[10px] text-blue-600/70 dark:text-blue-400/50 mt-2 font-bold uppercase tracking-widest">
+                  Adjustable — edit or use shortcuts above
+                </p>
               </div>
             </div>
           </div>
