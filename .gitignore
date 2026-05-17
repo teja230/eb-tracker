@@ -111,5 +111,11 @@ temp/
 # Agent/CI config files (not part of source)
 .project-config.json
 .manus-logs/
-client/public/__manus__/version.json
+client/public/__manus__/
 .package.lock.json
+
+# npm lockfile (project uses pnpm)
+package-lock.json
+
+# Playwright test results
+test-results/
