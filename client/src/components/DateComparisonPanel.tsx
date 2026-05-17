@@ -340,12 +340,12 @@ export function DateComparisonPanel({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:items-stretch">
             {/* Primary Date (Read-only reference) */}
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
                 <Calendar className="w-3.5 h-3.5 text-emerald-500" />
                 Your Primary Date
               </div>
-              <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-xl p-4 flex items-center justify-between shadow-sm h-full">
+              <div className="flex-1 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-xl p-4 flex items-center justify-between shadow-sm">
                 <div>
                   <p className="text-xl font-black font-mono text-emerald-700 dark:text-emerald-400 leading-none">
                     {fmtDate(parseDateFromYMD(primaryDate))}
@@ -369,7 +369,7 @@ export function DateComparisonPanel({
             </div>
 
             {/* Compare Date Selector */}
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
                   <Calendar className="w-3.5 h-3.5 text-blue-500" />
@@ -393,7 +393,7 @@ export function DateComparisonPanel({
                   ))}
                 </div>
               </div>
-              <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 shadow-sm h-full flex flex-col justify-center">
+              <div className="flex-1 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 shadow-sm flex flex-col justify-center">
                 <PriorityDatePicker
                   value={compareDate}
                   onChange={setCompareDate}
