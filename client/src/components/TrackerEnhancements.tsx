@@ -750,8 +750,20 @@ export function PersonalTimeline({
   );
 }
 
-export function CategoryComparison({ rows, onSelectCategory }: { rows: CategoryComparisonRow[]; onSelectCategory: (cat: TrackerCategoryKey) => void }) {
-  function MoveBadge({ move, compact = false }: { move: MovementInfo; compact?: boolean }) {
+export function CategoryComparison({
+  rows,
+  onSelectCategory,
+  currentBulletinLabel,
+  targetDateLabel,
+}: {
+  rows: CategoryComparisonRow[];
+  onSelectCategory: (cat: TrackerCategoryKey) => void;
+  currentBulletinLabel: string;
+  targetDateLabel: string;
+}) {
+  const prevBulletinLabel = rows[0]?.prevBulletinLabel ?? 'prior bulletin';
+
+  function MoveBadge({ move }: { move: MovementInfo }) {
     if (move.type === 'stable') {
       return <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">─ No change</span>;
     }
@@ -774,7 +786,9 @@ export function CategoryComparison({ rows, onSelectCategory }: { rows: CategoryC
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">EB Category Snapshot</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">All categories · your priority date · vs. prior bulletin</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            {currentBulletinLabel} cutoffs · movement vs {prevBulletinLabel} · base-case FAD for PD {targetDateLabel}
+          </p>
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -782,6 +796,8 @@ export function CategoryComparison({ rows, onSelectCategory }: { rows: CategoryC
           <button
             key={row.category}
             onClick={() => onSelectCategory(row.category)}
+            aria-pressed={row.isSelected}
+            aria-label={`${row.label} India snapshot. Current FAD ${row.currentFadLabel}, current DoF ${row.currentDofLabel}, base-case FAD estimate ${row.fadEstLabel}. ${row.isSelected ? 'Selected category.' : 'Select this category.'}`}
             className={`text-left rounded-xl border p-4 transition-all hover:shadow-md ${
               row.isSelected
                 ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
@@ -827,7 +843,7 @@ export function CategoryComparison({ rows, onSelectCategory }: { rows: CategoryC
 
             {/* Prev bulletin label */}
             <p className={`text-[10px] mt-1.5 ${row.isSelected ? 'text-slate-400' : 'text-slate-400'}`}>
-              vs. {row.prevBulletinLabel} bulletin
+              Movement shown vs. {row.prevBulletinLabel} bulletin. Click to switch active category.
             </p>
           </button>
         ))}

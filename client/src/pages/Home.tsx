@@ -1423,8 +1423,13 @@ export default function Home() {
               </div>
             )}
 
-            {/* Category Snapshot — 3 clickable cards with MoM changes */}
-            <CategoryComparison rows={categoryComparisonRows} onSelectCategory={cat => setSelectedCategory(cat)} />
+            {/* Category Snapshot — current cutoffs, prior-bulletin movement, and base-case estimate */}
+            <CategoryComparison
+              rows={categoryComparisonRows}
+              currentBulletinLabel={CURRENT_BULLETIN.month}
+              targetDateLabel={fmtDateStr(targetDate)}
+              onSelectCategory={cat => setSelectedCategory(cat)}
+            />
 
             {/* Watchlist — save and track estimates */}
             <WatchlistPanel
