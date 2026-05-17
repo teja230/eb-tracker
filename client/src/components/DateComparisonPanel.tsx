@@ -346,12 +346,12 @@ export function DateComparisonPanel({
 
           {/* Compare Date Selector */}
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
-                <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                Compare With
-              </div>
-              <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
+              <Calendar className="w-3.5 h-3.5 text-blue-500" />
+              Compare With
+            </div>
+            <div className="flex-1 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 shadow-sm flex flex-col gap-3">
+              <div className="flex items-center gap-1 flex-wrap">
                 {shortcuts.map(s => (
                   <button
                     key={s.label}
@@ -361,22 +361,17 @@ export function DateComparisonPanel({
                     className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-colors border ${
                       compareDate === addMonthsToYMD(primaryDate, s.months)
                         ? "bg-blue-600 border-blue-600 text-white"
-                        : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-blue-500 hover:text-white"
+                        : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-blue-500 hover:text-white"
                     }`}
                   >
                     {s.label}
                   </button>
                 ))}
               </div>
-            </div>
-            <div className="flex-1 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 shadow-sm flex flex-col justify-center">
               <PriorityDatePicker
                 value={compareDate}
                 onChange={setCompareDate}
               />
-              <p className="text-[10px] text-blue-600/70 dark:text-blue-400/50 mt-2 font-bold uppercase tracking-widest">
-                Adjustable — edit or use shortcuts above
-              </p>
             </div>
           </div>
         </div>
