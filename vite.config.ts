@@ -166,6 +166,20 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("recharts") || id.includes("d3-") || id.includes("victory-vendor")) return "charts";
+          if (id.includes("@radix-ui") || id.includes("lucide-react") || id.includes("cmdk") || id.includes("vaul")) return "ui-vendor";
+          if (id.includes("jspdf")) return "jspdf";
+          if (id.includes("html2canvas")) return "html2canvas";
+          if (id.includes("dompurify")) return "dompurify";
+          return "vendor";
+        },
+      },
+    },
   },
   server: {
     port: 3000,

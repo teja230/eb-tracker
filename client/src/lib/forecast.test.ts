@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { EB_CATEGORIES, HISTORICAL_BULLETINS, I140_INDIA_APPROVALS, I485_INDIA_PENDING } from '@/data/trackerData';
 
-import { backtestForecast, buildDemandCurve, createForecastContext, forecastScenario, type ForecastBulletin } from './forecast';
+import { backtestForecast, buildDemandCurve, createForecastContext, forecastScenario, type ForecastBulletin, type ForecastPolicy } from './forecast';
 import { MONTH_LABELS } from './trackerUtils';
 
 function toIsoDate(date: Date): string {
@@ -161,6 +161,70 @@ describe('forecast engine', () => {
     expect(result.fadMonths.p50).toBeLessThan(120);
     expect(result.fadMonths.p90).toBeLessThan(240);
     expect(result.retrogressionRisk).toBeLessThan(1);
+  });
+
+  it('applies a bounded one-time policy retrogression to projected dates', () => {
+    const context = createForecastContext({
+      bulletins: buildLinearBulletins(18),
+      demand,
+    });
+    const policy: ForecastPolicy = {
+      windowMonths: 1,
+      eventProbabilities: { stall: 0, smallAdvance: 0, retrogression: 1, unavailable: 0 },
+      stallMonths: { min: 1, max: 1 },
+      smallAdvanceMonths: { min: 0, max: 0 },
+      retrogressionMonths: { min: 2, max: 2 },
+      unavailableMonths: { min: 1, max: 1 },
+      dofRetrogressionShare: 0,
+    };
+    const commonArgs = {
+      context,
+      today: new Date(2026, 2, 19),
+      currentFad: '2013-07-15',
+      currentDof: '2014-01-15',
+      targetDate: '2014-07-15',
+      baseFadRate: 1,
+      gcLagMonths: 15,
+      seasonalityStartMonth: 4,
+      paths: 40,
+      maxMonths: 60,
+      seed: 'bounded-retrogression',
+    };
+
+    const withoutPolicy = forecastScenario(commonArgs);
+    const withPolicy = forecastScenario({ ...commonArgs, policy });
+
+    expect(withPolicy.retrogressionRisk).toBe(1);
+    expect(withPolicy.nearTermRisk).toBe(1);
+    expect(withPolicy.unavailabilityRisk).toBe(0);
+    expect(withPolicy.fadMonths.p50).toBeGreaterThan(withoutPolicy.fadMonths.p50);
+    expect(withPolicy.horizon.fadP90Capped).toBe(false);
+  });
+
+  it('marks forecast dates that exceed the configured model horizon', () => {
+    const context = createForecastContext({
+      bulletins: buildLinearBulletins(18),
+      demand,
+    });
+
+    const result = forecastScenario({
+      context,
+      today: new Date(2026, 2, 19),
+      currentFad: '2012-01-01',
+      currentDof: '2012-01-01',
+      targetDate: '2025-01-01',
+      baseFadRate: 0.01,
+      gcLagMonths: 15,
+      seasonalityStartMonth: 4,
+      paths: 20,
+      maxMonths: 6,
+      seed: 'horizon-capping',
+    });
+
+    expect(result.horizon.months).toBe(6);
+    expect(result.horizon.fadP50Capped).toBe(true);
+    expect(result.horizon.fadP90Capped).toBe(true);
+    expect(result.horizon.gcP90Capped).toBe(true);
   });
 
   it('backtestForecast returns an empty summary when there is not enough history', () => {

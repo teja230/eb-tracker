@@ -58,7 +58,18 @@ export type ForecastProjection = {
   fadRange: QuantileDates;
   dofRange: QuantileDates;
   gcRange: QuantileDates;
+  nearTermRisk: number;
   retrogressionRisk: number;
+  unavailabilityRisk: number;
+  horizon: {
+    months: number;
+    fadP50Capped: boolean;
+    fadP90Capped: boolean;
+    dofP50Capped: boolean;
+    dofP90Capped: boolean;
+    gcP50Capped: boolean;
+    gcP90Capped: boolean;
+  };
 };
 
 export type BacktestSummary = {
@@ -71,7 +82,9 @@ type PathResult = {
   fadReachedMonths: number;
   dofReachedMonths: number;
   gcReachedMonths: number;
+  hadNearTermPressure: boolean;
   hadRetrogression: boolean;
+  hadUnavailability: boolean;
   finalFadAdvance: number;
 };
 
@@ -80,7 +93,31 @@ type MonthlyAdvance = {
   hadRetrogressionPressure: boolean;
 };
 
-const RETROGRESSION_RISK_WINDOW_MONTHS = 12;
+export type ForecastPolicyEventProbabilities = {
+  stall: number;
+  smallAdvance: number;
+  retrogression: number;
+  unavailable: number;
+};
+
+export type ForecastPolicy = {
+  windowMonths: number;
+  eventProbabilities: ForecastPolicyEventProbabilities;
+  stallMonths: { min: number; max: number };
+  smallAdvanceMonths: { min: number; max: number };
+  retrogressionMonths: { min: number; max: number };
+  unavailableMonths: { min: number; max: number };
+  dofRetrogressionShare?: number;
+};
+
+type PolicyEvent =
+  | { type: 'none' }
+  | { type: 'stall'; startMonth: number; durationMonths: number }
+  | { type: 'smallAdvance'; startMonth: number; advanceMonths: number }
+  | { type: 'retrogression'; startMonth: number; durationMonths: number; fadShockMonths: number; dofShockMonths: number }
+  | { type: 'unavailable'; startMonth: number; durationMonths: number };
+
+const DEFAULT_POLICY_WINDOW_MONTHS = 12;
 
 function bulletinMonthToDate(label: string): Date {
   return parseBulletinMonth(label);
@@ -133,6 +170,84 @@ function mulberry32(seed: number) {
 function pickSample(values: number[], rng: () => number): number {
   if (values.length === 0) return 0;
   return values[Math.floor(rng() * values.length)] ?? 0;
+}
+
+function drawRange(range: { min: number; max: number }, rng: () => number): number {
+  return range.min + (range.max - range.min) * rng();
+}
+
+function normalizeEventProbabilities(policy?: ForecastPolicy): ForecastPolicyEventProbabilities {
+  if (!policy) {
+    return {
+      stall: 0,
+      smallAdvance: 0,
+      retrogression: 0,
+      unavailable: 0,
+    };
+  }
+
+  const raw = policy.eventProbabilities;
+  const total = Math.max(raw.stall, 0) + Math.max(raw.smallAdvance, 0) + Math.max(raw.retrogression, 0) + Math.max(raw.unavailable, 0);
+  if (total <= 1) {
+    return {
+      stall: Math.max(raw.stall, 0),
+      smallAdvance: Math.max(raw.smallAdvance, 0),
+      retrogression: Math.max(raw.retrogression, 0),
+      unavailable: Math.max(raw.unavailable, 0),
+    };
+  }
+
+  return {
+    stall: Math.max(raw.stall, 0) / total,
+    smallAdvance: Math.max(raw.smallAdvance, 0) / total,
+    retrogression: Math.max(raw.retrogression, 0) / total,
+    unavailable: Math.max(raw.unavailable, 0) / total,
+  };
+}
+
+function drawPolicyEvent(policy: ForecastPolicy | undefined, rng: () => number): PolicyEvent {
+  if (!policy || policy.windowMonths <= 0) return { type: 'none' };
+
+  const probabilities = normalizeEventProbabilities(policy);
+  const roll = rng();
+  const startMonth = Math.floor(rng() * policy.windowMonths);
+
+  if (roll < probabilities.unavailable) {
+    return {
+      type: 'unavailable',
+      startMonth,
+      durationMonths: Math.max(1, Math.round(drawRange(policy.unavailableMonths, rng))),
+    };
+  }
+
+  if (roll < probabilities.unavailable + probabilities.retrogression) {
+    const fadShockMonths = drawRange(policy.retrogressionMonths, rng);
+    return {
+      type: 'retrogression',
+      startMonth,
+      durationMonths: Math.max(1, Math.round(drawRange(policy.stallMonths, rng))),
+      fadShockMonths,
+      dofShockMonths: fadShockMonths * (policy.dofRetrogressionShare ?? 0.35),
+    };
+  }
+
+  if (roll < probabilities.unavailable + probabilities.retrogression + probabilities.stall) {
+    return {
+      type: 'stall',
+      startMonth,
+      durationMonths: Math.max(1, Math.round(drawRange(policy.stallMonths, rng))),
+    };
+  }
+
+  if (roll < probabilities.unavailable + probabilities.retrogression + probabilities.stall + probabilities.smallAdvance) {
+    return {
+      type: 'smallAdvance',
+      startMonth,
+      advanceMonths: drawRange(policy.smallAdvanceMonths, rng),
+    };
+  }
+
+  return { type: 'none' };
 }
 
 function computeLeadMedian(bulletins: ForecastBulletin[]): number {
@@ -252,12 +367,14 @@ function simulatePath(args: {
   gcLagMonths: number;
   seasonalityStartMonth: number;
   maxMonths: number;
+  policy?: ForecastPolicy;
   context: ForecastContext;
   seed: string;
 }): PathResult {
   const rng = mulberry32(hashString(args.seed));
   const target = args.targetDate ? parseDateStr(args.targetDate) : null;
   const baseDofRate = args.baseFadRate * args.context.dofRateRatio;
+  const policyEvent = drawPolicyEvent(args.policy, rng);
 
   let fadCursor = parseDateStr(args.currentFad);
   let dofCursor = parseDateStr(args.currentDof);
@@ -265,7 +382,9 @@ function simulatePath(args: {
 
   let fadReachedMonths = target && monthsBetweenDates(fadCursor, target) <= 0 ? 0 : null;
   let dofReachedMonths = target && monthsBetweenDates(dofCursor, target) <= 0 ? 0 : null;
+  let hadNearTermPressure = false;
   let hadRetrogression = false;
+  let hadUnavailability = false;
 
   for (let step = 0; step < args.maxMonths; step++) {
     const monthIdx = (args.seasonalityStartMonth + step) % 12;
@@ -273,10 +392,38 @@ function simulatePath(args: {
 
     const fadAdvance = drawMonthlyAdvance(args.context.fadStats, args.baseFadRate, args.context.demandCurve, fadCursor.getFullYear(), fyMonth, rng);
     const dofAdvance = drawMonthlyAdvance(args.context.dofStats, baseDofRate, args.context.demandCurve, dofCursor.getFullYear(), fyMonth, rng);
-    const fadDelta = fadAdvance.delta;
-    const dofDelta = dofAdvance.delta;
+    let fadDelta = fadAdvance.delta;
+    let dofDelta = dofAdvance.delta;
 
-    if (step < RETROGRESSION_RISK_WINDOW_MONTHS && (fadAdvance.hadRetrogressionPressure || dofAdvance.hadRetrogressionPressure)) hadRetrogression = true;
+    if (step < (args.policy?.windowMonths ?? DEFAULT_POLICY_WINDOW_MONTHS) && (fadAdvance.hadRetrogressionPressure || dofAdvance.hadRetrogressionPressure)) {
+      hadNearTermPressure = true;
+    }
+
+    if (policyEvent.type !== 'none') {
+      const activePolicyMonth =
+        step >= policyEvent.startMonth &&
+        ('durationMonths' in policyEvent ? step < policyEvent.startMonth + policyEvent.durationMonths : step === policyEvent.startMonth);
+
+      if (step === policyEvent.startMonth && policyEvent.type === 'retrogression') {
+        fadCursor = addApproxMonths(fadCursor, -policyEvent.fadShockMonths);
+        dofCursor = addApproxMonths(dofCursor, -policyEvent.dofShockMonths);
+        if (dofCursor.getTime() < fadCursor.getTime()) dofCursor = new Date(fadCursor);
+        hadNearTermPressure = true;
+        hadRetrogression = true;
+      }
+
+      if (activePolicyMonth && (policyEvent.type === 'stall' || policyEvent.type === 'retrogression' || policyEvent.type === 'unavailable')) {
+        fadDelta = 0;
+        dofDelta = 0;
+        hadNearTermPressure = true;
+        if (policyEvent.type === 'unavailable') hadUnavailability = true;
+      }
+
+      if (step === policyEvent.startMonth && policyEvent.type === 'smallAdvance') {
+        fadDelta += policyEvent.advanceMonths;
+        dofDelta += policyEvent.advanceMonths * args.context.dofRateRatio;
+      }
+    }
 
     if (target) {
       const fadRemaining = monthsBetweenDates(fadCursor, target);
@@ -304,7 +451,9 @@ function simulatePath(args: {
     fadReachedMonths: cappedFadMonths,
     dofReachedMonths: cappedDofMonths,
     gcReachedMonths: cappedFadMonths + args.gcLagMonths,
+    hadNearTermPressure,
     hadRetrogression,
+    hadUnavailability,
     finalFadAdvance: monthsBetweenDates(parseDateStr(args.currentFad), fadCursor),
   };
 }
@@ -335,6 +484,7 @@ export function forecastScenario(args: {
   baseFadRate: number;
   gcLagMonths: number;
   seasonalityStartMonth: number;
+  policy?: ForecastPolicy;
   paths?: number;
   maxMonths?: number;
   seed?: string;
@@ -355,7 +505,18 @@ export function forecastScenario(args: {
       fadRange: { p10: current, p50: current, p90: current },
       dofRange: { p10: current, p50: current, p90: current },
       gcRange: { p10: current, p50: current, p90: current },
+      nearTermRisk: 0,
       retrogressionRisk: 0,
+      unavailabilityRisk: 0,
+      horizon: {
+        months: 0,
+        fadP50Capped: false,
+        fadP90Capped: false,
+        dofP50Capped: false,
+        dofP90Capped: false,
+        gcP50Capped: false,
+        gcP90Capped: false,
+      },
     };
   }
 
@@ -364,7 +525,9 @@ export function forecastScenario(args: {
   const fadReached: number[] = [];
   const dofReached: number[] = [];
   const gcReached: number[] = [];
+  let nearTermPressurePaths = 0;
   let retrogressionPaths = 0;
+  let unavailabilityPaths = 0;
 
   for (let i = 0; i < pathCount; i++) {
     const path = simulatePath({
@@ -376,13 +539,16 @@ export function forecastScenario(args: {
       gcLagMonths: args.gcLagMonths,
       seasonalityStartMonth: args.seasonalityStartMonth,
       maxMonths,
+      policy: args.policy,
       context: args.context,
       seed: `${args.seed ?? 'forecast'}:${i}`,
     });
     fadReached.push(path.fadReachedMonths);
     dofReached.push(path.dofReachedMonths);
     gcReached.push(path.gcReachedMonths);
+    if (path.hadNearTermPressure) nearTermPressurePaths += 1;
     if (path.hadRetrogression) retrogressionPaths += 1;
+    if (path.hadUnavailability) unavailabilityPaths += 1;
   }
 
   const fadSummary = summarizeMonths(args.today, fadReached);
@@ -402,7 +568,18 @@ export function forecastScenario(args: {
     fadRange: fadSummary.dates,
     dofRange: dofSummary.dates,
     gcRange: gcSummary.dates,
+    nearTermRisk: nearTermPressurePaths / pathCount,
     retrogressionRisk: retrogressionPaths / pathCount,
+    unavailabilityRisk: unavailabilityPaths / pathCount,
+    horizon: {
+      months: maxMonths,
+      fadP50Capped: fadSummary.months.p50 >= maxMonths,
+      fadP90Capped: fadSummary.months.p90 >= maxMonths,
+      dofP50Capped: dofSummary.months.p50 >= maxMonths,
+      dofP90Capped: dofSummary.months.p90 >= maxMonths,
+      gcP50Capped: gcSummary.months.p50 >= maxMonths + args.gcLagMonths,
+      gcP90Capped: gcSummary.months.p90 >= maxMonths + args.gcLagMonths,
+    },
   };
 }
 

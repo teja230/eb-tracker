@@ -27,6 +27,10 @@ The tracker is updated monthly when new visa bulletins are released by the U.S. 
 | **Adjust Assumptions**        | Tune spillover level, ban duration, and GC wastage to model custom scenarios                                     |
 | **Backtesting**               | Rolling 6-month MAE + 80% interval coverage for model transparency                                               |
 | **PDF + Share Export**        | Export a personalized PDF and share a summary on mobile or copy it on desktop                                    |
+| **Ask EBTracker**             | Deterministic, source-backed answers generated from the current tracker state                                    |
+| **Watchlist + Local Alerts**  | Save priority-date profiles in the browser and surface fileable/current status after data updates                |
+| **Sensitivity + Comparison**  | See which assumptions move the estimate and compare EB-1, EB-2, and EB-3 for the same priority date              |
+| **Freshness + SEO Pages**     | Data freshness, source links, category guide pages, methodology, and bulletin-history pages                      |
 
 ---
 
@@ -160,6 +164,8 @@ pnpm dev
 pnpm check
 pnpm test
 pnpm build
+pnpm check:bulletin
+pnpm update:bulletin
 ```
 
 ---
@@ -168,6 +174,9 @@ pnpm build
 
 ```
 eb-tracker/
+├── .github/
+│   └── workflows/
+│       └── monthly-bulletin-update.yml ← Scheduled DOS Visa Bulletin refresh PR
 ├── ideas.md                         ← Product and design working notes
 ├── patches/
 │   └── wouter@3.7.1.patch          ← pnpm patched dependency applied at install time
@@ -178,6 +187,7 @@ eb-tracker/
 │   │   ├── pages/
 │   │   │   └── Home.tsx             ← Main tracker component (UI + derived view models)
 │   │   ├── lib/
+│   │   │   ├── ebChatEngine.ts      ← Local Ask EBTracker Q&A engine
 │   │   │   ├── forecast.ts          ← v8 probabilistic forecast engine
 │   │   │   ├── forecast.test.ts     ← Forecast-engine unit tests
 │   │   │   └── trackerUtils.ts      ← Shared date and formatting helpers
@@ -202,18 +212,26 @@ eb-tracker/
 
 ## Updating Monthly Data
 
-When a new visa bulletin is released (typically the second Tuesday of each month):
+Monthly bulletin updates do not have to be run by hand when GitHub Actions is enabled. `.github/workflows/monthly-bulletin-update.yml` runs on the 12th of each month, asks the updater to discover the newest DOS bulletin page, verifies the app, and opens a pull request only when tracked data changes.
 
-1. Open `client/src/data/trackerData.ts`
-2. Update `CURRENT_BULLETIN` with the new month, FAD, and DoF values for EB-1/EB-2/EB-3
-3. Add a new entry to `HISTORICAL_BULLETINS` array (insert at index 0, most recent first)
-4. Verify `TODAY` is set to `new Date()` (auto-updates, do not hardcode)
-5. If new I-485 inventory data is available, update `I485_INDIA_PENDING`
-6. If new I-140 approval data is available, update `I140_INDIA_APPROVALS`
-7. Recalculate and verify any displayed category totals, notes, or inventory summaries that depend on those tables
-8. Check for month- or category-specific hardcoded UI text outside the data tables (for example "Already Current" copy, pace cards, and explanatory notes)
-9. If you backfill older fiscal years for the Bulletin Tracker, add them to `ARCHIVED_BULLETIN_TRACKER_HISTORY` instead of `HISTORICAL_BULLETINS`, which must remain contiguous for the forecast engine
-10. Save and deploy
+Manual commands are still available:
+
+```bash
+pnpm check:bulletin
+pnpm update:bulletin
+pnpm update:bulletin -- --url https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin/2026/visa-bulletin-for-june-2026.html
+```
+
+`check:bulletin` discovers and prints the latest available bulletin without changing files. `update:bulletin` writes `CURRENT_BULLETIN`, `DATA_FRESHNESS.currentBulletinPublished`, `DATA_FRESHNESS.lastVerified`, and the newest `HISTORICAL_BULLETINS` row when needed. Passing `--url` is useful when DOS changes its publishing cadence or you want to verify a specific official page.
+
+After an automated or manual update:
+
+1. Review the generated diff against the official DOS bulletin.
+2. If new I-485 inventory data is available, update `I485_INDIA_PENDING`.
+3. If new I-140 approval data is available, update `I140_INDIA_APPROVALS`.
+4. Check for month- or category-specific hardcoded UI text outside the data tables.
+5. If you backfill older fiscal years for the Bulletin Tracker, add them to `ARCHIVED_BULLETIN_TRACKER_HISTORY` instead of `HISTORICAL_BULLETINS`, which must remain contiguous for the forecast engine.
+6. Run `pnpm check`, `pnpm test`, and `pnpm build` before deploying.
 
 ---
 

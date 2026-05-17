@@ -4,7 +4,13 @@ import {
   ARCHIVED_BULLETIN_TRACKER_HISTORY,
   BULLETIN_TRACKER_HISTORY,
   CURRENT_BULLETIN,
+  DATA_FRESHNESS,
+  EB_CATEGORIES,
   HISTORICAL_BULLETINS,
+  I140_INDIA_APPROVALS,
+  I485_INDIA_PENDING,
+  SCENARIOS,
+  TRACKER_SOURCE_LINKS,
   type HistoricalBulletinRow,
 } from './trackerData';
 import { areConsecutiveBulletinMonths, bulletinMonthDiffInMonths, parseBulletinMonth, parseDateStr } from '@/lib/trackerUtils';
@@ -94,6 +100,44 @@ describe('tracker bulletin data', () => {
       DATE_KEYS.forEach(key => {
         expect(row[key]).toMatch(isoDatePattern);
       });
+    });
+  });
+
+  it('keeps category metadata aligned with current bulletin values', () => {
+    expect(EB_CATEGORIES.EB1.currentFAD).toBe(CURRENT_BULLETIN.eb1.fad);
+    expect(EB_CATEGORIES.EB1.currentDoF).toBe(CURRENT_BULLETIN.eb1.dof);
+    expect(EB_CATEGORIES.EB2.currentFAD).toBe(CURRENT_BULLETIN.eb2.fad);
+    expect(EB_CATEGORIES.EB2.currentDoF).toBe(CURRENT_BULLETIN.eb2.dof);
+    expect(EB_CATEGORIES.EB3.currentFAD).toBe(CURRENT_BULLETIN.eb3.fad);
+    expect(EB_CATEGORIES.EB3.currentDoF).toBe(CURRENT_BULLETIN.eb3.dof);
+  });
+
+  it('keeps demand inputs positive with at least one I-485/I-140 overlap per category', () => {
+    (Object.keys(EB_CATEGORIES) as Array<keyof typeof EB_CATEGORIES>).forEach(category => {
+      const i485 = I485_INDIA_PENDING[category];
+      const i140 = I140_INDIA_APPROVALS[category];
+
+      expect(Object.values(i485).every(value => value > 0)).toBe(true);
+      expect(Object.values(i140).every(value => value > 0)).toBe(true);
+
+      const overlapYears = Object.keys(i485).filter(year => i140[Number(year)] !== undefined);
+      expect(overlapYears.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('keeps scenario metadata and source metadata populated for public trust surfaces', () => {
+    Object.values(SCENARIOS).forEach(scenario => {
+      expect(scenario.label).toBeTruthy();
+      expect(scenario.probability).toMatch(/\d/);
+      expect(scenario.description.length).toBeGreaterThan(40);
+    });
+
+    expect(DATA_FRESHNESS.modelVersion).toMatch(/^v\d+/);
+    expect(DATA_FRESHNESS.lastVerified).toMatch(/\d{4}/);
+    expect(TRACKER_SOURCE_LINKS.length).toBeGreaterThanOrEqual(3);
+    TRACKER_SOURCE_LINKS.forEach(source => {
+      expect(source.href).toMatch(/^https:\/\//);
+      expect(source.detail.length).toBeGreaterThan(20);
     });
   });
 });

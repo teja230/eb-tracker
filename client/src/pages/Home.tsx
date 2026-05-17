@@ -46,30 +46,43 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 
 import { Card } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine, ReferenceDot, Area, ReferenceArea } from 'recharts';
-import { TrendingUp, Calendar, Clock, Download, CheckCircle2, AlertTriangle, Info, ChevronDown, ChevronUp, Share2, ExternalLink } from 'lucide-react';
+import { TrendingUp, Calendar, Download, CheckCircle2, AlertTriangle, Info, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import PriorityDatePicker from '@/components/PriorityDatePicker';
 import { ConfidenceRangeChart } from '@/components/ConfidenceRangeChart';
+import {
+  AskEBTracker,
+  CategoryComparison,
+  DataFreshnessPanel,
+  FloatingChatWidget,
+  TrustAndLimitationsPanel,
+  WatchlistPanel,
+  type CategoryComparisonRow,
+  type SensitivityRow,
+  type SourceLink,
+} from '@/components/TrackerEnhancements';
 
 import { useIsMobile } from '@/hooks/useMobile';
 import {
   BULLETIN_TRACKER_HISTORY,
   CURRENT_BULLETIN,
+  DATA_FRESHNESS,
   EB_CATEGORIES,
   HISTORICAL_BULLETINS,
   I140_INDIA_APPROVALS,
   I485_INDIA_PENDING,
   SCENARIOS,
+  TRACKER_SOURCE_LINKS,
   type HistoricalBulletinRow,
   type TrackerCategoryKey,
 } from '@/data/trackerData';
-import { jsPDF } from 'jspdf';
 import {
   backtestForecast,
   buildDemandCurve,
   createForecastContext,
   forecastScenario,
   type BacktestSummary,
+  type ForecastPolicy,
   type ForecastProjection,
 } from '@/lib/forecast';
 import {
@@ -104,6 +117,106 @@ function bulletinUrl(month: string): string {
   const monthName = MONTH_FULL_NAMES[mon] ?? mon.toLowerCase();
   const fy = Number(mon === 'Oct' || mon === 'Nov' || mon === 'Dec' ? Number(year) + 1 : year);
   return `https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin/${fy}/visa-bulletin-for-${monthName}-${year}.html`;
+}
+
+type ScenarioKey = keyof typeof SCENARIOS;
+type AssumptionSettings = {
+  spilloverLevel: 'low' | 'moderate' | 'high';
+  banContinues: '2027' | '2028' | '2029';
+  wastageLevel: 'low' | 'moderate' | 'high';
+};
+
+function clampProbability(value: number): number {
+  return Math.min(Math.max(value, 0), 0.95);
+}
+
+function applyAssumptionRates(
+  rates: Record<ScenarioKey, number>,
+  { spilloverLevel, banContinues, wastageLevel }: AssumptionSettings
+): Record<ScenarioKey, number> {
+  const spilloverMultiplier = spilloverLevel === 'high' ? 1.25 : spilloverLevel === 'low' ? 0.75 : 1.0;
+  const banMultiplier = banContinues === '2029' ? 1.15 : banContinues === '2027' ? 0.85 : 1.0;
+  const wastageMultiplier = wastageLevel === 'high' ? 0.8 : wastageLevel === 'low' ? 1.1 : 1.0;
+  const combined = spilloverMultiplier * banMultiplier * wastageMultiplier;
+
+  return {
+    optimistic: +(rates.optimistic * combined).toFixed(3),
+    base: +(rates.base * combined).toFixed(3),
+    conservative: +(rates.conservative * combined).toFixed(3),
+    pessimistic: +(rates.pessimistic * combined).toFixed(3),
+  };
+}
+
+function buildForecastPolicy(args: {
+  scenario: ScenarioKey;
+  category: TrackerCategoryKey;
+  spilloverLevel: 'low' | 'moderate' | 'high';
+  banContinues: '2027' | '2028' | '2029';
+  wastageLevel: 'low' | 'moderate' | 'high';
+}): ForecastPolicy {
+  const baseByScenario: Record<ScenarioKey, ForecastPolicy['eventProbabilities']> = {
+    optimistic: { stall: 0.18, smallAdvance: 0.32, retrogression: 0.08, unavailable: 0.02 },
+    base: { stall: 0.32, smallAdvance: 0.18, retrogression: 0.18, unavailable: 0.04 },
+    conservative: { stall: 0.4, smallAdvance: 0.08, retrogression: 0.28, unavailable: 0.08 },
+    pessimistic: { stall: 0.35, smallAdvance: 0.03, retrogression: 0.42, unavailable: 0.15 },
+  };
+
+  const riskAdjustment =
+    (args.spilloverLevel === 'low' ? 0.05 : args.spilloverLevel === 'high' ? -0.04 : 0) +
+    (args.banContinues === '2027' ? 0.04 : args.banContinues === '2029' ? -0.02 : 0) +
+    (args.wastageLevel === 'high' ? 0.05 : args.wastageLevel === 'low' ? -0.02 : 0);
+
+  const base = baseByScenario[args.scenario];
+  const categoryRetrogression =
+    args.category === 'EB1'
+      ? { min: 1.5, max: 5 }
+      : args.category === 'EB3'
+        ? { min: 1, max: 4 }
+        : { min: 2, max: 8 };
+  const shockMultiplier = args.scenario === 'pessimistic' ? 1.35 : args.scenario === 'conservative' ? 1.15 : args.scenario === 'optimistic' ? 0.75 : 1;
+
+  return {
+    windowMonths: 12,
+    eventProbabilities: {
+      stall: clampProbability(base.stall + riskAdjustment * 0.6),
+      smallAdvance: clampProbability(base.smallAdvance - riskAdjustment),
+      retrogression: clampProbability(base.retrogression + riskAdjustment),
+      unavailable: clampProbability(base.unavailable + Math.max(riskAdjustment, 0) * 0.5),
+    },
+    stallMonths: args.scenario === 'pessimistic' ? { min: 3, max: 8 } : args.scenario === 'conservative' ? { min: 2, max: 5 } : { min: 1, max: 3 },
+    smallAdvanceMonths: args.scenario === 'optimistic' ? { min: 0.5, max: 1.75 } : { min: 0.25, max: 1 },
+    retrogressionMonths: {
+      min: categoryRetrogression.min * shockMultiplier,
+      max: categoryRetrogression.max * shockMultiplier,
+    },
+    unavailableMonths: args.scenario === 'pessimistic' ? { min: 4, max: 9 } : { min: 2, max: 5 },
+    dofRetrogressionShare: 0.25,
+  };
+}
+
+function fmtProjectionDate(date: Date, capped: boolean): string {
+  if (capped) {
+    // The model's simulation horizon (240 months / 20 years) was reached before the
+    // priority date became current. Show a '>' label so users understand the estimate
+    // is a lower bound, not a specific date.
+    const year = new Date().getFullYear() + 20;
+    return `>${year}`;
+  }
+  return fmtDate(date);
+}
+
+function fmtProjectionDateRange(p10: Date, p90: Date, p90Capped: boolean): string {
+  return `${fmtDate(p10)} - ${p90Capped ? 'beyond horizon' : fmtDate(p90)}`;
+}
+
+function fmtProjectionDuration(months: number, capped: boolean): string {
+  return capped ? `>${fmtDuration(months)}` : fmtDuration(months);
+}
+
+function fmtSensitivityDelta(deltaMonths: number): string {
+  if (deltaMonths === 0) return 'No change';
+  const abs = Math.abs(Math.round(deltaMonths));
+  return deltaMonths > 0 ? `${abs} mo later` : `${abs} mo earlier`;
 }
 
 // Tracker data and shared helpers live in dedicated modules to keep Home focused
@@ -191,7 +304,7 @@ export default function Home() {
   const [dateFlash, setDateFlash] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
-  const [showSimulatorControls, setShowSimulatorControls] = useState(false);
+
   // Bulletin Tracker: keep FAD and DoF accordions independent
   const [expandedFadFYs, setExpandedFadFYs] = useState<Set<string>>(new Set(['FY2026']));
   const [expandedDofFYs, setExpandedDofFYs] = useState<Set<string>>(new Set(['FY2026']));
@@ -211,7 +324,8 @@ export default function Home() {
     });
   const fadStarRowRef = useRef<HTMLTableRowElement>(null);
   const dofStarRowRef = useRef<HTMLTableRowElement>(null);
-  const [activeHistoricalPoint, setActiveHistoricalPoint] = useState<any | null>(null);
+  type HistoricalChartPoint = ReturnType<typeof buildHistoricalSeries>[number];
+  const [activeHistoricalPoint, setActiveHistoricalPoint] = useState<HistoricalChartPoint | null>(null);
   const [historyWindow, setHistoryWindow] = useState(DEFAULT_HISTORY_WINDOW);
 
   // Simulator controls (affect scenario rates)
@@ -256,20 +370,7 @@ export default function Home() {
 
   // Compute adjusted rates based on simulator settings
   const adjustedRates = useMemo(() => {
-    const base = { ...cat.rates };
-    // Spillover adjustment
-    const spilloverMultiplier = spilloverLevel === 'high' ? 1.25 : spilloverLevel === 'low' ? 0.75 : 1.0;
-    // Ban duration adjustment (longer ban = more spillover years = higher sustained rate)
-    const banMultiplier = banContinues === '2029' ? 1.15 : banContinues === '2027' ? 0.85 : 1.0;
-    // Wastage adjustment (higher wastage = fewer effective visas = lower rate)
-    const wastageMultiplier = wastageLevel === 'high' ? 0.8 : wastageLevel === 'low' ? 1.1 : 1.0;
-    const combined = spilloverMultiplier * banMultiplier * wastageMultiplier;
-    return {
-      optimistic: +(base.optimistic * combined).toFixed(3),
-      base: +(base.base * combined).toFixed(3),
-      conservative: +(base.conservative * combined).toFixed(3),
-      pessimistic: +(base.pessimistic * combined).toFixed(3),
-    };
+    return applyAssumptionRates(cat.rates, { spilloverLevel, banContinues, wastageLevel });
   }, [selectedCategory, spilloverLevel, banContinues, wastageLevel, cat.rates]);
 
   // Bulletin keys for the selected category
@@ -307,6 +408,20 @@ export default function Home() {
 
   const pendingInventoryTotal = useMemo(() => sumRecordValues(demandInputs.i485), [demandInputs]);
 
+  const forecastPolicies = useMemo(() => {
+    const policies = {} as Record<ScenarioKey, ForecastPolicy>;
+    for (const key of Object.keys(SCENARIOS) as ScenarioKey[]) {
+      policies[key] = buildForecastPolicy({
+        scenario: key,
+        category: selectedCategory,
+        spilloverLevel,
+        banContinues,
+        wastageLevel,
+      });
+    }
+    return policies;
+  }, [selectedCategory, spilloverLevel, banContinues, wastageLevel]);
+
   // Compute projections for all scenarios (probabilistic dual-cutoff simulator)
   const projections = useMemo(() => {
     const result: Record<string, ForecastProjection> = {};
@@ -320,13 +435,14 @@ export default function Home() {
         baseFadRate: adjustedRates[key],
         gcLagMonths: cat.gcLagMonths,
         seasonalityStartMonth: forecastStartMonthIndex,
+        policy: forecastPolicies[key],
         paths: 500,
         maxMonths: 240,
         seed: `${selectedCategory}:${targetDate}:${key}:${spilloverLevel}:${banContinues}:${wastageLevel}`,
       });
     }
     return result;
-  }, [forecastContext, cat.currentFAD, cat.currentDoF, cat.gcLagMonths, targetDate, adjustedRates, selectedCategory, spilloverLevel, banContinues, wastageLevel, forecastStartMonthIndex]);
+  }, [forecastContext, cat.currentFAD, cat.currentDoF, cat.gcLagMonths, targetDate, adjustedRates, selectedCategory, spilloverLevel, banContinues, wastageLevel, forecastStartMonthIndex, forecastPolicies]);
 
   // Backtest the same simulator used for live forecasts.
   const backtestResult: BacktestSummary = useMemo(
@@ -461,7 +577,7 @@ export default function Home() {
     clampedHistoryWindow.start === 0 && clampedHistoryWindow.end === fullHistoricalChartData.length - 1;
 
   useEffect(() => {
-    setActiveHistoricalPoint((prev: any) => {
+    setActiveHistoricalPoint((prev: HistoricalChartPoint | null) => {
       if (historicalChartData.length === 0) return null;
       if (!prev) return historicalChartData[historicalChartData.length - 1];
       return historicalChartData.find(point => point.month === prev.month) ?? historicalChartData[historicalChartData.length - 1];
@@ -574,6 +690,165 @@ export default function Home() {
     }));
   }, [projections]);
 
+  const currentCutoffs = useMemo(
+    () => ({
+      EB1: { fad: EB_CATEGORIES.EB1.currentFAD, dof: EB_CATEGORIES.EB1.currentDoF },
+      EB2: { fad: EB_CATEGORIES.EB2.currentFAD, dof: EB_CATEGORIES.EB2.currentDoF },
+      EB3: { fad: EB_CATEGORIES.EB3.currentFAD, dof: EB_CATEGORIES.EB3.currentDoF },
+    }),
+    []
+  );
+
+  const trackerSourceLinks = useMemo(
+    () => [
+      {
+        label: `${CURRENT_BULLETIN.month} Bulletin`,
+        href: bulletinUrl(CURRENT_BULLETIN.month),
+        detail: 'Official current-month employment-based cutoff source.',
+      },
+      ...TRACKER_SOURCE_LINKS,
+    ],
+    []
+  );
+
+  const categoryComparisonRows: CategoryComparisonRow[] = useMemo(() => {
+    const prevRow = HISTORICAL_BULLETINS[1]; // [0] = current, [1] = previous
+    const prevBulletinLabel = prevRow?.month ?? 'prior';
+
+    return (Object.keys(EB_CATEGORIES) as TrackerCategoryKey[]).map(category => {
+      const comparisonCat = EB_CATEGORIES[category];
+      const keys = historicalCategoryKeys(category);
+
+      // MoM movement from previous bulletin
+      const fadMove = prevRow
+        ? movementLabel(prevRow[keys.fadKey], comparisonCat.currentFAD)
+        : { label: '—', type: 'stable' as const, days: 0 };
+      const dofMove = prevRow
+        ? movementLabel(prevRow[keys.dofKey], comparisonCat.currentDoF)
+        : { label: '—', type: 'stable' as const, days: 0 };
+
+      // Base-case FAD estimate (reuse the primary category's forecastContext for speed if same category)
+      const bulletins = [...HISTORICAL_BULLETINS].reverse().map(row => ({
+        month: row.month,
+        fad: row[keys.fadKey],
+        dof: row[keys.dofKey],
+      }));
+      const context = createForecastContext({
+        bulletins,
+        demand: {
+          i485: I485_INDIA_PENDING[category] ?? {},
+          i140: I140_INDIA_APPROVALS[category] ?? {},
+        },
+      });
+      const rates = applyAssumptionRates(comparisonCat.rates, { spilloverLevel, banContinues, wastageLevel });
+      const policy = buildForecastPolicy({ scenario: 'base', category, spilloverLevel, banContinues, wastageLevel });
+      const projection = forecastScenario({
+        context,
+        today: TODAY,
+        currentFad: comparisonCat.currentFAD,
+        currentDof: comparisonCat.currentDoF,
+        targetDate,
+        baseFadRate: rates.base,
+        gcLagMonths: comparisonCat.gcLagMonths,
+        seasonalityStartMonth: forecastStartMonthIndex,
+        policy,
+        paths: 200,
+        maxMonths: 240,
+        seed: `${category}:${targetDate}:comparison:${spilloverLevel}:${banContinues}:${wastageLevel}`,
+      });
+      const gap = Math.max(0, Math.round(monthsBetween(comparisonCat.currentFAD, targetDate)));
+
+      return {
+        category,
+        label: comparisonCat.label,
+        name: comparisonCat.name,
+        currentFadLabel: fmtDateStr(comparisonCat.currentFAD),
+        currentDofLabel: fmtDateStr(comparisonCat.currentDoF),
+        fadMove,
+        dofMove,
+        prevBulletinLabel,
+        gapLabel: gap > 0 ? fmtDuration(gap) : 'Current',
+        fadEstLabel: projection.isAlreadyCurrent ? 'Current' : fmtProjectionDate(projection.fadDate, projection.horizon.fadP50Capped),
+        isSelected: category === selectedCategory,
+      };
+    });
+  }, [banContinues, forecastStartMonthIndex, selectedCategory, spilloverLevel, targetDate, wastageLevel]);
+
+  const sensitivityRows: SensitivityRow[] = useMemo(() => {
+    const baseline = projections.base;
+    if (!baseline) return [];
+
+    const optionGroups: Array<{
+      control: string;
+      values: Array<{ label: string; settings: AssumptionSettings; selected: boolean }>;
+    }> = [
+      {
+        control: 'Spillover',
+        values: [
+          { label: 'Low', settings: { spilloverLevel: 'low', banContinues, wastageLevel }, selected: spilloverLevel === 'low' },
+          { label: 'Moderate', settings: { spilloverLevel: 'moderate', banContinues, wastageLevel }, selected: spilloverLevel === 'moderate' },
+          { label: 'High', settings: { spilloverLevel: 'high', banContinues, wastageLevel }, selected: spilloverLevel === 'high' },
+        ],
+      },
+      {
+        control: 'Ban duration',
+        values: [
+          { label: 'Through 2027', settings: { spilloverLevel, banContinues: '2027', wastageLevel }, selected: banContinues === '2027' },
+          { label: 'Through 2028', settings: { spilloverLevel, banContinues: '2028', wastageLevel }, selected: banContinues === '2028' },
+          { label: 'Through 2029', settings: { spilloverLevel, banContinues: '2029', wastageLevel }, selected: banContinues === '2029' },
+        ],
+      },
+      {
+        control: 'Wastage',
+        values: [
+          { label: 'Low', settings: { spilloverLevel, banContinues, wastageLevel: 'low' }, selected: wastageLevel === 'low' },
+          { label: 'Moderate', settings: { spilloverLevel, banContinues, wastageLevel: 'moderate' }, selected: wastageLevel === 'moderate' },
+          { label: 'High', settings: { spilloverLevel, banContinues, wastageLevel: 'high' }, selected: wastageLevel === 'high' },
+        ],
+      },
+    ];
+
+    return optionGroups.flatMap(group =>
+      group.values.map(option => {
+        const rates = applyAssumptionRates(cat.rates, option.settings);
+        const policy = buildForecastPolicy({
+          scenario: 'base',
+          category: selectedCategory,
+          ...option.settings,
+        });
+        const projection = forecastScenario({
+          context: forecastContext,
+          today: TODAY,
+          currentFad: cat.currentFAD,
+          currentDof: cat.currentDoF,
+          targetDate,
+          baseFadRate: rates.base,
+          gcLagMonths: cat.gcLagMonths,
+          seasonalityStartMonth: forecastStartMonthIndex,
+          policy,
+          paths: 220,
+          maxMonths: 240,
+          seed: `${selectedCategory}:${targetDate}:sensitivity:${group.control}:${option.label}:${option.settings.spilloverLevel}:${option.settings.banContinues}:${option.settings.wastageLevel}`,
+        });
+
+        return {
+          control: group.control,
+          value: option.label,
+          months: projection.monthsFromToday,
+          dateLabel: fmtProjectionDate(projection.fadDate, projection.horizon.fadP50Capped),
+          deltaMonths: Math.round(projection.fadMonths.p50 - baseline.fadMonths.p50),
+          selected: option.selected,
+        };
+      })
+    );
+  }, [banContinues, cat.currentDoF, cat.currentFAD, cat.gcLagMonths, cat.rates, forecastContext, forecastStartMonthIndex, projections.base, selectedCategory, spilloverLevel, targetDate, wastageLevel]);
+
+  const sensitivityByOption = useMemo(() => {
+    const map = new Map<string, SensitivityRow>();
+    sensitivityRows.forEach(row => map.set(`${row.control}:${row.value}`, row));
+    return map;
+  }, [sensitivityRows]);
+
   const generateShareUrl = useCallback(() => {
     const params = new URLSearchParams({
       pd: targetDate,
@@ -635,7 +910,8 @@ export default function Home() {
     }
   }, [generateShareUrl, overviewProjection, cat.label, targetDate, isMobile]);
 
-  const generateExport = () => {
+  const generateExport = async () => {
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -1077,27 +1353,27 @@ export default function Home() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6">
                   <div>
                     <p className="mb-1.5 text-xs uppercase tracking-wide text-slate-300">Filing Date (DoF)</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtDate(overviewProjection.dofDate)}</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtProjectionDate(overviewProjection.dofDate, overviewProjection.horizon.dofP50Capped)}</p>
                     <p className="mt-1.5 text-xs text-slate-500">P50 estimate</p>
-                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtDate(overviewProjection.dofRange.p10)} - {fmtDate(overviewProjection.dofRange.p90)}</p>
+                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtProjectionDateRange(overviewProjection.dofRange.p10, overviewProjection.dofRange.p90, overviewProjection.horizon.dofP90Capped)}</p>
                   </div>
                   <div>
                     <p className="mb-1.5 text-xs uppercase tracking-wide text-slate-300">Final Action Date</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtDate(overviewProjection.fadDate)}</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtProjectionDate(overviewProjection.fadDate, overviewProjection.horizon.fadP50Capped)}</p>
                     <p className="mt-1.5 text-xs text-slate-500">P50 estimate</p>
-                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtDate(overviewProjection.fadRange.p10)} - {fmtDate(overviewProjection.fadRange.p90)}</p>
+                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtProjectionDateRange(overviewProjection.fadRange.p10, overviewProjection.fadRange.p90, overviewProjection.horizon.fadP90Capped)}</p>
                   </div>
                   <div>
                     <p className="mb-1.5 text-xs uppercase tracking-wide text-slate-300">GC Receipt Est.</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtDate(overviewProjection.gcDate)}</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtProjectionDate(overviewProjection.gcDate, overviewProjection.horizon.gcP50Capped)}</p>
                     <p className="mt-1.5 text-xs text-slate-500">P50 estimate</p>
-                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtDate(overviewProjection.gcRange.p10)} - {fmtDate(overviewProjection.gcRange.p90)}</p>
+                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtProjectionDateRange(overviewProjection.gcRange.p10, overviewProjection.gcRange.p90, overviewProjection.horizon.gcP90Capped)}</p>
                   </div>
                   <div>
                     <p className="mb-1.5 text-xs uppercase tracking-wide text-slate-300">Time to FAD</p>
-                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtDuration(overviewProjection.monthsFromToday)}</p>
+                    <p className="text-2xl md:text-xl font-bold font-mono leading-tight text-slate-50">{fmtProjectionDuration(overviewProjection.monthsFromToday, overviewProjection.horizon.fadP50Capped)}</p>
                     <p className="mt-1 text-xs text-slate-500">Best case median</p>
-                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtDuration(Math.round(overviewProjection.fadMonths.p10))} - {fmtDuration(Math.round(overviewProjection.fadMonths.p90))}</p>
+                    <p className="mt-1 text-[11px] text-slate-300">80% range: {fmtDuration(Math.round(overviewProjection.fadMonths.p10))} - {fmtProjectionDuration(Math.round(overviewProjection.fadMonths.p90), overviewProjection.horizon.fadP90Capped)}</p>
                   </div>
                 </div>
 
@@ -1140,53 +1416,26 @@ export default function Home() {
                       </span>
                     )}
                     {backtestResult.predictions > 0 && <span className="flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-700/60 px-2 py-0.5 text-slate-200" title="Share of 6-month backtest windows where the actual FAD landed inside the model's 80% interval">80% hit: {Math.round(backtestResult.coverage80 * 100)}%</span>}
-                    <span className="flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-700/60 px-2 py-0.5 text-slate-200" title="Share of simulated paths with near-term retrogression or stall pressure in the next 12 bulletin months">Retrogression risk: {Math.round(overviewProjection.retrogressionRisk * 100)}%</span>
+                    <span className="flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-700/60 px-2 py-0.5 text-slate-200" title="Share of simulated paths with a near-term stall, unavailability, or bounded retrogression event in the next 12 bulletin months">Near-term risk: {Math.round(overviewProjection.nearTermRisk * 100)}%</span>
+                    <span className="flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-700/60 px-2 py-0.5 text-slate-200" title="Share of simulated paths with a bounded one-time backward FAD movement">Retro shock: {Math.round(overviewProjection.retrogressionRisk * 100)}%</span>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Scenario Range — 4 tiles */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Scenario Range — All Outcomes</p>
-                <button
-                  onClick={() => {
-                    setActiveTab('scenarios');
-                    setShowSimulatorControls(true);
-                  }}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:border-slate-500 hover:bg-slate-50 transition-all shadow-sm"
-                >
-                  <span className="text-sm">&#9881;&#65039;</span>
-                  Adjust assumptions
-                  <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-slate-400" />
-                </button>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {(Object.entries(SCENARIOS) as Array<[keyof typeof SCENARIOS, (typeof SCENARIOS)[keyof typeof SCENARIOS]]>).map(([key, s]) => {
-                  const p = projections[key];
-                  const isBase = key === 'base';
-                  return (
-                    <div key={key} className={`bg-white rounded-xl border border-slate-200 border-l-4 p-4 ${isBase ? 'ring-1 ring-slate-300' : ''}`} style={{ borderLeftColor: s.color }}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-slate-700">{s.label}</span>
-                        {isBase && <span className="text-xs bg-slate-800 text-white px-1.5 py-0.5 rounded font-semibold">Base</span>}
-                      </div>
-                      <p className="text-sm font-bold font-mono text-slate-900 leading-tight">{p.isAlreadyCurrent ? 'Current' : fmtDate(p.fadDate)}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">FAD</p>
-                      {!p.isAlreadyCurrent && (
-                        <>
-                          <p className="text-xs font-mono text-slate-600 mt-1.5">{fmtDate(p.dofDate)}</p>
-                          <p className="text-xs text-slate-400">DoF (file I-485)</p>
-                        </>
-                      )}
-                      <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">{s.probability} probability</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {/* Category Snapshot — 3 clickable cards with MoM changes */}
+            <CategoryComparison rows={categoryComparisonRows} onSelectCategory={cat => setSelectedCategory(cat)} />
 
+            {/* Watchlist — save and track estimates */}
+            <WatchlistPanel
+              category={selectedCategory}
+              categoryLabel={cat.label}
+              targetDate={targetDate}
+              assumptionsSummary={overviewAssumptionSummary}
+              projection={projections.base}
+              currentCutoffs={currentCutoffs}
+              shareUrl={generateShareUrl()}
+            />
             {/* Historical Chart */}
             <Card className="overflow-hidden gap-0 border-slate-200 bg-white p-0 shadow-sm">
               <div className="flex flex-col gap-3 border-b border-slate-200/80 px-5 py-4 md:flex-row md:items-start md:justify-between md:px-6">
@@ -1520,37 +1769,40 @@ export default function Home() {
               </Card>
             </div>
 
-            {/* Methodology toggle */}
-            <button onClick={() => setShowMethodology(v => !v)} className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-800 transition-colors">
-              <Info className="w-3.5 h-3.5" />
-              {showMethodology ? 'Hide' : 'Show'} methodology
-              {showMethodology ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
-            {showMethodology && (
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs text-slate-600 space-y-2">
-                <p className="font-semibold text-slate-800">Probabilistic Dual-Cutoff Simulator (v8)</p>
-                <p>
-                  Simulates both <strong>FAD and DoF month by month</strong>. Each future bulletin month samples from historical movement patterns instead of assuming one smooth, fixed rate.
-                </p>
-                <p>
-                  For each simulated month: <code className="bg-slate-200 px-1 rounded">delta = base_rate × (seasonality + residual sample) ÷ √(demand ÷ ref)</code>
-                </p>
-                <p>
-                  <strong>Demand curve:</strong> Uses <strong>USCIS I-485 pending inventory</strong> (Oct 2025) where available and falls back to <strong>I-140 approval counts</strong> (FY2025 Q3) beyond inventory coverage. The fallback is scaled using the <strong>median overlap ratio</strong>, and demand ratios are clipped before applying the square-root slowdown.
-                </p>
-                <p>
-                  <strong>Seasonality and volatility:</strong> Derived from {HISTORICAL_BULLETINS.length} months of verified bulletin data. Each FY-month has its own bucket of historical residuals, which means the live model can simulate both surges and retrogression.
-                </p>
-                <p>
-                  <strong>DoF model:</strong> Independent — DoF is simulated from its own historical movement series instead of being forced to equal FAD minus a fixed offset.
-                </p>
-                <p>Scenario assumptions in the Scenarios tab are unchanged. They still scale the base FAD rate through spillover, ban duration, and wastage multipliers before the simulator runs.</p>
-                <p>
-                  Forecast cards show the <strong>median (P50)</strong> date plus an <strong>80% interval</strong>. The backtest badge reports 6-month FAD MAE and how often the actual bulletin landed inside the model's 80% interval.
-                </p>
-                <p className="text-slate-400">Disclaimer: Estimates are probabilistic and may change with policy shifts, retrogression, or legislative action.</p>
-              </div>
-            )}
+            {/* Methodology & Trust (consolidated) */}
+            <div className="space-y-3">
+              <button onClick={() => setShowMethodology(v => !v)} className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-800 transition-colors">
+                <Info className="w-3.5 h-3.5" />
+                {showMethodology ? 'Hide' : 'Show'} methodology
+                {showMethodology ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+              {showMethodology && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs text-slate-600 space-y-2">
+                  <p className="font-semibold text-slate-800">Probabilistic Dual-Cutoff Simulator (v8)</p>
+                  <p>
+                    Simulates both <strong>FAD and DoF month by month</strong>. Each future bulletin month samples from historical movement patterns instead of assuming one smooth, fixed rate.
+                  </p>
+                  <p>
+                    For each simulated month: <code className="bg-slate-200 px-1 rounded">delta = base_rate × (seasonality + residual sample) ÷ √(demand ÷ ref)</code>
+                  </p>
+                  <p>
+                    <strong>Demand curve:</strong> Uses <strong>USCIS I-485 pending inventory</strong> (Oct 2025) where available and falls back to <strong>I-140 approval counts</strong> (FY2025 Q3) beyond inventory coverage. The fallback is scaled using the <strong>median overlap ratio</strong>, and demand ratios are clipped before applying the square-root slowdown.
+                  </p>
+                  <p>
+                    <strong>Seasonality and volatility:</strong> Derived from {HISTORICAL_BULLETINS.length} months of verified bulletin data. Each FY-month has its own bucket of historical residuals, which means the live model can simulate both surges and retrogression.
+                  </p>
+                  <p>
+                    <strong>DoF model:</strong> Independent — DoF is simulated from its own historical movement series instead of being forced to equal FAD minus a fixed offset.
+                  </p>
+                  <p>Scenario assumptions in the Scenarios tab are unchanged. They still scale the base FAD rate through spillover, ban duration, and wastage multipliers before the simulator runs.</p>
+                  <p>
+                    Forecast cards show the <strong>median (P50)</strong> date plus an <strong>80% interval</strong>. The backtest badge reports 6-month FAD MAE and how often the actual bulletin landed inside the model's 80% interval.
+                  </p>
+                  <p className="text-slate-400">Disclaimer: Estimates are probabilistic and may change with policy shifts, retrogression, or legislative action.</p>
+                </div>
+              )}
+              <TrustAndLimitationsPanel sourceLinks={trackerSourceLinks} />
+            </div>
           </div>
         )}
 
@@ -1559,34 +1811,26 @@ export default function Home() {
         ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'scenarios' && (
           <div className="space-y-6">
-            {/* ── Scenarios header row ── */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-slate-800">Scenario Analysis</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Four outcomes based on current policy assumptions</p>
-              </div>
-              <button onClick={generateExport} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-800 border border-slate-800 rounded-lg shadow-sm hover:bg-slate-700 hover:border-slate-700 active:scale-95 transition-all">
-                <Download className="w-3.5 h-3.5" />
-                Export PDF
-              </button>
-            </div>
-
-            {/* ── Adjust Assumptions (collapsible) ── */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-              <button onClick={() => setShowSimulatorControls(v => !v)} className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">&#9881;&#65039;</span>
-                  <span>Adjust Assumptions</span>
-                  <span className="text-xs font-normal text-slate-400 ml-1">
-                    Spillover: {spilloverLevel} · Ban: through {banContinues} · Wastage: {wastageLevel}
-                  </span>
+            {/* ── Unified Assumptions + Scenarios header ── */}
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span className="text-base">&#9881;&#65039;</span>
+                    Assumptions &amp; Scenario Projections
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Tune policy controls, inspect base-case sensitivity, and compare scenario results in one view.
+                  </p>
                 </div>
-                {showSimulatorControls ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
+                <button onClick={generateExport} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-800 border border-slate-800 rounded-lg shadow-sm hover:bg-slate-700 active:scale-95 transition-all">
+                  <Download className="w-3.5 h-3.5" />
+                  Export PDF
+                </button>
+              </div>
 
-              {showSimulatorControls && (
-                <div className="border-t border-slate-100 p-5 space-y-5">
-                  {/* Controls */}
+              {/* ── Assumption Controls (always visible) ── */}
+              <div className="p-5 space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">Spillover Level</label>
@@ -1594,25 +1838,38 @@ export default function Home() {
                         {[
                           {
                             val: 'low' as const,
+                            sensitivity: 'Low',
                             label: 'Low (~30k extra EB visas)',
                             sub: 'Partial ban, limited spillover',
                           },
                           {
                             val: 'moderate' as const,
+                            sensitivity: 'Moderate',
                             label: 'Moderate (~50k extra)',
                             sub: 'Base case assumption',
                           },
                           {
                             val: 'high' as const,
+                            sensitivity: 'High',
                             label: 'High (~70k+ extra)',
                             sub: 'Full ban, max spillover',
                           },
-                        ].map(o => (
-                          <button key={o.val} onClick={() => setSpilloverLevel(o.val)} className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${spilloverLevel === o.val ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'}`}>
-                            <div className="font-semibold">{o.label}</div>
-                            <div className={spilloverLevel === o.val ? 'text-slate-300' : 'text-slate-400'}>{o.sub}</div>
-                          </button>
-                        ))}
+                        ].map(o => {
+                          const selected = spilloverLevel === o.val;
+                          const sensitivity = sensitivityByOption.get(`Spillover:${o.sensitivity}`);
+                          return (
+                            <button key={o.val} onClick={() => setSpilloverLevel(o.val)} className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${selected ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'}`}>
+                              <div className="font-semibold">{o.label}</div>
+                              <div className={selected ? 'text-slate-300' : 'text-slate-400'}>{o.sub}</div>
+                              {sensitivity && (
+                                <div className={`mt-2 flex items-center justify-between gap-2 border-t pt-2 ${selected ? 'border-white/15' : 'border-slate-100'}`}>
+                                  <span className={`font-mono text-[11px] ${selected ? 'text-slate-200' : 'text-slate-500'}`}>FAD {sensitivity.dateLabel}</span>
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${selected ? 'bg-white/15 text-white' : sensitivity.deltaMonths <= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{fmtSensitivityDelta(sensitivity.deltaMonths)}</span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                     <div>
@@ -1621,25 +1878,38 @@ export default function Home() {
                         {[
                           {
                             val: '2027' as const,
+                            sensitivity: 'Through 2027',
                             label: 'Ends Oct 2027 (1 FY)',
                             sub: 'Court reversal (CLINIC v. Rubio pending)',
                           },
                           {
                             val: '2028' as const,
+                            sensitivity: 'Through 2028',
                             label: 'Through Sept 2028 (2 FY)',
                             sub: 'Base case — sustained policy',
                           },
                           {
                             val: '2029' as const,
+                            sensitivity: 'Through 2029',
                             label: 'Through Sept 2029 (3 FY)',
                             sub: 'Full term continuation',
                           },
-                        ].map(o => (
-                          <button key={o.val} onClick={() => setBanContinues(o.val)} className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${banContinues === o.val ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'}`}>
-                            <div className="font-semibold">{o.label}</div>
-                            <div className={banContinues === o.val ? 'text-slate-300' : 'text-slate-400'}>{o.sub}</div>
-                          </button>
-                        ))}
+                        ].map(o => {
+                          const selected = banContinues === o.val;
+                          const sensitivity = sensitivityByOption.get(`Ban duration:${o.sensitivity}`);
+                          return (
+                            <button key={o.val} onClick={() => setBanContinues(o.val)} className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${selected ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'}`}>
+                              <div className="font-semibold">{o.label}</div>
+                              <div className={selected ? 'text-slate-300' : 'text-slate-400'}>{o.sub}</div>
+                              {sensitivity && (
+                                <div className={`mt-2 flex items-center justify-between gap-2 border-t pt-2 ${selected ? 'border-white/15' : 'border-slate-100'}`}>
+                                  <span className={`font-mono text-[11px] ${selected ? 'text-slate-200' : 'text-slate-500'}`}>FAD {sensitivity.dateLabel}</span>
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${selected ? 'bg-white/15 text-white' : sensitivity.deltaMonths <= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{fmtSensitivityDelta(sensitivity.deltaMonths)}</span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                     <div>
@@ -1648,31 +1918,49 @@ export default function Home() {
                         {[
                           {
                             val: 'low' as const,
+                            sensitivity: 'Low',
                             label: 'Low (5–10%)',
                             sub: 'Efficient consular processing',
                           },
                           {
                             val: 'moderate' as const,
+                            sensitivity: 'Moderate',
                             label: 'Moderate (15–20%)',
                             sub: 'Typical processing friction',
                           },
                           {
                             val: 'high' as const,
+                            sensitivity: 'High',
                             label: 'High (25–30%)',
                             sub: 'Systemic delays (as in FY2021)',
                           },
-                        ].map(o => (
-                          <button key={o.val} onClick={() => setWastageLevel(o.val)} className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${wastageLevel === o.val ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'}`}>
-                            <div className="font-semibold">{o.label}</div>
-                            <div className={wastageLevel === o.val ? 'text-slate-300' : 'text-slate-400'}>{o.sub}</div>
-                          </button>
-                        ))}
+                        ].map(o => {
+                          const selected = wastageLevel === o.val;
+                          const sensitivity = sensitivityByOption.get(`Wastage:${o.sensitivity}`);
+                          return (
+                            <button key={o.val} onClick={() => setWastageLevel(o.val)} className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${selected ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'}`}>
+                              <div className="font-semibold">{o.label}</div>
+                              <div className={selected ? 'text-slate-300' : 'text-slate-400'}>{o.sub}</div>
+                              {sensitivity && (
+                                <div className={`mt-2 flex items-center justify-between gap-2 border-t pt-2 ${selected ? 'border-white/15' : 'border-slate-100'}`}>
+                                  <span className={`font-mono text-[11px] ${selected ? 'text-slate-200' : 'text-slate-500'}`}>FAD {sensitivity.dateLabel}</span>
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${selected ? 'bg-white/15 text-white' : sensitivity.deltaMonths <= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{fmtSensitivityDelta(sensitivity.deltaMonths)}</span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
 
-                  {/* Explainer cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                {/* Explainer (collapsed by default) */}
+                <details className="group">
+                  <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 list-none select-none">
+                    <ChevronDown className="w-3.5 h-3.5 group-open:rotate-180 transition-transform" />
+                    About these assumptions
+                  </summary>
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="bg-slate-50 rounded-lg p-4">
                       <p className="text-xs font-bold text-slate-800 mb-1">75-Country Visa Ban</p>
                       <p className="text-xs text-slate-600 leading-relaxed">
@@ -1697,52 +1985,59 @@ export default function Home() {
                       <div className="mt-2 text-xs text-slate-500 font-mono bg-white rounded px-2 py-1 leading-relaxed">each month: rate × (season + residual sample) × assumptions ÷ sqrt(density)</div>
                     </div>
                   </div>
+                </details>
+              </div>
+
+              {/* ── Divider with context label ── */}
+              <div className="flex items-center gap-3 px-5 py-3 border-t border-slate-100 bg-slate-50/70">
+                <div className="h-px flex-1 bg-slate-200" />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                  Results — {cat.label} India · PD {fmtDateStr(targetDate)}
+                </p>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+
+              {/* ── Scenario Results (inside the same card) ── */}
+              <div className="p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(Object.entries(SCENARIOS) as Array<[keyof typeof SCENARIOS, (typeof SCENARIOS)[keyof typeof SCENARIOS]]>).map(([key, s]) => {
+                    const p = projections[key];
+                    return (
+                      <div key={key} className="rounded-xl border-l-4 border border-slate-200 bg-slate-50/50 p-5" style={{ borderLeftColor: s.color }}>
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h3 className="font-bold text-slate-900">{s.label}</h3>
+                            <p className="text-xs text-slate-500">{s.probability} probability</p>
+                          </div>
+                          <span className="text-xs font-mono bg-white border border-slate-200 px-2 py-0.5 rounded text-slate-600">{adjustedRates[key]} PD-mo/mo</span>
+                        </div>
+                        <p className="text-xs text-slate-600 mb-3">{s.description}</p>
+                        <div className="border-t border-slate-200 pt-3 grid grid-cols-3 gap-2 text-xs">
+                          <div>
+                            <p className="text-slate-500 mb-0.5">DoF P50</p>
+                            <p className="font-bold font-mono text-slate-900">{p.isAlreadyCurrent ? 'Current' : fmtProjectionDate(p.dofDate, p.horizon.dofP50Capped)}</p>
+                            {!p.isAlreadyCurrent && <p className="text-[11px] text-slate-400 mt-1">{fmtProjectionDateRange(p.dofRange.p10, p.dofRange.p90, p.horizon.dofP90Capped)}</p>}
+                          </div>
+                          <div>
+                            <p className="text-slate-500 mb-0.5">FAD P50</p>
+                            <p className="font-bold font-mono text-slate-900">{p.isAlreadyCurrent ? 'Current' : fmtProjectionDate(p.fadDate, p.horizon.fadP50Capped)}</p>
+                            {!p.isAlreadyCurrent && <p className="text-[11px] text-slate-400 mt-1">{fmtProjectionDateRange(p.fadRange.p10, p.fadRange.p90, p.horizon.fadP90Capped)}</p>}
+                          </div>
+                          <div>
+                            <p className="text-slate-500 mb-0.5">GC P50</p>
+                            <p className="font-bold font-mono text-slate-900">{p.isAlreadyCurrent ? 'Current' : fmtProjectionDate(p.gcDate, p.horizon.gcP50Capped)}</p>
+                            {!p.isAlreadyCurrent && <p className="text-[11px] text-slate-400 mt-1">{fmtProjectionDateRange(p.gcRange.p10, p.gcRange.p90, p.horizon.gcP90Capped)}</p>}
+                          </div>
+                        </div>
+                        <div className="mt-2 text-xs text-slate-400 flex items-center justify-between gap-2">
+                          <span>{p.isAlreadyCurrent ? 'Already current' : `FAD median in ${fmtProjectionDuration(p.monthsFromToday, p.horizon.fadP50Capped)}`}</span>
+                          <span>Near-term risk {Math.round(p.nearTermRisk * 100)}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-              <strong>Projections for {fmtDateStr(targetDate)}</strong> — {cat.label} India. The critical variable is whether the FY2027 visa spillover materializes at scale. Use <strong>Adjust Assumptions</strong> above to see how spillover, ban duration, and wastage affect your timeline.
-            </div>
-
-            {/* Scenario cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(Object.entries(SCENARIOS) as Array<[keyof typeof SCENARIOS, (typeof SCENARIOS)[keyof typeof SCENARIOS]]>).map(([key, s]) => {
-                const p = projections[key];
-                return (
-                  <div key={key} className="bg-white rounded-xl border-l-4 border border-slate-200 p-5" style={{ borderLeftColor: s.color }}>
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="font-bold text-slate-900">{s.label}</h3>
-                        <p className="text-xs text-slate-500">{s.probability} probability</p>
-                      </div>
-                      <span className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">{adjustedRates[key]} PD-mo/mo</span>
-                    </div>
-                    <p className="text-xs text-slate-600 mb-3">{s.description}</p>
-                    <div className="border-t border-slate-100 pt-3 grid grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <p className="text-slate-500 mb-0.5">DoF P50</p>
-                        <p className="font-bold font-mono text-slate-900">{p.isAlreadyCurrent ? 'Current' : fmtDate(p.dofDate)}</p>
-                        {!p.isAlreadyCurrent && <p className="text-[11px] text-slate-400 mt-1">{fmtDate(p.dofRange.p10)} - {fmtDate(p.dofRange.p90)}</p>}
-                      </div>
-                      <div>
-                        <p className="text-slate-500 mb-0.5">FAD P50</p>
-                        <p className="font-bold font-mono text-slate-900">{p.isAlreadyCurrent ? 'Current' : fmtDate(p.fadDate)}</p>
-                        {!p.isAlreadyCurrent && <p className="text-[11px] text-slate-400 mt-1">{fmtDate(p.fadRange.p10)} - {fmtDate(p.fadRange.p90)}</p>}
-                      </div>
-                      <div>
-                        <p className="text-slate-500 mb-0.5">GC P50</p>
-                        <p className="font-bold font-mono text-slate-900">{p.isAlreadyCurrent ? 'Current' : fmtDate(p.gcDate)}</p>
-                        {!p.isAlreadyCurrent && <p className="text-[11px] text-slate-400 mt-1">{fmtDate(p.gcRange.p10)} - {fmtDate(p.gcRange.p90)}</p>}
-                      </div>
-                    </div>
-                    <div className="mt-2 text-xs text-slate-400 flex items-center justify-between gap-2">
-                      <span>{p.isAlreadyCurrent ? 'Already current' : `FAD median in ${fmtDuration(p.monthsFromToday)}`}</span>
-                      <span>Retro risk {Math.round(p.retrogressionRisk * 100)}%</span>
-                    </div>
-                  </div>
-                );
-              })}
+              </div>
             </div>
 
             {/* Scenario comparison bar chart */}
@@ -1782,7 +2077,8 @@ export default function Home() {
                       <th className="px-3 py-2 text-left font-semibold text-slate-700">DoF Range</th>
                       <th className="px-3 py-2 text-left font-semibold text-slate-700">FAD Range</th>
                       <th className="px-3 py-2 text-left font-semibold text-slate-700">GC Range</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-700">Retrogression Risk</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-700">Near-Term Risk</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-700">Retro Shock</th>
                       <th className="px-3 py-2 text-left font-semibold text-slate-700">Probability</th>
                     </tr>
                   </thead>
@@ -1794,9 +2090,10 @@ export default function Home() {
                           <td className="px-3 py-2 font-semibold" style={{ color: s.color }}>
                             {s.label}
                           </td>
-                          <td className="px-3 py-2 font-mono text-slate-700">{p.isAlreadyCurrent ? 'Current' : `${fmtDate(p.dofRange.p10)} - ${fmtDate(p.dofRange.p90)}`}</td>
-                          <td className="px-3 py-2 font-mono text-slate-700">{p.isAlreadyCurrent ? 'Current' : `${fmtDate(p.fadRange.p10)} - ${fmtDate(p.fadRange.p90)}`}</td>
-                          <td className="px-3 py-2 font-mono text-slate-700">{p.isAlreadyCurrent ? 'Current' : `${fmtDate(p.gcRange.p10)} - ${fmtDate(p.gcRange.p90)}`}</td>
+                          <td className="px-3 py-2 font-mono text-slate-700">{p.isAlreadyCurrent ? 'Current' : fmtProjectionDateRange(p.dofRange.p10, p.dofRange.p90, p.horizon.dofP90Capped)}</td>
+                          <td className="px-3 py-2 font-mono text-slate-700">{p.isAlreadyCurrent ? 'Current' : fmtProjectionDateRange(p.fadRange.p10, p.fadRange.p90, p.horizon.fadP90Capped)}</td>
+                          <td className="px-3 py-2 font-mono text-slate-700">{p.isAlreadyCurrent ? 'Current' : fmtProjectionDateRange(p.gcRange.p10, p.gcRange.p90, p.horizon.gcP90Capped)}</td>
+                          <td className="px-3 py-2 text-slate-600">{Math.round(p.nearTermRisk * 100)}%</td>
                           <td className="px-3 py-2 text-slate-600">{Math.round(p.retrogressionRisk * 100)}%</td>
                           <td className="px-3 py-2 text-slate-600">{s.probability}</td>
                         </tr>
@@ -1815,6 +2112,19 @@ export default function Home() {
         ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'tracker' && (
           <div className="space-y-6">
+            <DataFreshnessPanel
+              currentMonth={CURRENT_BULLETIN.month}
+              currentBulletinUrl={bulletinUrl(CURRENT_BULLETIN.month)}
+              modelVersion={DATA_FRESHNESS.modelVersion}
+              lastVerified={DATA_FRESHNESS.lastVerified}
+              currentBulletinPublished={DATA_FRESHNESS.currentBulletinPublished}
+              nextExpectedUpdate={DATA_FRESHNESS.nextExpectedUpdate}
+              adjustmentChartNote={DATA_FRESHNESS.adjustmentChartNote}
+              modelHistoryCount={HISTORICAL_BULLETINS.length}
+              trackerHistoryCount={BULLETIN_TRACKER_HISTORY.length}
+              sourceLinks={trackerSourceLinks}
+            />
+
             {/* ── Tracker header: legend + pace stats ── */}
             {(() => {
               const fadKey = selectedCategory === 'EB1' ? 'eb1_fad' : selectedCategory === 'EB3' ? 'eb3_fad' : 'eb2_fad';
@@ -2156,6 +2466,18 @@ export default function Home() {
           </div>
         )}
       </div>
+      <FloatingChatWidget
+        categoryLabel={cat.label}
+        categoryName={cat.name}
+        targetDate={targetDate}
+        currentFad={cat.currentFAD}
+        currentDof={cat.currentDoF}
+        projections={projections}
+        scenarios={SCENARIOS}
+        assumptionsSummary={overviewAssumptionSummary}
+        backtest={backtestResult}
+        sourceLinks={trackerSourceLinks}
+      />
     </div>
   );
 }

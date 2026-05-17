@@ -18,6 +18,37 @@ export const CURRENT_BULLETIN = {
   eb3: { fad: '2013-12-15', dof: '2015-01-15' },
 };
 
+export const DATA_FRESHNESS = {
+  modelVersion: 'v8',
+  lastVerified: 'May 16, 2026',
+  currentBulletinPublished: 'May 4, 2026',
+  nextExpectedUpdate: 'mid-June 2026',
+  adjustmentChartNote: 'Verify USCIS chart selection before filing I-485',
+};
+
+export const TRACKER_SOURCE_LINKS = [
+  {
+    label: 'DOS Visa Bulletin',
+    href: 'https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html',
+    detail: 'Official monthly Final Action Date and Dates for Filing source.',
+  },
+  {
+    label: 'USCIS Visa Bulletin Info',
+    href: 'https://www.uscis.gov/visabulletininfo',
+    detail: 'USCIS adjustment-of-status chart selection and visa availability information.',
+  },
+  {
+    label: 'USCIS Pending Inventory',
+    href: 'https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates',
+    detail: 'Employment-based pending I-485 inventory source used for demand density.',
+  },
+  {
+    label: 'USCIS I-140 Data',
+    href: 'https://www.uscis.gov/tools/reports-and-studies/immigration-and-citizenship-data',
+    detail: 'I-140 approval data used as a proxy for future demand beyond filed inventory.',
+  },
+];
+
 // ─── DEMAND DENSITY DATA (HYBRID: I-485 INVENTORY + I-140 APPROVALS) ─────────
 //
 // Two data sources, used in a hybrid model:
