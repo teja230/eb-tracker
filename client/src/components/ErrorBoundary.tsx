@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { AlertTriangle, RotateCcw } from "lucide-react";
-import { Component, ReactNode } from "react";
+import { Component, ReactNode, type ErrorInfo } from "react";
 
 interface Props {
   children: ReactNode;
@@ -19,6 +19,29 @@ class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    const payload = {
+      message: error.message,
+      stack: error.stack,
+      componentStack: info.componentStack,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      window.localStorage.setItem(
+        "ebtracker.lastError",
+        JSON.stringify(payload)
+      );
+      window.dispatchEvent(
+        new CustomEvent("ebtracker:error", { detail: payload })
+      );
+    } catch {
+      /* best-effort local error capture */
+    }
   }
 
   render() {

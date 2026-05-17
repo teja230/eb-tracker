@@ -171,9 +171,13 @@ pnpm dev
 pnpm check
 pnpm test
 pnpm build
+pnpm test:smoke
 pnpm check:bulletin
 pnpm update:bulletin
+pnpm install:hooks
 ```
+
+`install:hooks` points Git at `.githooks/pre-commit`, which runs the TypeScript check and Vitest suite before local commits.
 
 ---
 

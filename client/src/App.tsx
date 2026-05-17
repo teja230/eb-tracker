@@ -13,7 +13,6 @@ const EB3Guide = () => <SeoPage kind="category" category="EB3" />;
 const MethodologyGuide = () => <SeoPage kind="methodology" />;
 const HistoryGuide = () => <SeoPage kind="history" />;
 
-
 function Router() {
   return (
     <Switch>
@@ -38,10 +37,7 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
           <Router />

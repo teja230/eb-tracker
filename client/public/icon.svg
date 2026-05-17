@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="EB Priority Date Tracker">
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <path d="M112 156h288v200H112z" fill="#f8fafc"/>
+  <path d="M112 156h288v56H112z" fill="#14b8a6"/>
+  <path d="M164 248h184M164 296h136" stroke="#0f172a" stroke-width="28" stroke-linecap="round"/>
+  <path d="M344 340l48-48 24 24-72 72-48-48 24-24z" fill="#10b981"/>
+</svg>

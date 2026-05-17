@@ -96,6 +96,26 @@
   --color-slate-blue: oklch(0.35 0.1 240); /* slate blue */
 }
 
+.dark {
+  --background: oklch(0.16 0.03 240);
+  --foreground: oklch(0.95 0.01 240);
+  --card: oklch(0.2 0.035 240);
+  --card-foreground: oklch(0.95 0.01 240);
+  --popover: oklch(0.2 0.035 240);
+  --popover-foreground: oklch(0.95 0.01 240);
+  --primary: oklch(0.72 0.13 195);
+  --primary-foreground: oklch(0.14 0.03 240);
+  --secondary: oklch(0.26 0.035 240);
+  --secondary-foreground: oklch(0.92 0.01 240);
+  --muted: oklch(0.24 0.03 240);
+  --muted-foreground: oklch(0.74 0.02 240);
+  --accent: oklch(0.28 0.04 240);
+  --accent-foreground: oklch(0.95 0.01 240);
+  --border: oklch(0.33 0.035 240);
+  --input: oklch(0.33 0.035 240);
+  --ring: oklch(0.72 0.13 195);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -121,6 +141,41 @@
 }
 
 @layer components {
+  .dark .bg-white {
+    background-color: oklch(0.2 0.035 240);
+  }
+
+  .dark .bg-slate-50,
+  .dark .bg-slate-50\/70,
+  .dark .bg-slate-50\/80,
+  .dark .bg-slate-100 {
+    background-color: oklch(0.24 0.03 240);
+  }
+
+  .dark .text-slate-900,
+  .dark .text-slate-800,
+  .dark .text-slate-700 {
+    color: oklch(0.95 0.01 240);
+  }
+
+  .dark .text-slate-600,
+  .dark .text-slate-500,
+  .dark .text-slate-400 {
+    color: oklch(0.75 0.02 240);
+  }
+
+  .dark .border-slate-100,
+  .dark .border-slate-200,
+  .dark .border-slate-300 {
+    border-color: oklch(0.33 0.035 240);
+  }
+
+  .dark .shadow-sm,
+  .dark .shadow-xl,
+  .dark .shadow-2xl {
+    box-shadow: none;
+  }
+
   .container {
     width: 100%;
     margin-left: auto;

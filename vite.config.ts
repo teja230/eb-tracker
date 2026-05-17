@@ -56,7 +56,7 @@ function writeToLogFile(source: LogSource, entries: unknown[]) {
   const logPath = path.join(LOG_DIR, `${source}.log`);
 
   // Format entries with timestamps
-  const lines = entries.map((entry) => {
+  const lines = entries.map(entry => {
     const ts = new Date().toISOString();
     return `[${ts}] ${JSON.stringify(entry)}`;
   });
@@ -132,7 +132,7 @@ function vitePluginManusDebugCollector(): Plugin {
         }
 
         let body = "";
-        req.on("data", (chunk) => {
+        req.on("data", chunk => {
           body += chunk.toString();
         });
 
@@ -150,7 +150,13 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
+const plugins = [
+  react(),
+  tailwindcss(),
+  jsxLocPlugin(),
+  vitePluginManusRuntime(),
+  vitePluginManusDebugCollector(),
+];
 
 export default defineConfig({
   plugins,
@@ -159,6 +165,20 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+      html2canvas: path.resolve(
+        import.meta.dirname,
+        "client",
+        "src",
+        "lib",
+        "pdfOptionalDependencyStub.ts"
+      ),
+      dompurify: path.resolve(
+        import.meta.dirname,
+        "client",
+        "src",
+        "lib",
+        "pdfOptionalDependencyStub.ts"
+      ),
     },
   },
   envDir: path.resolve(import.meta.dirname),
@@ -171,11 +191,20 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
-          if (id.includes("recharts") || id.includes("d3-") || id.includes("victory-vendor")) return "charts";
-          if (id.includes("@radix-ui") || id.includes("lucide-react") || id.includes("cmdk") || id.includes("vaul")) return "ui-vendor";
+          if (
+            id.includes("recharts") ||
+            id.includes("d3-") ||
+            id.includes("victory-vendor")
+          )
+            return "charts";
+          if (
+            id.includes("@radix-ui") ||
+            id.includes("lucide-react") ||
+            id.includes("cmdk") ||
+            id.includes("vaul")
+          )
+            return "ui-vendor";
           if (id.includes("jspdf")) return "jspdf";
-          if (id.includes("html2canvas")) return "html2canvas";
-          if (id.includes("dompurify")) return "dompurify";
           return "vendor";
         },
       },

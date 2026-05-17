@@ -1,15 +1,44 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 
-import { AlertTriangle, Bell, BookmarkPlus, Bot, CheckCircle2, Database, ExternalLink, Info, ListChecks, MessageSquare, Scale, Send, ShieldCheck, Trash2, X } from 'lucide-react';
-import { generateResponse, type ChatMessage, type EngineContext } from '@/lib/ebChatEngine';
-import { Link } from 'wouter';
+import {
+  AlertTriangle,
+  Bell,
+  BookmarkPlus,
+  Bot,
+  CheckCircle2,
+  Database,
+  Download,
+  ExternalLink,
+  Info,
+  ListChecks,
+  MessageSquare,
+  Scale,
+  Send,
+  ShieldCheck,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+import {
+  generateResponse,
+  type ChatMessage,
+  type EngineContext,
+} from "@/lib/ebChatEngine";
+import { Link } from "wouter";
 
-import { Card } from '@/components/ui/card';
-import type { BacktestSummary, ForecastProjection } from '@/lib/forecast';
-import { fmtDate, fmtDateStr, fmtDuration, parseDateStr, type MovementInfo } from '@/lib/trackerUtils';
-import type { TrackerCategoryKey } from '@/data/trackerData';
+import { Card } from "@/components/ui/card";
+import type { BacktestSummary, ForecastProjection } from "@/lib/forecast";
+import {
+  fmtDate,
+  fmtDateStr,
+  fmtDuration,
+  parseDateStr,
+  type MovementInfo,
+} from "@/lib/trackerUtils";
+import type { TrackerCategoryKey } from "@/data/trackerData";
 
-type ScenarioKey = 'optimistic' | 'base' | 'conservative' | 'pessimistic';
+type ScenarioKey = "optimistic" | "base" | "conservative" | "pessimistic";
 
 type ScenarioMeta = {
   label: string;
@@ -43,8 +72,8 @@ export type CategoryComparisonRow = {
   dofMove: MovementInfo;
   prevBulletinLabel: string;
   gapLabel: string;
-  fadEstLabel: string;  // base-case FAD estimate
-  isSelected: boolean;  // is this the currently selected category?
+  fadEstLabel: string; // base-case FAD estimate
+  isSelected: boolean; // is this the currently selected category?
 };
 
 type WatchItem = {
@@ -61,7 +90,8 @@ type WatchItem = {
   url: string;
 };
 
-const WATCHLIST_KEY = 'ebtracker.watchlist.v1';
+const WATCHLIST_KEY = "ebtracker.watchlist.v1";
+const WATCHLIST_NOTIFIED_KEY = "ebtracker.watchlist.notified.v1";
 
 function isOnOrPast(cutoff: string, targetDate: string) {
   return parseDateStr(cutoff).getTime() >= parseDateStr(targetDate).getTime();
@@ -88,6 +118,24 @@ function loadWatchlist(): WatchItem[] {
 
 function saveWatchlist(items: WatchItem[]) {
   window.localStorage.setItem(WATCHLIST_KEY, JSON.stringify(items));
+}
+
+function isWatchItem(value: unknown): value is WatchItem {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<WatchItem>;
+  return (
+    typeof item.id === "string" &&
+    ["EB1", "EB2", "EB3"].includes(item.category ?? "") &&
+    typeof item.categoryLabel === "string" &&
+    typeof item.targetDate === "string" &&
+    typeof item.targetDateLabel === "string" &&
+    typeof item.assumptions === "string" &&
+    typeof item.dofEstimate === "string" &&
+    typeof item.fadEstimate === "string" &&
+    typeof item.gcEstimate === "string" &&
+    typeof item.savedAt === "string" &&
+    typeof item.url === "string"
+  );
 }
 
 export function DataFreshnessPanel({
@@ -122,9 +170,16 @@ export function DataFreshnessPanel({
               <Database className="h-4 w-4 text-cyan-300" />
               <h3 className="text-sm font-bold">Data Freshness</h3>
             </div>
-            <p className="mt-1 text-xs text-slate-300">Current source state, model version, and update cadence.</p>
+            <p className="mt-1 text-xs text-slate-300">
+              Current source state, model version, and update cadence.
+            </p>
           </div>
-          <a href={currentBulletinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:bg-slate-700">
+          <a
+            href={currentBulletinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:bg-slate-700"
+          >
             Official bulletin
             <ExternalLink className="h-3 w-3" />
           </a>
@@ -133,15 +188,42 @@ export function DataFreshnessPanel({
 
       <div className="grid gap-3 p-4 md:grid-cols-5">
         {[
-          { label: 'Latest Bulletin', value: currentMonth, detail: `Published ${currentBulletinPublished}` },
-          { label: 'Model Version', value: modelVersion, detail: `${modelHistoryCount} model rows` },
-          { label: 'Tracker History', value: `${trackerHistoryCount} rows`, detail: 'Includes archive rows' },
-          { label: 'Last Verified', value: lastVerified, detail: `Next check ${nextExpectedUpdate}` },
-          { label: 'I-485 Filing Chart', value: 'USCIS', detail: adjustmentChartNote },
+          {
+            label: "Latest Bulletin",
+            value: currentMonth,
+            detail: `Published ${currentBulletinPublished}`,
+          },
+          {
+            label: "Model Version",
+            value: modelVersion,
+            detail: `${modelHistoryCount} model rows`,
+          },
+          {
+            label: "Tracker History",
+            value: `${trackerHistoryCount} rows`,
+            detail: "Includes archive rows",
+          },
+          {
+            label: "Last Verified",
+            value: lastVerified,
+            detail: `Next check ${nextExpectedUpdate}`,
+          },
+          {
+            label: "I-485 Filing Chart",
+            value: "USCIS",
+            detail: adjustmentChartNote,
+          },
         ].map(item => (
-          <div key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
-            <p className="mt-1 font-mono text-sm font-bold text-slate-900">{item.value}</p>
+          <div
+            key={item.label}
+            className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              {item.label}
+            </p>
+            <p className="mt-1 font-mono text-sm font-bold text-slate-900">
+              {item.value}
+            </p>
             <p className="mt-1 text-xs text-slate-500">{item.detail}</p>
           </div>
         ))}
@@ -150,7 +232,14 @@ export function DataFreshnessPanel({
       <div className="border-t border-slate-100 px-4 py-3">
         <div className="flex flex-wrap gap-2">
           {sourceLinks.map(source => (
-            <a key={source.href} href={source.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-900" title={source.detail}>
+            <a
+              key={source.href}
+              href={source.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-900"
+              title={source.detail}
+            >
               {source.label}
               <ExternalLink className="h-3 w-3" />
             </a>
@@ -169,25 +258,25 @@ function InlineText({ text }: { text: string }) {
   return (
     <>
       {segs.map((seg, i) =>
-        seg.startsWith('**') && seg.endsWith('**') ? (
+        seg.startsWith("**") && seg.endsWith("**") ? (
           <strong key={i} className="font-semibold text-slate-900">
             {seg.slice(2, -2)}
           </strong>
         ) : (
           <span key={i}>{seg}</span>
-        ),
+        )
       )}
     </>
   );
 }
 
 function MarkdownText({ text }: { text: string }) {
-  const paragraphs = text.split('\n\n');
+  const paragraphs = text.split("\n\n");
   return (
     <>
       {paragraphs.map((para, pi) => (
-        <p key={pi} className={pi < paragraphs.length - 1 ? 'mb-2.5' : ''}>
-          {para.split('\n').map((line, li, arr) => (
+        <p key={pi} className={pi < paragraphs.length - 1 ? "mb-2.5" : ""}>
+          {para.split("\n").map((line, li, arr) => (
             <span key={li}>
               <InlineText text={line} />
               {li < arr.length - 1 && <br />}
@@ -230,8 +319,8 @@ export function AskEBTracker({
 }: AskEBTrackerProps) {
   // Derive category key from the label passed by the parent tab
   const categoryKey = (
-    categoryLabel === 'EB-1' ? 'EB1' : categoryLabel === 'EB-3' ? 'EB3' : 'EB2'
-  ) as import('@/data/trackerData').TrackerCategoryKey;
+    categoryLabel === "EB-1" ? "EB1" : categoryLabel === "EB-3" ? "EB3" : "EB2"
+  ) as import("@/data/trackerData").TrackerCategoryKey;
 
   const engineContext = useMemo<EngineContext>(
     () => ({
@@ -246,37 +335,54 @@ export function AskEBTracker({
       backtest,
       sourceLinks,
     }),
-    [categoryLabel, categoryKey, targetDate, currentFad, currentDof, projections, scenarios, assumptionsSummary, backtest, sourceLinks],
+    [
+      categoryLabel,
+      categoryKey,
+      targetDate,
+      currentFad,
+      currentDof,
+      projections,
+      scenarios,
+      assumptionsSummary,
+      backtest,
+      sourceLinks,
+    ]
   );
 
-  const INITIAL_SUGGESTIONS = ['When can I file I-485?', 'What is the visa ban impact?', 'DoF vs FAD explained'];
+  const INITIAL_SUGGESTIONS = [
+    "When can I file I-485?",
+    "What is the visa ban impact?",
+    "DoF vs FAD explained",
+  ];
 
   const makeWelcome = useCallback(
     (): ChatMessage => ({
       id: `welcome-${Date.now()}`,
-      role: 'assistant',
+      role: "assistant",
       content: `Hi! I'm answering for **${categoryLabel} India**, priority date **${fmtDateStr(targetDate)}**. Ask about filing windows, queue depth, the visa ban, retrogression risk, forecast scenarios, and more — every answer is sourced from this tracker's live data.`,
       suggestions: INITIAL_SUGGESTIONS,
       sources: sourceLinks.slice(0, 3),
       timestamp: Date.now(),
     }),
-    [categoryLabel, targetDate, sourceLinks], // eslint-disable-line react-hooks/exhaustive-deps
+    [categoryLabel, targetDate, sourceLinks] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [makeWelcome()]);
-  const [input, setInput]       = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    makeWelcome(),
+  ]);
+  const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
-  const [streamingId, setStreamingId]     = useState<string | null>(null);
-  const [streamProgress, setStreamProgress] = useState('');
+  const [streamingId, setStreamingId] = useState<string | null>(null);
+  const [streamProgress, setStreamProgress] = useState("");
 
-  const chatAreaRef        = useRef<HTMLDivElement>(null);
-  const inputRef           = useRef<HTMLInputElement>(null);
-  const streamRef          = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const thinkingRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const streamStartRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const makeWelcomeRef     = useRef(makeWelcome);
-  const hasInitializedRef  = useRef(false);
-  makeWelcomeRef.current   = makeWelcome;
+  const chatAreaRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const streamRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thinkingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamStartRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const makeWelcomeRef = useRef(makeWelcome);
+  const hasInitializedRef = useRef(false);
+  makeWelcomeRef.current = makeWelcome;
 
   const clearTimers = useCallback(() => {
     if (streamRef.current) clearTimeout(streamRef.current);
@@ -292,12 +398,15 @@ export function AskEBTracker({
 
   // Reset chat when the selected priority date or category changes (not on initial mount)
   useEffect(() => {
-    if (!hasInitializedRef.current) { hasInitializedRef.current = true; return; }
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      return;
+    }
     clearTimers();
     setStreamingId(null);
-    setStreamProgress('');
+    setStreamProgress("");
     setIsThinking(false);
-    setInput('');
+    setInput("");
     setMessages([makeWelcomeRef.current()]);
   }, [targetDate, categoryLabel, clearTimers]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -312,18 +421,25 @@ export function AskEBTracker({
   const startStream = useCallback((fullText: string, msgId: string) => {
     if (streamRef.current) clearTimeout(streamRef.current);
     setStreamingId(msgId);
-    setStreamProgress('');
+    setStreamProgress("");
     let i = 0;
     const tick = () => {
       if (i >= fullText.length) {
         setStreamingId(null);
-        setStreamProgress('');
+        setStreamProgress("");
         return;
       }
       i++;
       setStreamProgress(fullText.slice(0, i));
       const ch = fullText[i - 1];
-      const delay = ch === '.' || ch === '!' || ch === '?' ? 55 : ch === '\n' ? 25 : ch === ',' ? 12 : 6;
+      const delay =
+        ch === "." || ch === "!" || ch === "?"
+          ? 55
+          : ch === "\n"
+            ? 25
+            : ch === ","
+              ? 12
+              : 6;
       streamRef.current = setTimeout(tick, delay);
     };
     tick();
@@ -336,13 +452,13 @@ export function AskEBTracker({
 
       const userMsg: ChatMessage = {
         id: `u-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        role: 'user',
+        role: "user",
         content: text,
         timestamp: Date.now(),
       };
 
       setMessages(prev => [...prev, userMsg]);
-      setInput('');
+      setInput("");
       setIsThinking(true);
       inputRef.current?.focus();
 
@@ -354,7 +470,7 @@ export function AskEBTracker({
           const result = generateResponse(text, engineContext, prev);
           const botMsg: ChatMessage = {
             id: `a-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            role: 'assistant',
+            role: "assistant",
             content: result.text,
             intent: result.intent,
             suggestions: result.suggestions,
@@ -370,24 +486,25 @@ export function AskEBTracker({
         });
       }, pause);
     },
-    [isThinking, streamingId, engineContext, startStream],
+    [isThinking, streamingId, engineContext, startStream]
   );
 
   const clearChat = useCallback(() => {
     clearTimers();
     setStreamingId(null);
-    setStreamProgress('');
+    setStreamProgress("");
     setIsThinking(false);
-    setInput('');
+    setInput("");
     setMessages([makeWelcome()]);
   }, [clearTimers, makeWelcome]);
 
   // Last assistant message drives the suggestion chips
   const lastBotMsg = useMemo(
-    () => [...messages].reverse().find(m => m.role === 'assistant'),
-    [messages],
+    () => [...messages].reverse().find(m => m.role === "assistant"),
+    [messages]
   );
-  const showSuggestions = !isThinking && streamingId === null && lastBotMsg?.suggestions?.length;
+  const showSuggestions =
+    !isThinking && streamingId === null && lastBotMsg?.suggestions?.length;
 
   return (
     <Card className="overflow-hidden border-slate-200 bg-white shadow-sm">
@@ -399,7 +516,9 @@ export function AskEBTracker({
           </span>
           <div>
             <h3 className="text-sm font-bold text-slate-900">Ask EBTracker</h3>
-            <p className="text-[11px] text-slate-500">{categoryLabel} India · PD {fmtDateStr(targetDate)}</p>
+            <p className="text-[11px] text-slate-500">
+              {categoryLabel} India · PD {fmtDateStr(targetDate)}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -425,12 +544,16 @@ export function AskEBTracker({
       </div>
 
       {/* ── Chat area ── */}
-      <div ref={chatAreaRef} className="flex flex-col gap-3 overflow-y-auto p-4" style={{ minHeight: '120px', maxHeight: '320px' }}>
+      <div
+        ref={chatAreaRef}
+        className="flex flex-col gap-3 overflow-y-auto p-4"
+        style={{ minHeight: "120px", maxHeight: "320px" }}
+      >
         {messages.map(msg => {
-          const isStreaming  = msg.id === streamingId;
-          const displayText  = isStreaming ? streamProgress : msg.content;
+          const isStreaming = msg.id === streamingId;
+          const displayText = isStreaming ? streamProgress : msg.content;
 
-          if (msg.role === 'user') {
+          if (msg.role === "user") {
             return (
               <div key={msg.id} className="flex justify-end">
                 <div className="max-w-[82%] rounded-2xl rounded-tr-sm bg-slate-900 px-3.5 py-2.5 text-sm leading-relaxed text-white">
@@ -447,7 +570,7 @@ export function AskEBTracker({
               </span>
               <div className="min-w-0 flex-1">
                 <div className="rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-700">
-                  <MarkdownText text={displayText || ' '} />
+                  <MarkdownText text={displayText || " "} />
                   {isStreaming && (
                     <span className="ml-0.5 inline-block h-[1em] w-0.5 translate-y-0.5 animate-pulse bg-slate-600" />
                   )}
@@ -482,15 +605,22 @@ export function AskEBTracker({
             </span>
             <div className="rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-3.5">
               <span className="flex items-center gap-1">
-                <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '0ms' }} />
-                <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '150ms' }} />
-                <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '300ms' }} />
+                <span
+                  className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <span
+                  className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <span
+                  className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
+                  style={{ animationDelay: "300ms" }}
+                />
               </span>
             </div>
           </div>
         )}
-
-
       </div>
 
       {/* ── Follow-up suggestions ── */}
@@ -520,7 +650,7 @@ export function AskEBTracker({
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               handleSend(input);
             }
@@ -545,7 +675,7 @@ export function AskEBTracker({
 // ─── FLOATING CHAT WIDGET ─────────────────────────────────────────────────────
 // Fixed bottom-right launcher, independent of any page section.
 
-export function FloatingChatWidget(props: Omit<AskEBTrackerProps, 'onClose'>) {
+export function FloatingChatWidget(props: Omit<AskEBTrackerProps, "onClose">) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
 
@@ -555,7 +685,7 @@ export function FloatingChatWidget(props: Omit<AskEBTrackerProps, 'onClose'>) {
       {open && (
         <div
           className="pointer-events-auto w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:w-[380px]"
-          style={{ maxHeight: 'min(580px, calc(100dvh - 100px))' }}
+          style={{ maxHeight: "min(580px, calc(100dvh - 100px))" }}
         >
           <AskEBTracker {...props} onClose={close} />
         </div>
@@ -564,10 +694,14 @@ export function FloatingChatWidget(props: Omit<AskEBTrackerProps, 'onClose'>) {
       {/* Toggle button */}
       <button
         onClick={() => setOpen(o => !o)}
-        aria-label={open ? 'Close chat' : 'Ask EBTracker'}
+        aria-label={open ? "Close chat" : "Ask EBTracker"}
         className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-xl ring-4 ring-white transition-all hover:bg-slate-700 active:scale-95"
       >
-        {open ? <X className="h-5 w-5" /> : <MessageSquare className="h-6 w-6" />}
+        {open ? (
+          <X className="h-5 w-5" />
+        ) : (
+          <MessageSquare className="h-6 w-6" />
+        )}
       </button>
     </div>
   );
@@ -591,6 +725,15 @@ export function WatchlistPanel({
   shareUrl: string;
 }) {
   const [items, setItems] = useState<WatchItem[]>([]);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | "unsupported"
+  >(() =>
+    typeof window !== "undefined" && "Notification" in window
+      ? Notification.permission
+      : "unsupported"
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setItems(loadWatchlist());
@@ -604,17 +747,38 @@ export function WatchlistPanel({
       targetDate,
       targetDateLabel: fmtDateStr(targetDate),
       assumptions: assumptionsSummary,
-      dofEstimate: projectionDateLabel(projection.dofDate, projection.horizon.dofP50Capped),
-      fadEstimate: projectionDateLabel(projection.fadDate, projection.horizon.fadP50Capped),
-      gcEstimate: projectionDateLabel(projection.gcDate, projection.horizon.gcP50Capped),
+      dofEstimate: projectionDateLabel(
+        projection.dofDate,
+        projection.horizon.dofP50Capped
+      ),
+      fadEstimate: projectionDateLabel(
+        projection.fadDate,
+        projection.horizon.fadP50Capped
+      ),
+      gcEstimate: projectionDateLabel(
+        projection.gcDate,
+        projection.horizon.gcP50Capped
+      ),
       savedAt: new Date().toISOString(),
       url: shareUrl,
     }),
-    [assumptionsSummary, category, categoryLabel, projection, shareUrl, targetDate]
+    [
+      assumptionsSummary,
+      category,
+      categoryLabel,
+      projection,
+      shareUrl,
+      targetDate,
+    ]
   );
 
   const addCurrent = () => {
-    const next = [currentItem, ...items.filter(item => !(item.category === category && item.targetDate === targetDate))].slice(0, 12);
+    const next = [
+      currentItem,
+      ...items.filter(
+        item => !(item.category === category && item.targetDate === targetDate)
+      ),
+    ].slice(0, 12);
     setItems(next);
     saveWatchlist(next);
   };
@@ -627,9 +791,103 @@ export function WatchlistPanel({
 
   const statusFor = (item: WatchItem) => {
     const cutoffs = currentCutoffs[item.category];
-    if (isOnOrPast(cutoffs.fad, item.targetDate)) return { label: 'Current', tone: 'emerald', detail: 'FAD has reached this priority date.' };
-    if (isOnOrPast(cutoffs.dof, item.targetDate)) return { label: 'Fileable', tone: 'blue', detail: 'DoF has reached this priority date.' };
-    return { label: 'Watching', tone: 'amber', detail: 'Not reached by the current bulletin yet.' };
+    if (isOnOrPast(cutoffs.fad, item.targetDate))
+      return {
+        label: "Current",
+        tone: "emerald",
+        detail: "FAD has reached this priority date.",
+      };
+    if (isOnOrPast(cutoffs.dof, item.targetDate))
+      return {
+        label: "Fileable",
+        tone: "blue",
+        detail: "DoF has reached this priority date.",
+      };
+    return {
+      label: "Watching",
+      tone: "amber",
+      detail: "Not reached by the current bulletin yet.",
+    };
+  };
+
+  useEffect(() => {
+    if (notificationPermission !== "granted") return;
+    const notified = new Set(
+      JSON.parse(window.localStorage.getItem(WATCHLIST_NOTIFIED_KEY) ?? "[]")
+    );
+    let changed = false;
+
+    items.forEach(item => {
+      const status = statusFor(item);
+      if (status.label === "Watching") return;
+      const key = `${item.id}:${status.label}`;
+      if (notified.has(key)) return;
+      new Notification(`${item.categoryLabel} India is ${status.label}`, {
+        body: `PD ${item.targetDateLabel}: ${status.detail}`,
+        tag: key,
+      });
+      notified.add(key);
+      changed = true;
+    });
+
+    if (changed) {
+      window.localStorage.setItem(
+        WATCHLIST_NOTIFIED_KEY,
+        JSON.stringify(Array.from(notified))
+      );
+    }
+  }, [items, notificationPermission, currentCutoffs]);
+
+  const requestNotifications = async () => {
+    if (!("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    const next = await Notification.requestPermission();
+    setNotificationPermission(next);
+  };
+
+  const exportWatchlist = () => {
+    const blob = new Blob([JSON.stringify({ items }, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `eb-tracker-watchlist-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importWatchlist = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const importedItems = Array.isArray(parsed) ? parsed : parsed.items;
+      if (!Array.isArray(importedItems) || !importedItems.every(isWatchItem)) {
+        throw new Error("Invalid watchlist file");
+      }
+      const merged = [...importedItems, ...items]
+        .filter(
+          (item, index, list) =>
+            list.findIndex(
+              candidate =>
+                candidate.category === item.category &&
+                candidate.targetDate === item.targetDate
+            ) === index
+        )
+        .slice(0, 12);
+      setItems(merged);
+      saveWatchlist(merged);
+      setImportMessage(
+        `Imported ${importedItems.length} watchlist item${importedItems.length === 1 ? "" : "s"}.`
+      );
+    } catch {
+      setImportMessage("Could not import that watchlist file.");
+    } finally {
+      event.target.value = "";
+    }
   };
 
   return (
@@ -638,45 +896,117 @@ export function WatchlistPanel({
         <div>
           <div className="flex items-center gap-2">
             <Bell className="h-4 w-4 text-amber-500" />
-            <h3 className="text-sm font-bold text-slate-900">Watchlist and Local Alerts</h3>
+            <h3 className="text-sm font-bold text-slate-900">
+              Watchlist and Local Alerts
+            </h3>
           </div>
-          <p className="mt-1 text-xs text-slate-500">Save priority dates in this browser. Alerts update when bulletin data changes.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Save priority dates in this browser. Alerts update when bulletin
+            data changes.
+          </p>
         </div>
-        <button onClick={addCurrent} className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">
-          <BookmarkPlus className="h-3.5 w-3.5" />
-          Save current profile
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={addCurrent}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          >
+            <BookmarkPlus className="h-3.5 w-3.5" />
+            Save current profile
+          </button>
+          <button
+            onClick={exportWatchlist}
+            disabled={items.length === 0}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-slate-400 disabled:opacity-40"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-slate-400"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Import
+          </button>
+          {notificationPermission !== "granted" && (
+            <button
+              onClick={requestNotifications}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+            >
+              <Bell className="h-3.5 w-3.5" />
+              Enable alerts
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={importWatchlist}
+          />
+        </div>
       </div>
+      {importMessage && (
+        <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          {importMessage}
+        </p>
+      )}
 
       {items.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-          No saved watchlist items yet. Save the current profile to monitor DoF and FAD crossing status after future monthly updates.
+          No saved watchlist items yet. Save the current profile to monitor DoF
+          and FAD crossing status after future monthly updates.
         </div>
       ) : (
         <div className="mt-4 grid gap-3">
           {items.map(item => {
             const status = statusFor(item);
             const toneClass =
-              status.tone === 'emerald'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : status.tone === 'blue'
-                  ? 'border-blue-200 bg-blue-50 text-blue-700'
-                  : 'border-amber-200 bg-amber-50 text-amber-700';
+              status.tone === "emerald"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : status.tone === "blue"
+                  ? "border-blue-200 bg-blue-50 text-blue-700"
+                  : "border-amber-200 bg-amber-50 text-amber-700";
             return (
-              <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div
+                key={item.id}
+                className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+              >
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-mono text-sm font-bold text-slate-900">{item.categoryLabel} India - PD {item.targetDateLabel}</p>
-                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${toneClass}`}>{status.label}</span>
+                      <p className="font-mono text-sm font-bold text-slate-900">
+                        {item.categoryLabel} India - PD {item.targetDateLabel}
+                      </p>
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${toneClass}`}
+                      >
+                        {status.label}
+                      </span>
                     </div>
-                    <p className="mt-1 text-xs text-slate-500">{status.detail}</p>
-                    <p className="mt-2 text-xs text-slate-500">Filing: {item.dofEstimate} · FAD: {item.fadEstimate} · GC: {item.gcEstimate}</p>
-                    <p className="mt-1 text-[11px] text-slate-400">{item.assumptions}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {status.detail}
+                    </p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      Filing: {item.dofEstimate} · FAD: {item.fadEstimate} · GC:{" "}
+                      {item.gcEstimate}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      {item.assumptions}
+                    </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <a href={item.url} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-slate-400">Open</a>
-                    <button onClick={() => removeItem(item.id)} aria-label="Remove watchlist item" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-red-600">
+                    <a
+                      href={item.url}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-slate-400"
+                    >
+                      Open
+                    </a>
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      aria-label="Remove watchlist item"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-red-600"
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -706,22 +1036,41 @@ export function PersonalTimeline({
   gcLagMonths: number;
 }) {
   const steps = [
-    { label: 'Priority date set', date: fmtDateStr(targetDate), done: true, detail: `${categoryLabel} India case anchor.` },
     {
-      label: 'DoF reaches your PD',
-      date: isOnOrPast(currentDof, targetDate) ? 'Already fileable' : projectionDateLabel(projection.dofDate, projection.horizon.dofP50Capped),
+      label: "Priority date set",
+      date: fmtDateStr(targetDate),
+      done: true,
+      detail: `${categoryLabel} India case anchor.`,
+    },
+    {
+      label: "DoF reaches your PD",
+      date: isOnOrPast(currentDof, targetDate)
+        ? "Already fileable"
+        : projectionDateLabel(
+            projection.dofDate,
+            projection.horizon.dofP50Capped
+          ),
       done: isOnOrPast(currentDof, targetDate),
-      detail: 'Earliest filing chart milestone, subject to USCIS chart selection.',
+      detail:
+        "Earliest filing chart milestone, subject to USCIS chart selection.",
     },
     {
-      label: 'FAD reaches your PD',
-      date: isOnOrPast(currentFad, targetDate) ? 'Already current' : projectionDateLabel(projection.fadDate, projection.horizon.fadP50Capped),
+      label: "FAD reaches your PD",
+      date: isOnOrPast(currentFad, targetDate)
+        ? "Already current"
+        : projectionDateLabel(
+            projection.fadDate,
+            projection.horizon.fadP50Capped
+          ),
       done: isOnOrPast(currentFad, targetDate),
-      detail: 'Visa availability milestone used by the estimate.',
+      detail: "Visa availability milestone used by the estimate.",
     },
     {
-      label: 'Green card receipt estimate',
-      date: projectionDateLabel(projection.gcDate, projection.horizon.gcP50Capped),
+      label: "Green card receipt estimate",
+      date: projectionDateLabel(
+        projection.gcDate,
+        projection.horizon.gcP50Capped
+      ),
       done: false,
       detail: `Modeled as roughly ${fmtDuration(gcLagMonths)} after FAD.`,
     },
@@ -735,14 +1084,33 @@ export function PersonalTimeline({
       </div>
       <div className="grid gap-3 md:grid-cols-4">
         {steps.map((step, index) => (
-          <div key={step.label} className="relative rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div
+            key={step.label}
+            className="relative rounded-xl border border-slate-200 bg-slate-50 p-4"
+          >
             <div className="flex items-center justify-between">
-              <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${step.done ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}>{step.done ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Step {index + 1}</span>
+              <span
+                className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${step.done ? "bg-emerald-600 text-white" : "bg-white text-slate-500 ring-1 ring-slate-200"}`}
+              >
+                {step.done ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                ) : (
+                  index + 1
+                )}
+              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Step {index + 1}
+              </span>
             </div>
-            <p className="mt-3 text-sm font-bold text-slate-900">{step.label}</p>
-            <p className="mt-1 font-mono text-xs font-semibold text-slate-700">{step.date}</p>
-            <p className="mt-2 text-xs leading-relaxed text-slate-500">{step.detail}</p>
+            <p className="mt-3 text-sm font-bold text-slate-900">
+              {step.label}
+            </p>
+            <p className="mt-1 font-mono text-xs font-semibold text-slate-700">
+              {step.date}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-slate-500">
+              {step.detail}
+            </p>
           </div>
         ))}
       </div>
@@ -761,13 +1129,17 @@ export function CategoryComparison({
   currentBulletinLabel: string;
   targetDateLabel: string;
 }) {
-  const prevBulletinLabel = rows[0]?.prevBulletinLabel ?? 'prior bulletin';
+  const prevBulletinLabel = rows[0]?.prevBulletinLabel ?? "prior bulletin";
 
   function MoveBadge({ move }: { move: MovementInfo }) {
-    if (move.type === 'stable') {
-      return <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">─ No change</span>;
+    if (move.type === "stable") {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+          ─ No change
+        </span>
+      );
     }
-    if (move.type === 'retrogression') {
+    if (move.type === "retrogression") {
       return (
         <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
           ▼ {move.label}
@@ -785,9 +1157,12 @@ export function CategoryComparison({
     <div>
       <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">EB Category Snapshot</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+            EB Category Snapshot
+          </p>
           <p className="text-[11px] text-slate-400 mt-0.5">
-            {currentBulletinLabel} cutoffs · movement vs {prevBulletinLabel} · base-case FAD for PD {targetDateLabel}
+            {currentBulletinLabel} cutoffs · movement vs {prevBulletinLabel} ·
+            base-case FAD for PD {targetDateLabel}
           </p>
         </div>
       </div>
@@ -797,53 +1172,98 @@ export function CategoryComparison({
             key={row.category}
             onClick={() => onSelectCategory(row.category)}
             aria-pressed={row.isSelected}
-            aria-label={`${row.label} India snapshot. Current FAD ${row.currentFadLabel}, current DoF ${row.currentDofLabel}, base-case FAD estimate ${row.fadEstLabel}. ${row.isSelected ? 'Selected category.' : 'Select this category.'}`}
+            aria-label={`${row.label} India snapshot. Current FAD ${row.currentFadLabel}, current DoF ${row.currentDofLabel}, base-case FAD estimate ${row.fadEstLabel}. ${row.isSelected ? "Selected category." : "Select this category."}`}
             className={`text-left rounded-xl border p-4 transition-all hover:shadow-md ${
               row.isSelected
-                ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
-                : 'border-slate-200 bg-white hover:border-slate-400'
+                ? "border-slate-800 bg-slate-900 text-white shadow-sm"
+                : "border-slate-200 bg-white hover:border-slate-400"
             }`}
           >
             {/* Category name */}
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className={`text-sm font-bold ${row.isSelected ? 'text-white' : 'text-slate-900'}`}>{row.label} India</p>
-                <p className={`text-[11px] ${row.isSelected ? 'text-slate-300' : 'text-slate-400'}`}>{row.name}</p>
+                <p
+                  className={`text-sm font-bold ${row.isSelected ? "text-white" : "text-slate-900"}`}
+                >
+                  {row.label} India
+                </p>
+                <p
+                  className={`text-[11px] ${row.isSelected ? "text-slate-300" : "text-slate-400"}`}
+                >
+                  {row.name}
+                </p>
               </div>
               {row.isSelected && (
-                <span className="rounded-full bg-white/15 border border-white/25 px-2 py-0.5 text-[10px] font-semibold text-white">Selected</span>
+                <span className="rounded-full bg-white/15 border border-white/25 px-2 py-0.5 text-[10px] font-semibold text-white">
+                  Selected
+                </span>
               )}
             </div>
 
             {/* FAD row */}
-            <div className={`rounded-lg p-3 mb-2 ${row.isSelected ? 'bg-white/10' : 'bg-slate-50'}`}>
+            <div
+              className={`rounded-lg p-3 mb-2 ${row.isSelected ? "bg-white/10" : "bg-slate-50"}`}
+            >
               <div className="flex items-center justify-between gap-2">
-                <p className={`text-[10px] font-semibold uppercase tracking-wide ${row.isSelected ? 'text-slate-300' : 'text-slate-500'}`}>Final Action Date</p>
+                <p
+                  className={`text-[10px] font-semibold uppercase tracking-wide ${row.isSelected ? "text-slate-300" : "text-slate-500"}`}
+                >
+                  Final Action Date
+                </p>
                 <MoveBadge move={row.fadMove} />
               </div>
-              <p className={`mt-1 font-mono text-base font-bold ${row.isSelected ? 'text-white' : 'text-slate-900'}`}>{row.currentFadLabel}</p>
+              <p
+                className={`mt-1 font-mono text-base font-bold ${row.isSelected ? "text-white" : "text-slate-900"}`}
+              >
+                {row.currentFadLabel}
+              </p>
             </div>
 
             {/* DoF row */}
-            <div className={`rounded-lg p-3 mb-3 ${row.isSelected ? 'bg-white/10' : 'bg-slate-50'}`}>
+            <div
+              className={`rounded-lg p-3 mb-3 ${row.isSelected ? "bg-white/10" : "bg-slate-50"}`}
+            >
               <div className="flex items-center justify-between gap-2">
-                <p className={`text-[10px] font-semibold uppercase tracking-wide ${row.isSelected ? 'text-slate-300' : 'text-slate-500'}`}>Dates for Filing</p>
+                <p
+                  className={`text-[10px] font-semibold uppercase tracking-wide ${row.isSelected ? "text-slate-300" : "text-slate-500"}`}
+                >
+                  Dates for Filing
+                </p>
                 <MoveBadge move={row.dofMove} />
               </div>
-              <p className={`mt-1 font-mono text-sm font-semibold ${row.isSelected ? 'text-slate-100' : 'text-slate-700'}`}>{row.currentDofLabel}</p>
+              <p
+                className={`mt-1 font-mono text-sm font-semibold ${row.isSelected ? "text-slate-100" : "text-slate-700"}`}
+              >
+                {row.currentDofLabel}
+              </p>
             </div>
 
             {/* Gap + estimate footer */}
-            <div className={`flex items-center justify-between text-[11px] pt-2 border-t ${
-              row.isSelected ? 'border-white/15 text-slate-300' : 'border-slate-100 text-slate-500'
-            }`}>
-              <span>Gap to your PD: <span className="font-semibold">{row.gapLabel}</span></span>
-              <span title="Base-case FAD estimate for your priority date">Est. FAD: <span className="font-semibold font-mono">{row.fadEstLabel}</span></span>
+            <div
+              className={`flex items-center justify-between text-[11px] pt-2 border-t ${
+                row.isSelected
+                  ? "border-white/15 text-slate-300"
+                  : "border-slate-100 text-slate-500"
+              }`}
+            >
+              <span>
+                Gap to your PD:{" "}
+                <span className="font-semibold">{row.gapLabel}</span>
+              </span>
+              <span title="Base-case FAD estimate for your priority date">
+                Est. FAD:{" "}
+                <span className="font-semibold font-mono">
+                  {row.fadEstLabel}
+                </span>
+              </span>
             </div>
 
             {/* Prev bulletin label */}
-            <p className={`text-[10px] mt-1.5 ${row.isSelected ? 'text-slate-400' : 'text-slate-400'}`}>
-              Movement shown vs. {row.prevBulletinLabel} bulletin. Click to switch active category.
+            <p
+              className={`text-[10px] mt-1.5 ${row.isSelected ? "text-slate-400" : "text-slate-400"}`}
+            >
+              Movement shown vs. {row.prevBulletinLabel} bulletin. Click to
+              switch active category.
             </p>
           </button>
         ))}
@@ -852,7 +1272,11 @@ export function CategoryComparison({
   );
 }
 
-export function TrustAndLimitationsPanel({ sourceLinks }: { sourceLinks: SourceLink[] }) {
+export function TrustAndLimitationsPanel({
+  sourceLinks,
+}: {
+  sourceLinks: SourceLink[];
+}) {
   return (
     <Card className="border-slate-200 bg-white p-5 shadow-sm">
       <div className="grid gap-4 md:grid-cols-3">
@@ -861,37 +1285,56 @@ export function TrustAndLimitationsPanel({ sourceLinks }: { sourceLinks: SourceL
             <ShieldCheck className="h-4 w-4 text-emerald-600" />
             <p className="text-sm font-bold text-slate-900">What it does</p>
           </div>
-          <p className="mt-2 text-xs leading-relaxed text-slate-600">Calculates category-specific forecast ranges from current bulletin data, historical movement, demand density, and selected assumptions.</p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-600">
+            Calculates category-specific forecast ranges from current bulletin
+            data, historical movement, demand density, and selected assumptions.
+          </p>
         </div>
         <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <p className="text-sm font-bold text-slate-900">What can change</p>
           </div>
-          <p className="mt-2 text-xs leading-relaxed text-slate-600">Retrogression, USCIS chart selection, visa number use, policy changes, and processing capacity can shift results quickly.</p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-600">
+            Retrogression, USCIS chart selection, visa number use, policy
+            changes, and processing capacity can shift results quickly.
+          </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex items-center gap-2">
             <Info className="h-4 w-4 text-slate-600" />
             <p className="text-sm font-bold text-slate-900">What it is not</p>
           </div>
-          <p className="mt-2 text-xs leading-relaxed text-slate-600">It is not legal advice, a USCIS filing determination, or a guarantee that a future bulletin will follow the modeled path.</p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-600">
+            It is not legal advice, a USCIS filing determination, or a guarantee
+            that a future bulletin will follow the modeled path.
+          </p>
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {[
-          { label: 'EB-1 India guide', to: '/eb-1-india' },
-          { label: 'EB-2 India guide', to: '/eb-2-india' },
-          { label: 'EB-3 India guide', to: '/eb-3-india' },
-          { label: 'Methodology', to: '/methodology' },
-          { label: 'Bulletin history', to: '/visa-bulletin-history' },
+          { label: "EB-1 India guide", to: "/eb-1-india" },
+          { label: "EB-2 India guide", to: "/eb-2-india" },
+          { label: "EB-3 India guide", to: "/eb-3-india" },
+          { label: "Methodology", to: "/methodology" },
+          { label: "Bulletin history", to: "/visa-bulletin-history" },
         ].map(link => (
-          <Link key={link.to} href={link.to} className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-900">
+          <Link
+            key={link.to}
+            href={link.to}
+            className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-900"
+          >
             {link.label}
           </Link>
         ))}
         {sourceLinks.map(source => (
-          <a key={source.href} href={source.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-900">
+          <a
+            key={source.href}
+            href={source.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-900"
+          >
             {source.label}
             <ExternalLink className="h-3 w-3" />
           </a>

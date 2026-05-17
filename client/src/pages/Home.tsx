@@ -42,9 +42,20 @@
  *   - Cato Institute immigration policy analysis
  */
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+  useTransition,
+} from "react";
 
 import { Card } from "@/components/ui/card";
+import {
+  BulletinTable,
+  TrackerPaceSummary,
+} from "@/components/BulletinTrackerTables";
 import {
   LineChart,
   Line,
@@ -71,6 +82,8 @@ import {
   ChevronDown,
   ChevronUp,
   Share2,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { toast } from "sonner";
 import PriorityDatePicker from "@/components/PriorityDatePicker";
@@ -88,6 +101,7 @@ import {
 } from "@/components/TrackerEnhancements";
 
 import { useIsMobile } from "@/hooks/useMobile";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   BULLETIN_TRACKER_HISTORY,
   CURRENT_BULLETIN,
@@ -110,8 +124,8 @@ import {
   type ForecastPolicy,
   type ForecastProjection,
 } from "@/lib/forecast";
+import { exportTrackerPdf } from "@/lib/pdfExport";
 import {
-  areConsecutiveBulletinMonths,
   MONTH_LABELS,
   fmtBulletinMonthLabel,
   fmtCompactMonthYear,
@@ -423,6 +437,8 @@ type BulletinDofKey = "eb1_dof" | "eb2_dof" | "eb3_dof";
 
 export default function Home() {
   const isMobile = useIsMobile();
+  const { theme, toggleTheme } = useTheme();
+  const [isForecastPending, startForecastTransition] = useTransition();
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedCategory, setSelectedCategory] =
     useState<TrackerCategoryKey>("EB2"); // default to EB-2
@@ -490,7 +506,7 @@ export default function Home() {
 
   const handleDateChange = useCallback(
     (val: string) => {
-      setTargetDate(val);
+      startForecastTransition(() => setTargetDate(val));
       if (val !== lastToastDate && val) {
         const d = parseDateStr(val);
         toast.success(`Projections updated for ${fmtDate(d)}`, {
@@ -504,6 +520,25 @@ export default function Home() {
       }
     },
     [lastToastDate]
+  );
+
+  const updateSelectedCategory = useCallback((category: TrackerCategoryKey) => {
+    startForecastTransition(() => setSelectedCategory(category));
+  }, []);
+  const updateSpilloverLevel = useCallback(
+    (value: "low" | "moderate" | "high") => {
+      startForecastTransition(() => setSpilloverLevel(value));
+    },
+    []
+  );
+  const updateBanContinues = useCallback((value: "2027" | "2028" | "2029") => {
+    startForecastTransition(() => setBanContinues(value));
+  }, []);
+  const updateWastageLevel = useCallback(
+    (value: "low" | "moderate" | "high") => {
+      startForecastTransition(() => setWastageLevel(value));
+    },
+    []
   );
 
   // Compute adjusted rates based on simulator settings
@@ -1237,290 +1272,17 @@ export default function Home() {
   }, [generateShareUrl, overviewProjection, cat.label, targetDate, isMobile]);
 
   const generateExport = async () => {
-    const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
+    await exportTrackerPdf({
+      category: cat,
+      targetDate,
+      gapMonths,
+      overviewProjection,
+      projections,
+      spilloverLevel,
+      banContinues,
+      wastageLevel,
+      siteUrl: window.location.origin,
     });
-    const pageW = doc.internal.pageSize.getWidth();
-    const margin = 18;
-    const contentW = pageW - margin * 2;
-    let y = 0;
-
-    // ── Helper: add new page if needed ──
-    const checkPage = (needed = 12) => {
-      if (y + needed > 272) {
-        doc.addPage();
-        y = 20;
-      }
-    };
-
-    // ── Header band ──
-    doc.setFillColor(15, 23, 42); // slate-900
-    doc.rect(0, 0, pageW, 32, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.setTextColor(255, 255, 255);
-    doc.text("EB Priority Date Tracker", margin, 13);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(148, 163, 184); // slate-400
-    doc.text("India · EB-1, EB-2, EB-3 · Personalized Estimate", margin, 20);
-    doc.text(`Generated: ${fmtDate(new Date())}`, margin, 26);
-    // Site link in header
-    const siteUrl = window.location.origin;
-    doc.setTextColor(99, 179, 237);
-    doc.textWithLink(siteUrl, pageW - margin - doc.getTextWidth(siteUrl), 26, {
-      url: siteUrl,
-    });
-    y = 42;
-
-    // ── Section: Your Priority Date ──
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(100, 116, 139); // slate-500
-    doc.text("YOUR PRIORITY DATE", margin, y);
-    y += 5;
-    doc.setFillColor(248, 250, 252); // slate-50
-    doc.roundedRect(margin, y, contentW, 22, 2, 2, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.setTextColor(15, 23, 42);
-    doc.text(fmtDateStr(targetDate), margin + 6, y + 9);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Category: ${cat.label} — ${cat.name}`, margin + 6, y + 16);
-    // Current FAD / Gap / DoF stats
-    const statX = margin + contentW * 0.45;
-    const statCols = [
-      { label: "CURRENT FAD", val: fmtDateStr(cat.currentFAD) },
-      { label: "GAP", val: fmtDuration(gapMonths) },
-      { label: "CURRENT DOF", val: fmtDateStr(cat.currentDoF) },
-    ];
-    statCols.forEach((st, i) => {
-      const sx = statX + i * ((contentW * 0.55) / 3);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(100, 116, 139);
-      doc.text(st.label, sx, y + 7);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text(st.val, sx, y + 14);
-    });
-    y += 30;
-
-    // ── Section: Best Case Projection ──
-    checkPage(38);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(100, 116, 139);
-    doc.text("BEST CASE PROJECTION", margin, y);
-    y += 4;
-    doc.setFillColor(15, 23, 42);
-    doc.roundedRect(margin, y, contentW, 28, 2, 2, "F");
-    const bp = overviewProjection;
-    const bpCols = [
-      {
-        label: "FILING DATE (DOF)",
-        val: bp.isAlreadyCurrent ? "Current" : fmtDate(bp.dofDate),
-        sub: "Can file I-485",
-      },
-      {
-        label: "FINAL ACTION DATE",
-        val: bp.isAlreadyCurrent ? "Current" : fmtDate(bp.fadDate),
-        sub: "Visa becomes available",
-      },
-      {
-        label: "GC RECEIPT EST.",
-        val: bp.isAlreadyCurrent ? "Current" : fmtDate(bp.gcDate),
-        sub: `~${fmtDuration(cat.gcLagMonths)} after FAD`,
-      },
-      {
-        label: "TIME TO FAD",
-        val: fmtDuration(bp.monthsFromToday),
-        sub: "Best case estimate",
-      },
-    ];
-    bpCols.forEach((col, i) => {
-      const cx = margin + 6 + i * (contentW / 4);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.setTextColor(148, 163, 184);
-      doc.text(col.label, cx, y + 8);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(255, 255, 255);
-      doc.text(col.val, cx, y + 16);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(148, 163, 184);
-      doc.text(col.sub, cx, y + 22);
-    });
-    y += 36;
-
-    // ── Section: Assumption Settings ──
-    checkPage(28);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(100, 116, 139);
-    doc.text("ASSUMPTION SETTINGS", margin, y);
-    y += 4;
-    doc.setFillColor(241, 245, 249); // slate-100
-    doc.roundedRect(margin, y, contentW, 16, 2, 2, "F");
-    const assumptions = [
-      {
-        label: "Spillover",
-        val: spilloverLevel.charAt(0).toUpperCase() + spilloverLevel.slice(1),
-      },
-      { label: "Ban Duration", val: `Through ${banContinues}` },
-      {
-        label: "Wastage",
-        val: wastageLevel.charAt(0).toUpperCase() + wastageLevel.slice(1),
-      },
-    ];
-    assumptions.forEach((a, i) => {
-      const ax = margin + 6 + i * (contentW / 3);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(100, 116, 139);
-      doc.text(a.label.toUpperCase(), ax, y + 6);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text(a.val, ax, y + 13);
-    });
-    y += 24;
-
-    // ── Section: All Scenarios ──
-    checkPage(12);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(100, 116, 139);
-    doc.text("SCENARIO RANGE — ALL OUTCOMES", margin, y);
-    y += 5;
-
-    // Table header
-    const cols = [
-      "Scenario",
-      "Probability",
-      "DoF Estimate",
-      "FAD Estimate",
-      "GC Receipt",
-      "Time to FAD",
-    ];
-    const colW = [32, 22, 32, 32, 32, 24];
-    let cx2 = margin;
-    doc.setFillColor(30, 41, 59); // slate-800
-    doc.rect(margin, y, contentW, 7, "F");
-    cols.forEach((c, i) => {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.setTextColor(255, 255, 255);
-      doc.text(c, cx2 + 2, y + 4.8);
-      cx2 += colW[i];
-    });
-    y += 7;
-
-    // Table rows
-    const scenarioColors: Record<string, [number, number, number]> = {
-      optimistic: [16, 185, 129],
-      base: [59, 130, 246],
-      conservative: [245, 158, 11],
-      pessimistic: [239, 68, 68],
-    };
-    Object.entries(SCENARIOS).forEach(([key, s], rowIdx) => {
-      checkPage(9);
-      const p = projections[key];
-      const rowBg: [number, number, number] =
-        rowIdx % 2 === 0 ? [248, 250, 252] : [255, 255, 255];
-      doc.setFillColor(...rowBg);
-      doc.rect(margin, y, contentW, 8, "F");
-      // Color accent bar
-      const [r, g, b] = scenarioColors[key] ?? [100, 116, 139];
-      doc.setFillColor(r, g, b);
-      doc.rect(margin, y, 2.5, 8, "F");
-      const rowData = [
-        s.label,
-        s.probability,
-        p.isAlreadyCurrent ? "Current" : fmtDate(p.dofDate),
-        p.isAlreadyCurrent ? "Current" : fmtDate(p.fadDate),
-        p.isAlreadyCurrent ? "Current" : fmtDate(p.gcDate),
-        p.isAlreadyCurrent ? "0" : fmtDuration(p.monthsFromToday),
-      ];
-      let rx = margin + 3.5;
-      rowData.forEach((cell, i) => {
-        doc.setFont("helvetica", i === 0 ? "bold" : "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(15, 23, 42);
-        doc.text(cell, rx, y + 5.2);
-        rx += colW[i];
-      });
-      y += 8;
-    });
-    y += 8;
-
-    // ── Section: Methodology ──
-    checkPage(30);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(100, 116, 139);
-    doc.text("METHODOLOGY", margin, y);
-    y += 5;
-    const methodLines = [
-      "Uses a probabilistic month-by-month simulator for both FAD and DoF, rather than a single gap divided by one static rate.",
-      "Each simulated bulletin month samples historical seasonality and volatility, then adjusts movement for demand density using USCIS I-485 inventory with scaled I-140 fallback data.",
-      "Scenario assumptions still control the base FAD rate through spillover, ban duration, and wastage multipliers.",
-      "Displayed dates are medians (P50) with an 80% interval, and the backtest badge reports 6-month FAD forecast MAE and interval hit rate.",
-    ];
-    methodLines.forEach(line => {
-      checkPage(6);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.setTextColor(71, 85, 105);
-      const wrapped = doc.splitTextToSize(line, contentW);
-      doc.text(wrapped, margin, y);
-      y += wrapped.length * 4.5;
-    });
-    y += 6;
-
-    // ── Disclaimer ──
-    checkPage(16);
-    doc.setFillColor(254, 243, 199); // amber-100
-    doc.roundedRect(margin, y, contentW, 14, 2, 2, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(146, 64, 14); // amber-800
-    doc.text("DISCLAIMER", margin + 4, y + 5);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(120, 53, 15);
-    const disclaimer =
-      "Estimates are based on historical trends and current policy. Actual timelines may vary significantly. This is not legal advice — consult a licensed immigration attorney for guidance specific to your situation.";
-    const dLines = doc.splitTextToSize(disclaimer, contentW - 8);
-    doc.text(dLines, margin + 4, y + 10);
-    y += 20;
-
-    // ── Footer ──
-    const totalPages =
-      (
-        doc.internal as { getNumberOfPages?: () => number }
-      ).getNumberOfPages?.() ?? 1;
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(148, 163, 184);
-      doc.text(`Page ${i} of ${totalPages}`, pageW - margin, 290, {
-        align: "right",
-      });
-      doc.setTextColor(99, 179, 237);
-      doc.textWithLink(siteUrl, margin, 290, { url: siteUrl });
-    }
-
-    doc.save(`EB-Estimate-${fmtDateStr(targetDate).replace(/[, ]/g, "")}.pdf`);
     toast.success("PDF exported!", { duration: 2000 });
   };
 
@@ -1557,6 +1319,19 @@ export default function Home() {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
+                {toggleTheme && (
+                  <button
+                    onClick={toggleTheme}
+                    aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition-all"
+                  >
+                    {theme === "dark" ? (
+                      <Sun className="h-4 w-4" />
+                    ) : (
+                      <Moon className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={handleShare}
                   aria-label="Share estimate"
@@ -1584,7 +1359,7 @@ export default function Home() {
                 ).map(c => (
                   <button
                     key={c}
-                    onClick={() => setSelectedCategory(c)}
+                    onClick={() => updateSelectedCategory(c)}
                     aria-pressed={selectedCategory === c}
                     className={`rounded-lg px-2 py-2.5 text-sm font-semibold transition-all ${
                       selectedCategory === c
@@ -1637,7 +1412,7 @@ export default function Home() {
               ).map(c => (
                 <button
                   key={c}
-                  onClick={() => setSelectedCategory(c)}
+                  onClick={() => updateSelectedCategory(c)}
                   aria-pressed={selectedCategory === c}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-all whitespace-nowrap ${selectedCategory === c ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200"}`}
                 >
@@ -1673,6 +1448,19 @@ export default function Home() {
             </nav>
             {/* Utilities */}
             <div className="flex items-center gap-2 pl-2 shrink-0">
+              {toggleTheme && (
+                <button
+                  onClick={toggleTheme}
+                  aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-all hover:bg-slate-200 hover:text-slate-900"
+                >
+                  {theme === "dark" ? (
+                    <Sun className="h-3.5 w-3.5" />
+                  ) : (
+                    <Moon className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
               <button
                 onClick={handleShare}
                 aria-label="Share estimate"
@@ -1757,6 +1545,12 @@ export default function Home() {
             </div>
           </div>
         </div>
+        {isForecastPending && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-xs font-semibold text-blue-700">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+            Updating forecast projections
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════════════
             OVERVIEW TAB
@@ -1961,7 +1755,7 @@ export default function Home() {
               rows={categoryComparisonRows}
               currentBulletinLabel={CURRENT_BULLETIN.month}
               targetDateLabel={fmtDateStr(targetDate)}
-              onSelectCategory={cat => setSelectedCategory(cat)}
+              onSelectCategory={updateSelectedCategory}
             />
 
             {/* Watchlist — save and track estimates */}
@@ -2692,7 +2486,7 @@ export default function Home() {
                         return (
                           <button
                             key={o.val}
-                            onClick={() => setSpilloverLevel(o.val)}
+                            onClick={() => updateSpilloverLevel(o.val)}
                             className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${selected ? "border-slate-800 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"}`}
                           >
                             <div className="font-semibold">{o.label}</div>
@@ -2756,7 +2550,7 @@ export default function Home() {
                         return (
                           <button
                             key={o.val}
-                            onClick={() => setBanContinues(o.val)}
+                            onClick={() => updateBanContinues(o.val)}
                             className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${selected ? "border-slate-800 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"}`}
                           >
                             <div className="font-semibold">{o.label}</div>
@@ -2820,7 +2614,7 @@ export default function Home() {
                         return (
                           <button
                             key={o.val}
-                            onClick={() => setWastageLevel(o.val)}
+                            onClick={() => updateWastageLevel(o.val)}
                             className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${selected ? "border-slate-800 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"}`}
                           >
                             <div className="font-semibold">{o.label}</div>
@@ -3197,652 +2991,39 @@ export default function Home() {
               sourceLinks={trackerSourceLinks}
             />
 
-            {/* ── Tracker header: legend + pace stats ── */}
-            {(() => {
-              const fadKey =
-                selectedCategory === "EB1"
-                  ? "eb1_fad"
-                  : selectedCategory === "EB3"
-                    ? "eb3_fad"
-                    : "eb2_fad";
-              const dofKey =
-                selectedCategory === "EB1"
-                  ? "eb1_dof"
-                  : selectedCategory === "EB3"
-                    ? "eb3_dof"
-                    : "eb2_dof";
-              // Compute deltas for up to 12 consecutive pairs
-              const fadDeltas: number[] = [];
-              const dofDeltas: number[] = [];
-              for (
-                let i = 0;
-                i < Math.min(12, HISTORICAL_BULLETINS.length - 1);
-                i++
-              ) {
-                const curr = HISTORICAL_BULLETINS[i];
-                const prev = HISTORICAL_BULLETINS[i + 1];
-                fadDeltas.push(
-                  Math.round(
-                    (parseDateStr(
-                      curr[fadKey as keyof typeof curr] as string
-                    ).getTime() -
-                      parseDateStr(
-                        prev[fadKey as keyof typeof prev] as string
-                      ).getTime()) /
-                      86400000
-                  )
-                );
-                dofDeltas.push(
-                  Math.round(
-                    (parseDateStr(
-                      curr[dofKey as keyof typeof curr] as string
-                    ).getTime() -
-                      parseDateStr(
-                        prev[dofKey as keyof typeof prev] as string
-                      ).getTime()) /
-                      86400000
-                  )
-                );
+            <TrackerPaceSummary
+              category={selectedCategory}
+              categoryLabel={cat.label}
+              rows={HISTORICAL_BULLETINS}
+            />
+
+            <BulletinTable
+              kind="fad"
+              category={selectedCategory}
+              categoryLabel={cat.label}
+              targetDate={targetDate}
+              rows={BULLETIN_TRACKER_HISTORY}
+              expandedFYs={expandedFadFYs}
+              onToggleFY={toggleFadFY}
+              onExpandFY={fy =>
+                setExpandedFadFYs(prev => new Set(prev).add(fy))
               }
-              const avg = (arr: number[], n: number) =>
-                arr.length >= n
-                  ? Math.round(arr.slice(0, n).reduce((a, b) => a + b, 0) / n)
-                  : null;
-              const fad6 = avg(fadDeltas, 6);
-              const fad12 = avg(fadDeltas, 12);
-              const dof6 = avg(dofDeltas, 6);
-              const dof12 = avg(dofDeltas, 12);
-              const paceColor = (v: number) =>
-                v > 10
-                  ? "text-emerald-600"
-                  : v < -10
-                    ? "text-red-600"
-                    : "text-amber-600";
-              const paceLabel = (v: number) =>
-                v > 0 ? `+${v}d/mo` : `${v}d/mo`;
-              const PaceTile = ({
-                label,
-                v6,
-                v12,
-              }: {
-                label: string;
-                v6: number | null;
-                v12: number | null;
-              }) => (
-                <div className="flex min-w-0 flex-col rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5">
-                  <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide whitespace-nowrap">
-                    {label}
-                  </p>
-                  {v6 !== null && (
-                    <p
-                      className={`mt-0.5 text-base font-bold font-mono ${paceColor(v6)}`}
-                    >
-                      6mo: {paceLabel(v6)}
-                      {v12 !== null && (
-                        <span
-                          className={`ml-2 text-sm font-normal ${paceColor(v12)}`}
-                        >
-                          · 12mo: {paceLabel(v12)}
-                        </span>
-                      )}
-                    </p>
-                  )}
-                  <p className="text-xs text-slate-400">{cat.label} avg</p>
-                </div>
-              );
-              return (
-                <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="min-w-0 flex-1 text-sm text-slate-600">
-                    Historical visa bulletins for India. Δ columns show
-                    month-over-month movement.
-                    <span className="text-emerald-600 font-semibold">
-                      {" "}
-                      Green = advancement
-                    </span>
-                    ,
-                    <span className="text-red-600 font-semibold">
-                      {" "}
-                      Red = retrogression
-                    </span>
-                    .
-                    <span className="block text-xs text-slate-500 mt-1">
-                      Tracker tables now run continuously from Oct 2019 through
-                      the latest bulletin, including archived FY2020-FY2022
-                      rows. Forecasts, charts, and backtests remain calibrated
-                      on the contiguous Oct 2022–June 2026 series.
-                    </span>
-                  </div>
-                  <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:min-w-[320px]">
-                    <PaceTile label="FAD Pace" v6={fad6} v12={fad12} />
-                    <PaceTile label="DoF Pace" v6={dof6} v12={dof12} />
-                  </div>
-                </div>
-              );
-            })()}
+              starRowRef={fadStarRowRef}
+            />
 
-            {/* Final Action Dates Table */}
-            {(() => {
-              // Determine which column index pair belongs to the selected category
-              // Columns: Month(0), EB-1(1), Δ(2), EB-2(3), Δ(4), EB-3(5), Δ(6)
-              const selFadKey =
-                selectedCategory === "EB1"
-                  ? "eb1_fad"
-                  : selectedCategory === "EB3"
-                    ? "eb3_fad"
-                    : "eb2_fad";
-              const selDofKey =
-                selectedCategory === "EB1"
-                  ? "eb1_dof"
-                  : selectedCategory === "EB3"
-                    ? "eb3_dof"
-                    : "eb2_dof";
-              const selColIdx =
-                selectedCategory === "EB1"
-                  ? 0
-                  : selectedCategory === "EB3"
-                    ? 2
-                    : 1; // 0=EB1,1=EB2,2=EB3
-              const targetParsed = parseDateStr(targetDate);
-              const trackerHistory = BULLETIN_TRACKER_HISTORY;
-
-              // Find the first row where the selected FAD >= user's priority date (first month it became current)
-              let firstCurrentIdx: number | null = null;
-              for (let i = trackerHistory.length - 1; i >= 0; i--) {
-                const fadVal = trackerHistory[i][
-                  selFadKey as keyof (typeof trackerHistory)[number]
-                ] as string;
-                if (parseDateStr(fadVal) >= targetParsed) {
-                  firstCurrentIdx = i;
-                  break;
-                }
+            <BulletinTable
+              kind="dof"
+              category={selectedCategory}
+              categoryLabel={cat.label}
+              targetDate={targetDate}
+              rows={BULLETIN_TRACKER_HISTORY}
+              expandedFYs={expandedDofFYs}
+              onToggleFY={toggleDofFY}
+              onExpandFY={fy =>
+                setExpandedDofFYs(prev => new Set(prev).add(fy))
               }
-
-              const hdrCellCls = (colIdx: number) =>
-                colIdx === selColIdx
-                  ? "px-4 py-3 text-left font-bold bg-slate-600 text-white"
-                  : "px-4 py-3 text-left font-semibold text-slate-300";
-              const hdrDeltaCls = (colIdx: number) =>
-                colIdx === selColIdx
-                  ? "px-4 py-3 text-center font-bold bg-slate-600 text-white"
-                  : "px-4 py-3 text-center font-semibold text-slate-300";
-
-              // Group bulletins by fiscal year
-              const fyOf = (m: string) => {
-                const parts = m.split(" ");
-                const yr = parseInt(parts[parts.length - 1]);
-                const mo = parts[0];
-                const isOctNovDec = ["Oct", "Nov", "Dec"].includes(mo);
-                return `FY${isOctNovDec ? yr + 1 : yr}`;
-              };
-              const fyGroups: { fy: string; indices: number[] }[] = [];
-              trackerHistory.forEach((b, idx) => {
-                const fy = fyOf(b.month);
-                const g = fyGroups.find(x => x.fy === fy);
-                if (g) g.indices.push(idx);
-                else fyGroups.push({ fy, indices: [idx] });
-              });
-
-              return (
-                <div>
-                  <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                    <h3 className="text-sm font-semibold text-slate-800">
-                      Final Action Dates (FAD)
-                    </h3>
-                    <div className="flex items-center gap-3">
-                      {firstCurrentIdx !== null && (
-                        <button
-                          onClick={() => {
-                            const fy = fyOf(
-                              trackerHistory[firstCurrentIdx!].month
-                            );
-                            setExpandedFadFYs(prev => {
-                              const n = new Set(prev);
-                              n.add(fy);
-                              return n;
-                            });
-                            setTimeout(
-                              () =>
-                                fadStarRowRef.current?.scrollIntoView({
-                                  behavior: "smooth",
-                                  block: "center",
-                                }),
-                              100
-                            );
-                          }}
-                          className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1 hover:bg-amber-100 transition-colors font-semibold"
-                        >
-                          <span>★</span> Jump to your row
-                        </button>
-                      )}
-                      <span className="text-xs text-slate-500">
-                        Highlighted:{" "}
-                        <span className="font-semibold text-slate-700">
-                          {cat.label}
-                        </span>
-                        {firstCurrentIdx !== null && (
-                          <span className="ml-2 text-amber-600">
-                            ★ = first current
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {fyGroups.map(({ fy, indices }) => {
-                      const isOpen = expandedFadFYs.has(fy);
-                      const startMo =
-                        trackerHistory[indices[indices.length - 1]].month;
-                      const endMo = trackerHistory[indices[0]].month;
-                      const hasStarRow =
-                        firstCurrentIdx !== null &&
-                        indices.includes(firstCurrentIdx);
-                      return (
-                        <div
-                          key={fy}
-                          className="rounded-lg border border-slate-200 overflow-hidden"
-                        >
-                          <button
-                            onClick={() => toggleFadFY(fy)}
-                            className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${isOpen ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="font-bold text-sm">{fy}</span>
-                              <span
-                                className={`text-xs ${isOpen ? "text-slate-300" : "text-slate-500"}`}
-                              >
-                                {startMo} – {endMo} · {indices.length} bulletins
-                              </span>
-                              {hasStarRow && (
-                                <span className="text-amber-400 text-xs font-semibold">
-                                  ★ your row
-                                </span>
-                              )}
-                            </div>
-                            <span
-                              className={`text-xs font-bold transition-transform ${isOpen ? "rotate-180" : ""}`}
-                            >
-                              ▼
-                            </span>
-                          </button>
-                          {isOpen && (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-xs">
-                                <caption className="sr-only">
-                                  {fy} Final Action Dates for EB India
-                                  categories
-                                </caption>
-                                <thead>
-                                  <tr className="bg-slate-700 text-white">
-                                    <th className="px-4 py-2.5 text-left font-semibold">
-                                      Month
-                                    </th>
-                                    <th className={hdrCellCls(0)}>EB-1</th>
-                                    <th className={hdrDeltaCls(0)}>Δ</th>
-                                    <th className={hdrCellCls(1)}>EB-2</th>
-                                    <th className={hdrDeltaCls(1)}>Δ</th>
-                                    <th className={hdrCellCls(2)}>EB-3</th>
-                                    <th className={hdrDeltaCls(2)}>Δ</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {indices.map(idx => {
-                                    const b = trackerHistory[idx];
-                                    const prev =
-                                      idx < trackerHistory.length - 1 &&
-                                      areConsecutiveBulletinMonths(
-                                        b.month,
-                                        trackerHistory[idx + 1].month
-                                      )
-                                        ? trackerHistory[idx + 1]
-                                        : null;
-                                    const eb1m = prev
-                                      ? movementLabel(prev.eb1_fad, b.eb1_fad)
-                                      : null;
-                                    const eb2m = prev
-                                      ? movementLabel(prev.eb2_fad, b.eb2_fad)
-                                      : null;
-                                    const eb3m = prev
-                                      ? movementLabel(prev.eb3_fad, b.eb3_fad)
-                                      : null;
-                                    const mvClass = (m: typeof eb1m) =>
-                                      m?.type === "advancement"
-                                        ? "text-emerald-600 font-semibold"
-                                        : m?.type === "retrogression"
-                                          ? "text-red-600 font-semibold"
-                                          : "text-slate-400";
-                                    const isFirstCurrent =
-                                      idx === firstCurrentIdx;
-                                    const isLatest = idx === 0;
-                                    const rowBase = isFirstCurrent
-                                      ? "bg-amber-50 border-b border-amber-200"
-                                      : isLatest
-                                        ? "bg-blue-50 border-b border-slate-100"
-                                        : "border-b border-slate-100 hover:bg-slate-50";
-                                    const selCellCls =
-                                      "px-4 py-2 font-mono font-bold text-slate-900 bg-white/60";
-                                    const otherCellCls =
-                                      "px-4 py-2 font-mono text-slate-400";
-                                    const c = (colIdx: number, val: string) =>
-                                      colIdx === selColIdx ? (
-                                        <td className={selCellCls}>{val}</td>
-                                      ) : (
-                                        <td className={otherCellCls}>{val}</td>
-                                      );
-                                    const d = (
-                                      colIdx: number,
-                                      m: typeof eb1m
-                                    ) =>
-                                      colIdx === selColIdx ? (
-                                        <td
-                                          className={`px-4 py-2 text-center font-mono ${mvClass(m)}`}
-                                        >
-                                          {m?.label ?? "—"}
-                                        </td>
-                                      ) : (
-                                        <td className="px-4 py-2 text-center font-mono text-slate-300">
-                                          {m?.label ?? "—"}
-                                        </td>
-                                      );
-                                    return (
-                                      <tr
-                                        key={b.month}
-                                        className={rowBase}
-                                        ref={
-                                          isFirstCurrent
-                                            ? fadStarRowRef
-                                            : undefined
-                                        }
-                                      >
-                                        <td className="px-4 py-2 font-mono font-semibold text-slate-800">
-                                          {isFirstCurrent && (
-                                            <span className="mr-1 text-amber-500">
-                                              ★
-                                            </span>
-                                          )}
-                                          {b.month}
-                                          {isLatest && (
-                                            <span className="ml-1 text-blue-600 text-xs">
-                                              (latest)
-                                            </span>
-                                          )}
-                                        </td>
-                                        {c(0, fmtDateStr(b.eb1_fad))}
-                                        {d(0, eb1m)}
-                                        {c(1, fmtDateStr(b.eb2_fad))}
-                                        {d(1, eb2m)}
-                                        {c(2, fmtDateStr(b.eb3_fad))}
-                                        {d(2, eb3m)}
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Dates for Filing Table */}
-            {(() => {
-              const selDofKey =
-                selectedCategory === "EB1"
-                  ? "eb1_dof"
-                  : selectedCategory === "EB3"
-                    ? "eb3_dof"
-                    : "eb2_dof";
-              const selColIdx =
-                selectedCategory === "EB1"
-                  ? 0
-                  : selectedCategory === "EB3"
-                    ? 2
-                    : 1;
-              const targetParsed = parseDateStr(targetDate);
-              const trackerHistory = BULLETIN_TRACKER_HISTORY;
-
-              // Find first row where selected DoF >= user's priority date
-              let firstCurrentIdx: number | null = null;
-              for (let i = trackerHistory.length - 1; i >= 0; i--) {
-                const dofVal = trackerHistory[i][
-                  selDofKey as keyof (typeof trackerHistory)[number]
-                ] as string;
-                if (parseDateStr(dofVal) >= targetParsed) {
-                  firstCurrentIdx = i;
-                  break;
-                }
-              }
-
-              const hdrCellCls = (colIdx: number) =>
-                colIdx === selColIdx
-                  ? "px-4 py-3 text-left font-bold bg-slate-500 text-white"
-                  : "px-4 py-3 text-left font-semibold text-slate-300";
-              const hdrDeltaCls = (colIdx: number) =>
-                colIdx === selColIdx
-                  ? "px-4 py-3 text-center font-bold bg-slate-500 text-white"
-                  : "px-4 py-3 text-center font-semibold text-slate-300";
-
-              // Group bulletins by fiscal year (reuse fyOf from FAD block scope is not available here, redefine)
-              const fyOfD = (m: string) => {
-                const parts = m.split(" ");
-                const yr = parseInt(parts[parts.length - 1]);
-                const mo = parts[0];
-                return `FY${["Oct", "Nov", "Dec"].includes(mo) ? yr + 1 : yr}`;
-              };
-              const fyGroupsD: { fy: string; indices: number[] }[] = [];
-              trackerHistory.forEach((b, idx) => {
-                const fy = fyOfD(b.month);
-                const g = fyGroupsD.find(x => x.fy === fy);
-                if (g) g.indices.push(idx);
-                else fyGroupsD.push({ fy, indices: [idx] });
-              });
-
-              return (
-                <div>
-                  <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                    <h3 className="text-sm font-semibold text-slate-800">
-                      Dates for Filing (DoF)
-                    </h3>
-                    <div className="flex items-center gap-3">
-                      {firstCurrentIdx !== null && (
-                        <button
-                          onClick={() => {
-                            const fy = fyOfD(
-                              trackerHistory[firstCurrentIdx!].month
-                            );
-                            setExpandedDofFYs(prev => {
-                              const n = new Set(prev);
-                              n.add(fy);
-                              return n;
-                            });
-                            setTimeout(
-                              () =>
-                                dofStarRowRef.current?.scrollIntoView({
-                                  behavior: "smooth",
-                                  block: "center",
-                                }),
-                              100
-                            );
-                          }}
-                          className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1 hover:bg-amber-100 transition-colors font-semibold"
-                        >
-                          <span>★</span> Jump to your row
-                        </button>
-                      )}
-                      <span className="text-xs text-slate-500">
-                        Highlighted:{" "}
-                        <span className="font-semibold text-slate-700">
-                          {cat.label}
-                        </span>
-                        {firstCurrentIdx !== null && (
-                          <span className="ml-2 text-amber-600">
-                            ★ = first fileable
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {fyGroupsD.map(({ fy, indices }) => {
-                      const isOpen = expandedDofFYs.has(fy);
-                      const startMo =
-                        trackerHistory[indices[indices.length - 1]].month;
-                      const endMo = trackerHistory[indices[0]].month;
-                      const hasStarRow =
-                        firstCurrentIdx !== null &&
-                        indices.includes(firstCurrentIdx);
-                      return (
-                        <div
-                          key={fy}
-                          className="rounded-lg border border-slate-200 overflow-hidden"
-                        >
-                          <button
-                            onClick={() => toggleDofFY(fy)}
-                            className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${isOpen ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="font-bold text-sm">{fy}</span>
-                              <span
-                                className={`text-xs ${isOpen ? "text-slate-300" : "text-slate-500"}`}
-                              >
-                                {startMo} – {endMo} · {indices.length} bulletins
-                              </span>
-                              {hasStarRow && (
-                                <span className="text-amber-400 text-xs font-semibold">
-                                  ★ your row
-                                </span>
-                              )}
-                            </div>
-                            <span
-                              className={`text-xs font-bold transition-transform ${isOpen ? "rotate-180" : ""}`}
-                            >
-                              ▼
-                            </span>
-                          </button>
-                          {isOpen && (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-xs">
-                                <caption className="sr-only">
-                                  {fy} Dates for Filing for EB India categories
-                                </caption>
-                                <thead>
-                                  <tr className="bg-slate-600 text-white">
-                                    <th className="px-4 py-2.5 text-left font-semibold">
-                                      Month
-                                    </th>
-                                    <th className={hdrCellCls(0)}>EB-1</th>
-                                    <th className={hdrDeltaCls(0)}>Δ</th>
-                                    <th className={hdrCellCls(1)}>EB-2</th>
-                                    <th className={hdrDeltaCls(1)}>Δ</th>
-                                    <th className={hdrCellCls(2)}>EB-3</th>
-                                    <th className={hdrDeltaCls(2)}>Δ</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {indices.map(idx => {
-                                    const b = trackerHistory[idx];
-                                    const prev =
-                                      idx < trackerHistory.length - 1 &&
-                                      areConsecutiveBulletinMonths(
-                                        b.month,
-                                        trackerHistory[idx + 1].month
-                                      )
-                                        ? trackerHistory[idx + 1]
-                                        : null;
-                                    const eb1m = prev
-                                      ? movementLabel(prev.eb1_dof, b.eb1_dof)
-                                      : null;
-                                    const eb2m = prev
-                                      ? movementLabel(prev.eb2_dof, b.eb2_dof)
-                                      : null;
-                                    const eb3m = prev
-                                      ? movementLabel(prev.eb3_dof, b.eb3_dof)
-                                      : null;
-                                    const mvClass = (m: typeof eb1m) =>
-                                      m?.type === "advancement"
-                                        ? "text-emerald-600 font-semibold"
-                                        : m?.type === "retrogression"
-                                          ? "text-red-600 font-semibold"
-                                          : "text-slate-400";
-                                    const isFirstCurrent =
-                                      idx === firstCurrentIdx;
-                                    const isLatest = idx === 0;
-                                    const rowBase = isFirstCurrent
-                                      ? "bg-amber-50 border-b border-amber-200"
-                                      : isLatest
-                                        ? "bg-blue-50 border-b border-slate-100"
-                                        : "border-b border-slate-100 hover:bg-slate-50";
-                                    const selCellCls =
-                                      "px-4 py-2 font-mono font-bold text-slate-900 bg-white/60";
-                                    const otherCellCls =
-                                      "px-4 py-2 font-mono text-slate-400";
-                                    const c = (colIdx: number, val: string) =>
-                                      colIdx === selColIdx ? (
-                                        <td className={selCellCls}>{val}</td>
-                                      ) : (
-                                        <td className={otherCellCls}>{val}</td>
-                                      );
-                                    const d = (
-                                      colIdx: number,
-                                      m: typeof eb1m
-                                    ) =>
-                                      colIdx === selColIdx ? (
-                                        <td
-                                          className={`px-4 py-2 text-center font-mono ${mvClass(m)}`}
-                                        >
-                                          {m?.label ?? "—"}
-                                        </td>
-                                      ) : (
-                                        <td className="px-4 py-2 text-center font-mono text-slate-300">
-                                          {m?.label ?? "—"}
-                                        </td>
-                                      );
-                                    return (
-                                      <tr
-                                        key={b.month}
-                                        className={rowBase}
-                                        ref={
-                                          isFirstCurrent
-                                            ? dofStarRowRef
-                                            : undefined
-                                        }
-                                      >
-                                        <td className="px-4 py-2 font-mono font-semibold text-slate-800">
-                                          {isFirstCurrent && (
-                                            <span className="mr-1 text-amber-500">
-                                              ★
-                                            </span>
-                                          )}
-                                          {b.month}
-                                          {isLatest && (
-                                            <span className="ml-1 text-blue-600 text-xs">
-                                              (latest)
-                                            </span>
-                                          )}
-                                        </td>
-                                        {c(0, fmtDateStr(b.eb1_dof))}
-                                        {d(0, eb1m)}
-                                        {c(1, fmtDateStr(b.eb2_dof))}
-                                        {d(1, eb2m)}
-                                        {c(2, fmtDateStr(b.eb3_dof))}
-                                        {d(2, eb3m)}
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
+              starRowRef={dofStarRowRef}
+            />
           </div>
         )}
       </main>
