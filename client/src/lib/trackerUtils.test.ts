@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  addApproxMonths,
   areConsecutiveBulletinMonths,
   bulletinMonthDiffInMonths,
   fmtBulletinMonthLabel,
   fmtCompactMonthYear,
+  fmtDate,
   fmtDateStr,
   fmtDuration,
   isValidDateStr,
@@ -70,5 +72,42 @@ describe("trackerUtils", () => {
   it("supports month gap approximations and record totals", () => {
     expect(monthsBetween("2014-07-15", "2015-01-15")).toBeCloseTo(6, 1);
     expect(sumRecordValues({ 2013: 100, 2014: 250 })).toBe(350);
+  });
+
+  it("formats individual dates with fmtDate", () => {
+    expect(fmtDate(new Date(2026, 0, 1))).toBe("Jan 1, 2026");
+    expect(fmtDate(new Date(2028, 11, 31))).toBe("Dec 31, 2028");
+  });
+
+  it("addApproxMonths advances the date by the expected number of days", () => {
+    const base = new Date(2025, 0, 1); // Jan 1, 2025
+    const sixMonthsLater = addApproxMonths(base, 6);
+    // 6 months × 30.44 d/mo = 182.64, Math.round → 183 days
+    const daysDiff = Math.round(
+      (sixMonthsLater.getTime() - base.getTime()) / 86400000
+    );
+    expect(daysDiff).toBe(183);
+
+    // 0 months → same date
+    expect(addApproxMonths(base, 0).getTime()).toBe(base.getTime());
+  });
+
+  it("movementLabel treats the ±5-day boundary as stable", () => {
+    // Exactly +5 days: should be stable (condition is days > 5)
+    expect(movementLabel("2024-01-01", "2024-01-06")).toMatchObject({
+      type: "stable",
+    });
+    // Exactly -5 days: should be stable (condition is days < -5)
+    expect(movementLabel("2024-01-06", "2024-01-01")).toMatchObject({
+      type: "stable",
+    });
+    // +6 days: advancement
+    expect(movementLabel("2024-01-01", "2024-01-07")).toMatchObject({
+      type: "advancement",
+    });
+    // -6 days: retrogression
+    expect(movementLabel("2024-01-07", "2024-01-01")).toMatchObject({
+      type: "retrogression",
+    });
   });
 });
