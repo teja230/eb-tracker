@@ -1,6 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import { DateComparisonPanel } from "@/components/DateComparisonPanel";
 import {
   CategoryComparison,
   WatchlistPanel,

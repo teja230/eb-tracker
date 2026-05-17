@@ -1,10 +1,18 @@
-import { useMemo, useState, useDeferredValue, useEffect } from "react";
+import {
+  useMemo,
+  useState,
+  useDeferredValue,
+  useEffect,
+  useCallback,
+} from "react";
 
 import {
   ChevronDown,
   ChevronUp,
   GitCompareArrows,
   Calendar,
+  Copy,
+  Check,
 } from "lucide-react";
 
 import PriorityDatePicker from "@/components/PriorityDatePicker";
@@ -189,6 +197,7 @@ export function DateComparisonPanel({
   }, [primaryDate]);
 
   const [activeScenario, setActiveScenario] = useState<ScenarioKey>("base");
+  const [copied, setCopied] = useState(false);
 
   // Raw priority-date gap (not projection-based) for the header summary
   const rawDateGap = useMemo(() => {
@@ -245,11 +254,39 @@ export function DateComparisonPanel({
 
   const shortcuts = [
     { label: "Same", months: 0 },
-    { label: "+6mo", months: 6 },
+    { label: "-2yr", months: -24 },
+    { label: "-1yr", months: -12 },
     { label: "+1yr", months: 12 },
     { label: "+2yr", months: 24 },
     { label: "+5yr", months: 60 },
   ];
+
+  const copyComparison = useCallback(() => {
+    const FIELDS: Array<{ label: string; field: "fad" | "dof" | "gc" }> = [
+      { label: "Final Action Date", field: "fad" },
+      { label: "Date for Filing", field: "dof" },
+      { label: "GC Approval", field: "gc" },
+    ];
+    const lines = [
+      `EB Tracker: Priority Date Comparison (${SCENARIO_LABELS[activeScenario]} scenario)`,
+      `Your Date: ${fmtDate(parseDateFromYMD(primaryDate))}  |  Compare: ${fmtDate(parseDateFromYMD(deferredCompareDate))}`,
+      "",
+      ...FIELDS.map(({ label, field }) => {
+        const pd = fmtProjectionDateSafe(projections.primary, field).text;
+        const cd = fmtProjectionDateSafe(projections.compare, field).text;
+        const p = getDate(projections.primary, field);
+        const c = getDate(projections.compare, field);
+        const d = p && c ? fmtDelta(monthsDiff(p, c)).text : "N/A";
+        return `${label.padEnd(22)} | ${pd.padEnd(14)} | ${cd.padEnd(14)} | Δ ${d}`;
+      }),
+      "",
+      `Source: eb-tracker`,
+    ];
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [primaryDate, deferredCompareDate, projections, activeScenario]);
 
   return (
     <Card className="overflow-hidden border-slate-200 shadow-md">
@@ -285,6 +322,22 @@ export function DateComparisonPanel({
       {/* Body */}
       {isOpen && (
         <div className="p-5 space-y-6">
+          {/* Copy button row */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={copyComparison}
+              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md border transition-colors bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              aria-label="Copy comparison to clipboard"
+            >
+              {copied ? (
+                <Check className="w-3 h-3 text-emerald-500" />
+              ) : (
+                <Copy className="w-3 h-3" />
+              )}
+              {copied ? "Copied!" : "Copy comparison"}
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Primary Date (Read-only reference) */}
             <div className="space-y-3">
@@ -309,11 +362,7 @@ export function DateComparisonPanel({
                         : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
                     }`}
                   >
-                    {rawDateGap > 0 ? "+" : ""}
-                    {rawDateGap > 0
-                      ? fmtDelta(rawDateGap).text
-                      : fmtDelta(rawDateGap).text}{" "}
-                    priority gap
+                    {fmtDelta(rawDateGap).text} priority gap
                   </div>
                 )}
               </div>
