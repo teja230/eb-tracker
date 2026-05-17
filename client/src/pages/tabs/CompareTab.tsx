@@ -26,18 +26,6 @@ export function CompareTab({
 }: CompareTabProps) {
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-        <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
-          <span className="text-base">⚖️</span>
-          Priority Date Comparison
-        </h2>
-        <p className="text-xs text-slate-500">
-          Compare your priority date with another date to see how the forecast
-          differs. Useful for family members or tracking progress against older
-          filings.
-        </p>
-      </div>
-
       <DateComparisonPanel
         primaryDate={targetDate}
         cat={cat}
