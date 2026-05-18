@@ -61,6 +61,7 @@ type OverviewTabProps = Pick<
   targetDate: string;
   updateSelectedCategory: (category: TrackerCategoryKey) => void;
   onCompareDate?: () => void;
+  onAdjustAssumptions?: () => void;
 };
 
 export function OverviewTab({
@@ -102,6 +103,7 @@ export function OverviewTab({
   trackerSourceLinks,
   updateSelectedCategory,
   onCompareDate,
+  onAdjustAssumptions,
 }: OverviewTabProps) {
   return (
     <div className="space-y-6">
@@ -111,6 +113,7 @@ export function OverviewTab({
         targetDate={targetDate}
         overviewAssumptionSummary={overviewAssumptionSummary}
         onCompare={onCompareDate}
+        onAdjustAssumptions={onAdjustAssumptions}
       />
       <CategoryComparison
         rows={categoryComparisonRows}

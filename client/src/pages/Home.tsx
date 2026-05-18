@@ -618,6 +618,7 @@ export default function Home() {
                 trackerSourceLinks={trackerSourceLinks}
                 updateSelectedCategory={updateSelectedCategory}
                 onCompareDate={() => setActiveTab("compare")}
+                onAdjustAssumptions={() => setActiveTab("scenarios")}
               />
             </ErrorBoundary>
           )}

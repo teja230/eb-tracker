@@ -16,6 +16,7 @@ type ProjectionHeroCardProps = {
   targetDate: string;
   overviewAssumptionSummary: string;
   onCompare?: () => void;
+  onAdjustAssumptions?: () => void;
 };
 
 export function ProjectionHeroCard({
@@ -24,6 +25,7 @@ export function ProjectionHeroCard({
   targetDate,
   overviewAssumptionSummary,
   onCompare,
+  onAdjustAssumptions,
 }: ProjectionHeroCardProps) {
   if (overviewProjection.isAlreadyCurrent) {
     return (
@@ -175,9 +177,17 @@ export function ProjectionHeroCard({
       </div>
 
       <div className="mt-5 flex flex-col gap-2 border-t border-slate-600 pt-3 text-xs text-slate-300 md:flex-row md:items-center md:justify-between">
-        <p>
+        <p className="flex items-center gap-2">
           Best case uses the optimistic scenario with{" "}
           {overviewAssumptionSummary}. See Scenarios tab for the full range.
+          {onAdjustAssumptions && (
+            <button
+              onClick={onAdjustAssumptions}
+              className="rounded border border-emerald-400/40 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200 transition-colors hover:text-emerald-100"
+            >
+              Adjust assumptions
+            </button>
+          )}
         </p>
         <div className="flex items-center gap-3 text-[10px] shrink-0">
           {backtestResult.predictions > 0 && (
