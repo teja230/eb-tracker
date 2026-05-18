@@ -1,15 +1,5 @@
 import { Card } from "@/components/ui/card";
 import { Download, ChevronDown } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import { SCENARIOS, type TrackerCategoryKey } from "@/data/trackerData";
 import type { BacktestSummary } from "@/lib/forecast";
@@ -28,7 +18,6 @@ type ScenariosTabProps = Pick<
   | "adjustedRates"
   | "overviewAssumptionSummary"
   | "projections"
-  | "scenarioChartData"
   | "sensitivityByOption"
   | "sensitivityRows"
 > & {
@@ -52,7 +41,6 @@ export function ScenariosTab({
   cat,
   generateExport,
   projections,
-  scenarioChartData,
   sensitivityByOption,
   spilloverLevel,
   targetDate,
@@ -451,41 +439,6 @@ export function ScenariosTab({
           </div>
         </div>
       </div>
-
-      <Card className="p-5">
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">
-          Months from Today — Scenario Comparison
-        </h3>
-        <div
-          role="img"
-          aria-label={`${cat.label} India forecast months from today by scenario`}
-        >
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart
-              data={scenarioChartData}
-              margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                label={{
-                  value: "Months",
-                  angle: -90,
-                  position: "insideLeft",
-                  fontSize: 11,
-                }}
-              />
-              <Tooltip formatter={(v: number) => [`${v} months`]} />
-              <Bar dataKey="months" radius={[4, 4, 0, 0]}>
-                {scenarioChartData.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
 
       <Card className="p-5">
         <h3 className="text-sm font-semibold text-slate-700 mb-3">

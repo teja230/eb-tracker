@@ -116,7 +116,6 @@ export default function Home() {
     pendingInventoryTotal,
     projections,
     recentPaceInsight,
-    scenarioChartData,
     sensitivityByOption,
     sensitivityRows,
     trackerSourceLinks,
@@ -634,7 +633,6 @@ export default function Home() {
                 isAssumptionPending={isAssumptionPending}
                 overviewAssumptionSummary={overviewAssumptionSummary}
                 projections={projections}
-                scenarioChartData={scenarioChartData}
                 selectedCategory={selectedCategory}
                 sensitivityByOption={sensitivityByOption}
                 sensitivityRows={sensitivityRows}

@@ -24,7 +24,6 @@ import {
   fmtBulletinMonthLabel,
   fmtDateStr,
   fmtDuration,
-  fmtYear,
   monthsBetween,
   movementLabel,
   parseBulletinMonth,
@@ -113,12 +112,6 @@ export type UseForecastDataResult = {
     source: string;
     isTarget: boolean;
     isCurrent: boolean;
-  }>;
-  scenarioChartData: Array<{
-    name: string;
-    months: number;
-    year: string;
-    color: string;
   }>;
   currentCutoffs: Record<TrackerCategoryKey, { fad: string; dof: string }>;
   trackerSourceLinks: SourceLink[];
@@ -586,15 +579,6 @@ export function useForecastData({
     return bars;
   }, [cat.currentFAD, selectedCategory, targetDate]);
 
-  const scenarioChartData = useMemo(() => {
-    return Object.entries(SCENARIOS).map(([key, s]) => ({
-      name: s.label,
-      months: projections[key]?.monthsFromToday ?? 0,
-      year: projections[key]?.fadDate ? fmtYear(projections[key].fadDate) : "—",
-      color: s.color,
-    }));
-  }, [projections]);
-
   const currentCutoffs = useMemo(
     () => ({
       EB1: {
@@ -888,7 +872,6 @@ export function useForecastData({
     activeHistoricalInsight,
     recentPaceInsight,
     demandDensityData,
-    scenarioChartData,
     currentCutoffs,
     trackerSourceLinks,
     categoryComparisonRows,

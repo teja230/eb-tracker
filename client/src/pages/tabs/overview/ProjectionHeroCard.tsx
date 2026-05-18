@@ -1,4 +1,4 @@
-import { CheckCircle2, Info } from "lucide-react";
+import { CheckCircle2, Info, SlidersHorizontal } from "lucide-react";
 
 import { ConfidenceRangeChart } from "@/components/ConfidenceRangeChart";
 import { CURRENT_BULLETIN } from "@/data/trackerData";
@@ -42,18 +42,29 @@ export function ProjectionHeroCard({
 
   return (
     <div className="relative -mt-2 overflow-hidden rounded-xl border border-slate-600/80 border-l-4 border-l-emerald-400 bg-gradient-to-br from-slate-800 via-slate-800 to-slate-700 p-6 text-white md:-mt-0">
-      <div className="flex justify-between items-start mb-1">
+      <div className="mb-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-300">
           Your Projection
         </h2>
-        {onCompare && (
-          <button
-            onClick={onCompare}
-            className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-400/10 border border-emerald-400/30 px-2 py-1 rounded"
-          >
-            ⚖️ Compare dates
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {onCompare && (
+            <button
+              onClick={onCompare}
+              className="rounded border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300 transition-colors hover:text-emerald-200"
+            >
+              ⚖️ Compare dates
+            </button>
+          )}
+          {onAdjustAssumptions && (
+            <button
+              onClick={onAdjustAssumptions}
+              className="inline-flex items-center gap-1.5 rounded border border-slate-400/40 bg-white/8 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-200 transition-colors hover:border-slate-300/60 hover:text-white"
+            >
+              <SlidersHorizontal className="h-3 w-3" />
+              Adjust assumptions
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-2 mb-5">
         <span className="text-xs font-mono text-slate-300">
@@ -177,17 +188,9 @@ export function ProjectionHeroCard({
       </div>
 
       <div className="mt-5 flex flex-col gap-2 border-t border-slate-600 pt-3 text-xs text-slate-300 md:flex-row md:items-center md:justify-between">
-        <p className="flex items-center gap-2">
+        <p>
           Best case uses the optimistic scenario with{" "}
           {overviewAssumptionSummary}. See Scenarios tab for the full range.
-          {onAdjustAssumptions && (
-            <button
-              onClick={onAdjustAssumptions}
-              className="rounded border border-emerald-400/40 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200 transition-colors hover:text-emerald-100"
-            >
-              Adjust assumptions
-            </button>
-          )}
         </p>
         <div className="flex items-center gap-3 text-[10px] shrink-0">
           {backtestResult.predictions > 0 && (
