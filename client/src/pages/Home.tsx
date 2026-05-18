@@ -311,10 +311,10 @@ export default function Home() {
   };
 
   const tabs = [
-    { id: "overview", label: "📊 Overview", mobileLabel: "📊 Overview" },
-    { id: "scenarios", label: "📈 Scenarios", mobileLabel: "📈 Scenarios" },
-    { id: "tracker", label: "📋 Bulletin Tracker", mobileLabel: "📋 Tracker" },
-    { id: "compare", label: "⚖️ Compare", mobileLabel: "⚖️ Compare" },
+    { id: "overview", label: "📊 Overview", mobileLabel: "Overview" },
+    { id: "scenarios", label: "📈 Scenarios", mobileLabel: "Scenarios" },
+    { id: "tracker", label: "📋 Bulletin Tracker", mobileLabel: "Tracker" },
+    { id: "compare", label: "⚖️ Compare", mobileLabel: "Compare" },
   ];
 
   return (
@@ -397,7 +397,7 @@ export default function Home() {
             </div>
 
             <nav
-              className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1"
+              className="mt-3 grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1"
               aria-label="Tracker sections"
             >
               {tabs.map(t => (
@@ -405,7 +405,7 @@ export default function Home() {
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
                   aria-pressed={activeTab === t.id}
-                  className={`rounded-lg px-2 py-2 text-xs font-semibold transition-all ${
+                  className={`min-w-0 truncate whitespace-nowrap rounded-lg px-1 py-2 text-[11px] font-semibold transition-all ${
                     activeTab === t.id
                       ? "bg-white text-slate-900 shadow-sm"
                       : "text-slate-500"
