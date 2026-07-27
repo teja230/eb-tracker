@@ -10,6 +10,7 @@ import {
   fmtProjectionDateRange,
   fmtProjectionDuration,
   fmtSensitivityDelta,
+  fiscalYearRecoveryHoldMonths,
   getHistoricalPointInsight,
   historicalCategoryKeys,
 } from "./homeShared";
@@ -367,6 +368,35 @@ describe("buildHistoricalSeries", () => {
   it("assigns a sequential idx to each point", () => {
     const series = buildHistoricalSeries(rows, "EB2");
     series.forEach((point, i) => expect(point.idx).toBe(i));
+  });
+
+  it("labels unavailable FAD rows without losing the recovery anchor timestamp", () => {
+    const series = buildHistoricalSeries(
+      [
+        {
+          month: "August 2026",
+          eb2_fad: "2014-07-15",
+          eb2_fad_status: "unavailable",
+          eb2_dof: "2015-01-15",
+        } as any,
+      ],
+      "EB2"
+    );
+
+    expect(series[0].fadLabel).toBe("Unavailable");
+    expect(series[0].fadStatus).toBe("unavailable");
+    expect(series[0].fadRaw).toBe(new Date(2014, 6, 15).getTime());
+  });
+});
+
+describe("fiscalYearRecoveryHoldMonths", () => {
+  it("holds an unavailable August bulletin through the September simulation step", () => {
+    expect(fiscalYearRecoveryHoldMonths(8, true)).toBe(1);
+  });
+
+  it("does not add a hold after the October simulation step starts", () => {
+    expect(fiscalYearRecoveryHoldMonths(9, true)).toBe(0);
+    expect(fiscalYearRecoveryHoldMonths(8, false)).toBe(0);
   });
 });
 

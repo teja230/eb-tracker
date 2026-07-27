@@ -5,7 +5,6 @@ import { CURRENT_BULLETIN } from "@/data/trackerData";
 import {
   fmtBulletinMonthLabel,
   fmtCompactMonthYear,
-  fmtDate,
   parseDateStr,
 } from "@/lib/trackerUtils";
 import {
@@ -48,6 +47,8 @@ type HistoricalChartCardProps = {
         month: string;
         fadDate: Date;
         dofDate: Date;
+        fadLabel: string;
+        dofLabel: string;
         targetStatus: string;
         dofLead: number;
       }
@@ -428,7 +429,7 @@ export function HistoricalChartCard({
                   FAD
                 </p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {fmtDate(activeHistoricalInsight.fadDate)}
+                  {activeHistoricalInsight.fadLabel}
                 </p>
               </div>
 
@@ -437,7 +438,7 @@ export function HistoricalChartCard({
                   DoF
                 </p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {fmtDate(activeHistoricalInsight.dofDate)}
+                  {activeHistoricalInsight.dofLabel}
                 </p>
               </div>
 

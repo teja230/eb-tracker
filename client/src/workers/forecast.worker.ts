@@ -25,6 +25,8 @@ export type WorkerProjectionsRequest = {
   today: string; // ISO date string — serialised from Date
   currentFad: string;
   currentDof: string;
+  currentFadUnavailable?: boolean;
+  currentUnavailabilityHoldMonths?: number;
   targetDate: string;
   gcLagMonths: number;
   forecastStartMonthIndex: number;
@@ -75,6 +77,8 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
         today,
         currentFad: msg.currentFad,
         currentDof: msg.currentDof,
+        currentFadUnavailable: msg.currentFadUnavailable,
+        currentUnavailabilityHoldMonths: msg.currentUnavailabilityHoldMonths,
         targetDate: msg.targetDate,
         baseFadRate: msg.adjustedRates[key],
         gcLagMonths: msg.gcLagMonths,

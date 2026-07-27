@@ -19,6 +19,7 @@ import {
 } from "@/lib/forecast";
 import { fmtDate } from "@/lib/trackerUtils";
 import {
+  fiscalYearRecoveryHoldMonths,
   fmtProjectionDate,
   fmtProjectionDateRange,
   TODAY,
@@ -57,6 +58,11 @@ function runProjection(
     today: TODAY,
     currentFad: cat.currentFAD,
     currentDof: cat.currentDoF,
+    currentFadUnavailable: cat.currentFADStatus === "unavailable",
+    currentUnavailabilityHoldMonths: fiscalYearRecoveryHoldMonths(
+      forecastStartMonthIndex,
+      cat.currentFADStatus === "unavailable"
+    ),
     targetDate,
     baseFadRate: adjustedRates[scenario],
     gcLagMonths: cat.gcLagMonths,

@@ -25,6 +25,7 @@ import {
 } from "@/data/trackerData";
 import { useForecastData } from "@/hooks/useForecastData";
 import { useIsMobile } from "@/hooks/useMobile";
+import { cutoffDateLabel } from "@/lib/bulletinStatus";
 import { exportTrackerPdf } from "@/lib/pdfExport";
 import {
   fmtDate,
@@ -94,6 +95,7 @@ export default function Home() {
     deferredWastage !== wastageLevel;
 
   const cat = EB_CATEGORIES[selectedCategory];
+  const currentFadUnavailable = cat.currentFADStatus === "unavailable";
   const { fadKey, dofKey } = historicalCategoryKeys(selectedCategory);
 
   const {
@@ -525,17 +527,27 @@ export default function Home() {
                 {[
                   {
                     label: "Current FAD",
-                    value: fmtDateStr(cat.currentFAD),
+                    value: cutoffDateLabel(
+                      cat.currentFAD,
+                      cat.currentFADStatus
+                    ),
                     tip: "Final Action Date — the cutoff date for visa availability",
                   },
                   {
                     label: "Gap",
-                    value: gapMonths > 0 ? fmtDuration(gapMonths) : "Current",
+                    value: currentFadUnavailable
+                      ? "Unavailable"
+                      : gapMonths > 0
+                        ? fmtDuration(gapMonths)
+                        : "Current",
                     tip: "Months between your priority date and the current Final Action Date",
                   },
                   {
                     label: "Current DoF",
-                    value: fmtDateStr(cat.currentDoF),
+                    value: cutoffDateLabel(
+                      cat.currentDoF,
+                      cat.currentDoFStatus
+                    ),
                     tip: "Dates for Filing — the earliest date you can submit I-485",
                   },
                 ].map(({ label, value, tip }) => (

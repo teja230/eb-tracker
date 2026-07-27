@@ -5,8 +5,12 @@ import type {
   TrackerCategoryKey,
 } from "@/data/trackerData";
 import {
+  rowCutoffDateLabel,
+  rowCutoffMovement,
+  rowCutoffStatus,
+} from "@/lib/bulletinStatus";
+import {
   areConsecutiveBulletinMonths,
-  fmtDateStr,
   movementLabel,
   parseDateStr,
 } from "@/lib/trackerUtils";
@@ -126,20 +130,30 @@ export function TrackerPaceSummary({
   for (let index = 0; index < Math.min(12, rows.length - 1); index++) {
     const current = rows[index];
     const previous = rows[index + 1];
-    fadDeltas.push(
-      Math.round(
-        (parseDateStr(current[fadKey]).getTime() -
-          parseDateStr(previous[fadKey]).getTime()) /
-          DAY_MS
-      )
-    );
-    dofDeltas.push(
-      Math.round(
-        (parseDateStr(current[dofKey]).getTime() -
-          parseDateStr(previous[dofKey]).getTime()) /
-          DAY_MS
-      )
-    );
+    if (
+      rowCutoffStatus(current, category, "fad") !== "unavailable" &&
+      rowCutoffStatus(previous, category, "fad") !== "unavailable"
+    ) {
+      fadDeltas.push(
+        Math.round(
+          (parseDateStr(current[fadKey]).getTime() -
+            parseDateStr(previous[fadKey]).getTime()) /
+            DAY_MS
+        )
+      );
+    }
+    if (
+      rowCutoffStatus(current, category, "dof") !== "unavailable" &&
+      rowCutoffStatus(previous, category, "dof") !== "unavailable"
+    ) {
+      dofDeltas.push(
+        Math.round(
+          (parseDateStr(current[dofKey]).getTime() -
+            parseDateStr(previous[dofKey]).getTime()) /
+            DAY_MS
+        )
+      );
+    }
   }
 
   return (
@@ -157,7 +171,7 @@ export function TrackerPaceSummary({
         <span className="block text-xs text-slate-500 mt-1">
           Tracker tables now run continuously from Oct 2019 through the latest
           bulletin, including archived FY2020-FY2022 rows. Forecasts, charts,
-          and backtests remain calibrated on the contiguous Oct 2022–June 2026
+          and backtests remain calibrated on the contiguous Oct 2022–August 2026
           series.
         </span>
       </div>
@@ -208,7 +222,10 @@ export function BulletinTable({
 
   let firstCurrentIndex: number | null = null;
   for (let index = rows.length - 1; index >= 0; index--) {
-    if (parseDateStr(rows[index][selectedKey]) >= target) {
+    if (
+      rowCutoffStatus(rows[index], category, kind) !== "unavailable" &&
+      parseDateStr(rows[index][selectedKey]) >= target
+    ) {
       firstCurrentIndex = index;
       break;
     }
@@ -352,24 +369,24 @@ export function BulletinTable({
                           )
                             ? rows[index + 1]
                             : null;
-                        const eb1Move = previous
-                          ? movementLabel(
-                              previous[isFad ? "eb1_fad" : "eb1_dof"],
-                              row[isFad ? "eb1_fad" : "eb1_dof"]
-                            )
-                          : null;
-                        const eb2Move = previous
-                          ? movementLabel(
-                              previous[isFad ? "eb2_fad" : "eb2_dof"],
-                              row[isFad ? "eb2_fad" : "eb2_dof"]
-                            )
-                          : null;
-                        const eb3Move = previous
-                          ? movementLabel(
-                              previous[isFad ? "eb3_fad" : "eb3_dof"],
-                              row[isFad ? "eb3_fad" : "eb3_dof"]
-                            )
-                          : null;
+                        const eb1Move = rowCutoffMovement(
+                          previous,
+                          row,
+                          "EB1",
+                          kind
+                        );
+                        const eb2Move = rowCutoffMovement(
+                          previous,
+                          row,
+                          "EB2",
+                          kind
+                        );
+                        const eb3Move = rowCutoffMovement(
+                          previous,
+                          row,
+                          "EB3",
+                          kind
+                        );
                         const isFirstCurrent = index === firstCurrentIndex;
                         const isLatest = index === 0;
                         const rowClass = isFirstCurrent
@@ -395,20 +412,11 @@ export function BulletinTable({
                                 </span>
                               )}
                             </td>
-                            {cell(
-                              0,
-                              fmtDateStr(row[isFad ? "eb1_fad" : "eb1_dof"])
-                            )}
+                            {cell(0, rowCutoffDateLabel(row, "EB1", kind))}
                             {delta(0, eb1Move)}
-                            {cell(
-                              1,
-                              fmtDateStr(row[isFad ? "eb2_fad" : "eb2_dof"])
-                            )}
+                            {cell(1, rowCutoffDateLabel(row, "EB2", kind))}
                             {delta(1, eb2Move)}
-                            {cell(
-                              2,
-                              fmtDateStr(row[isFad ? "eb3_fad" : "eb3_dof"])
-                            )}
+                            {cell(2, rowCutoffDateLabel(row, "EB3", kind))}
                             {delta(2, eb3Move)}
                           </tr>
                         );

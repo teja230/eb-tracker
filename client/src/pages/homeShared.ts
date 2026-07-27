@@ -4,6 +4,7 @@ import {
   type HistoricalBulletinRow,
   type TrackerCategoryKey,
 } from "@/data/trackerData";
+import { cutoffDateLabel, rowCutoffStatus } from "@/lib/bulletinStatus";
 import { type ForecastPolicy } from "@/lib/forecast";
 import {
   fmtDate,
@@ -205,8 +206,23 @@ export function fmtSensitivityDelta(deltaMonths: number): string {
   return deltaMonths > 0 ? `${abs} mo later` : `${abs} mo earlier`;
 }
 
+export function fiscalYearRecoveryHoldMonths(
+  forecastStartMonthIndex: number,
+  isUnavailable: boolean
+): number {
+  if (!isUnavailable) return 0;
+  return forecastStartMonthIndex <= 8 ? 9 - forecastStartMonthIndex : 0;
+}
+
 export function getHistoricalPointInsight(
-  point: { month: string; fadRaw: number; dofRaw: number },
+  point: {
+    month: string;
+    fadRaw: number;
+    dofRaw: number;
+    fadLabel?: string;
+    dofLabel?: string;
+    fadStatus?: string;
+  },
   targetDate: string
 ) {
   const fadDate = new Date(point.fadRaw);
@@ -222,14 +238,18 @@ export function getHistoricalPointInsight(
     month: point.month,
     fadDate,
     dofDate,
+    fadLabel: point.fadLabel ?? fmtDate(fadDate),
+    dofLabel: point.dofLabel ?? fmtDate(dofDate),
     target,
     dofLead,
     targetStatus:
-      gapToTarget === 0
-        ? "Matches your priority date"
-        : gapToTarget > 0
-          ? `${fmtDuration(gapToTarget)} behind your priority date`
-          : `${fmtDuration(Math.abs(gapToTarget))} past your priority date`,
+      point.fadStatus === "unavailable"
+        ? "FAD unavailable in this bulletin"
+        : gapToTarget === 0
+          ? "Matches your priority date"
+          : gapToTarget > 0
+            ? `${fmtDuration(gapToTarget)} behind your priority date`
+            : `${fmtDuration(Math.abs(gapToTarget))} past your priority date`,
   };
 }
 
@@ -250,6 +270,8 @@ export function buildHistoricalSeries(
   return [...rows].reverse().map((row, index) => {
     const fadDate = parseDateStr(row[fadKey]);
     const dofDate = parseDateStr(row[dofKey]);
+    const fadStatus = rowCutoffStatus(row, category, "fad");
+    const dofStatus = rowCutoffStatus(row, category, "dof");
     return {
       month: row.month,
       idx: index,
@@ -257,8 +279,10 @@ export function buildHistoricalSeries(
       dof: dofDate.getTime(),
       fadRaw: fadDate.getTime(),
       dofRaw: dofDate.getTime(),
-      fadLabel: fmtDate(fadDate),
-      dofLabel: fmtDate(dofDate),
+      fadLabel: cutoffDateLabel(row[fadKey], fadStatus),
+      dofLabel: cutoffDateLabel(row[dofKey], dofStatus),
+      fadStatus,
+      dofStatus,
     };
   });
 }

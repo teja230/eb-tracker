@@ -16,7 +16,14 @@ export function CategoryComparison({
 }) {
   const prevBulletinLabel = rows[0]?.prevBulletinLabel ?? "prior bulletin";
 
-  function MoveBadge({ move }: { move: MovementInfo }) {
+  function MoveBadge({ move }: { move: MovementInfo | null }) {
+    if (!move) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+          No date delta
+        </span>
+      );
+    }
     if (move.type === "stable") {
       return (
         <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">

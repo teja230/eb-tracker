@@ -1,4 +1,5 @@
 import { SCENARIOS, type EB_CATEGORIES } from "@/data/trackerData";
+import { cutoffDateLabel } from "@/lib/bulletinStatus";
 import type { ForecastProjection } from "@/lib/forecast";
 import { fmtDate, fmtDateStr, fmtDuration } from "@/lib/trackerUtils";
 
@@ -84,9 +85,21 @@ export async function exportTrackerPdf({
 
   const statX = margin + contentW * 0.45;
   const statCols = [
-    { label: "CURRENT FAD", val: fmtDateStr(category.currentFAD) },
-    { label: "GAP", val: fmtDuration(gapMonths) },
-    { label: "CURRENT DOF", val: fmtDateStr(category.currentDoF) },
+    {
+      label: "CURRENT FAD",
+      val: cutoffDateLabel(category.currentFAD, category.currentFADStatus),
+    },
+    {
+      label: "GAP",
+      val:
+        category.currentFADStatus === "unavailable"
+          ? "Unavailable"
+          : fmtDuration(gapMonths),
+    },
+    {
+      label: "CURRENT DOF",
+      val: cutoffDateLabel(category.currentDoF, category.currentDoFStatus),
+    },
   ];
   statCols.forEach((stat, index) => {
     const sx = statX + index * ((contentW * 0.55) / 3);

@@ -74,6 +74,16 @@ export function ProjectionHeroCard({
           Best Case
         </span>
       </div>
+      {overviewProjection.isCurrentlyUnavailable && (
+        <div className="mb-5 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+          Current FAD is unavailable; this forecast holds FAD movement for{" "}
+          {overviewProjection.currentUnavailabilityHoldMonths} bulletin month
+          {overviewProjection.currentUnavailabilityHoldMonths === 1
+            ? ""
+            : "s"}{" "}
+          before modeling FY2027 recovery.
+        </div>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6">
         <div>
           <p className="mb-1.5 text-xs uppercase tracking-wide text-slate-300">

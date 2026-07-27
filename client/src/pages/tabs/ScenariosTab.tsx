@@ -107,6 +107,7 @@ export function ScenariosTab({
                     <button
                       key={o.val}
                       onClick={() => updateSpilloverLevel(o.val)}
+                      aria-pressed={selected}
                       className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${selected ? "border-slate-800 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"}`}
                     >
                       <div className="font-semibold">{o.label}</div>
@@ -171,6 +172,7 @@ export function ScenariosTab({
                     <button
                       key={o.val}
                       onClick={() => updateBanContinues(o.val)}
+                      aria-pressed={selected}
                       className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${selected ? "border-slate-800 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"}`}
                     >
                       <div className="font-semibold">{o.label}</div>
@@ -235,6 +237,7 @@ export function ScenariosTab({
                     <button
                       key={o.val}
                       onClick={() => updateWastageLevel(o.val)}
+                      aria-pressed={selected}
                       className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${selected ? "border-slate-800 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"}`}
                     >
                       <div className="font-semibold">{o.label}</div>

@@ -57,11 +57,11 @@ export function InsightTiles({
               Key Risk
             </p>
             <p className="text-sm font-bold text-slate-900">
-              Retrogression possible
+              Retrogression / U risk
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              {CURRENT_BULLETIN.month} bulletin notes that retrogression may be
-              necessary later in the fiscal year.
+              {CURRENT_BULLETIN.month} bulletin notes that retrogression or
+              unavailable status may be needed to stay within FY2026 limits.
             </p>
           </div>
         </div>

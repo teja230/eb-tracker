@@ -9,8 +9,14 @@ import {
   I485_INDIA_PENDING,
   SCENARIOS,
   TRACKER_SOURCE_LINKS,
+  type CutoffStatus,
   type TrackerCategoryKey,
 } from "@/data/trackerData";
+import {
+  cutoffDateLabel,
+  rowCutoffMovement,
+  rowCutoffStatus,
+} from "@/lib/bulletinStatus";
 import {
   backtestForecast,
   buildDemandCurve,
@@ -22,10 +28,8 @@ import {
 } from "@/lib/forecast";
 import {
   fmtBulletinMonthLabel,
-  fmtDateStr,
   fmtDuration,
   monthsBetween,
-  movementLabel,
   parseBulletinMonth,
   parseDateStr,
   sumRecordValues,
@@ -45,6 +49,7 @@ import {
   bulletinUrl,
   clipHistoricalSeries,
   fmtProjectionDate,
+  fiscalYearRecoveryHoldMonths,
   getHistoricalPointInsight,
   historicalCategoryKeys,
   type BulletinDofKey,
@@ -74,7 +79,13 @@ export type UseForecastDataResult = {
   adjustedRates: Record<ScenarioKey, number>;
   fadKey: BulletinFadKey;
   dofKey: BulletinDofKey;
-  categoryBulletins: Array<{ month: string; fad: string; dof: string }>;
+  categoryBulletins: Array<{
+    month: string;
+    fad: string;
+    dof: string;
+    fadUnavailable: boolean;
+    dofUnavailable: boolean;
+  }>;
   demandInputs: {
     i485: Record<number, number>;
     i140: Record<number, number>;
@@ -113,7 +124,15 @@ export type UseForecastDataResult = {
     isTarget: boolean;
     isCurrent: boolean;
   }>;
-  currentCutoffs: Record<TrackerCategoryKey, { fad: string; dof: string }>;
+  currentCutoffs: Record<
+    TrackerCategoryKey,
+    {
+      fad: string;
+      dof: string;
+      fadStatus?: CutoffStatus;
+      dofStatus?: CutoffStatus;
+    }
+  >;
   trackerSourceLinks: SourceLink[];
   categoryComparisonRows: CategoryComparisonRow[];
   sensitivityRows: SensitivityRow[];
@@ -151,8 +170,12 @@ export function useForecastData({
         month: b.month,
         fad: b[fadKey] as string,
         dof: b[dofKey] as string,
+        fadUnavailable:
+          rowCutoffStatus(b, selectedCategory, "fad") === "unavailable",
+        dofUnavailable:
+          rowCutoffStatus(b, selectedCategory, "dof") === "unavailable",
       })),
-    [dofKey, fadKey]
+    [dofKey, fadKey, selectedCategory]
   );
 
   const demandInputs = useMemo(
@@ -175,6 +198,15 @@ export function useForecastData({
   const forecastStartMonthIndex = useMemo(
     () => (parseBulletinMonth(CURRENT_BULLETIN.month).getMonth() + 1) % 12,
     []
+  );
+  const currentFadUnavailable = cat.currentFADStatus === "unavailable";
+  const currentUnavailabilityHoldMonths = useMemo(
+    () =>
+      fiscalYearRecoveryHoldMonths(
+        forecastStartMonthIndex,
+        currentFadUnavailable
+      ),
+    [currentFadUnavailable, forecastStartMonthIndex]
   );
 
   const pendingInventoryTotal = useMemo(
@@ -210,6 +242,8 @@ export function useForecastData({
         today: TODAY,
         currentFad: cat.currentFAD,
         currentDof: cat.currentDoF,
+        currentFadUnavailable,
+        currentUnavailabilityHoldMonths,
         targetDate,
         baseFadRate: adjustedRates[key],
         gcLagMonths: cat.gcLagMonths,
@@ -295,6 +329,8 @@ export function useForecastData({
       today: TODAY.toISOString(),
       currentFad: cat.currentFAD,
       currentDof: cat.currentDoF,
+      currentFadUnavailable,
+      currentUnavailabilityHoldMonths,
       targetDate,
       gcLagMonths: cat.gcLagMonths,
       forecastStartMonthIndex,
@@ -309,6 +345,8 @@ export function useForecastData({
     adjustedRates,
     cat.currentDoF,
     cat.currentFAD,
+    currentFadUnavailable,
+    currentUnavailabilityHoldMonths,
     cat.gcLagMonths,
     deferredBan,
     deferredSpillover,
@@ -495,14 +533,19 @@ export function useForecastData({
     for (let i = 0; i < HISTORICAL_BULLETINS.length - 1; i++) {
       const current = HISTORICAL_BULLETINS[i];
       const previous = HISTORICAL_BULLETINS[i + 1];
-      const move = movementLabel(
-        previous[fadKey] as string,
-        current[fadKey] as string
+      const move = rowCutoffMovement(
+        previous,
+        current,
+        selectedCategory,
+        "fad"
       );
+      const isUnavailable =
+        rowCutoffStatus(current, selectedCategory, "fad") === "unavailable";
       monthlyMoves.push({
         month: current.month,
-        ...move,
-        months: Math.round((move.days / 30.44) * 10) / 10,
+        ...(move ?? { label: "—", type: "stable" as const, days: 0 }),
+        isUnavailable,
+        months: Math.round(((move?.days ?? 0) / 30.44) * 10) / 10,
       });
     }
 
@@ -517,15 +560,21 @@ export function useForecastData({
       ) / 10;
     const maxAdvanceDays = Math.max(...monthlyMoves.map(move => move.days), 0);
 
-    const headline =
-      latest.type === "stable"
+    const headline = latest.isUnavailable
+      ? `Unavailable in ${latest.month}`
+      : latest.type === "stable"
         ? `No change in ${latest.month}`
         : `${latest.days > 0 ? "+" : ""}${Math.round(latest.months)} mo in ${latest.month}`;
 
     const trailingSummary = `${trailingTotal > 0 ? "+" : ""}${trailingTotal} PD-months total across the last ${trailingMoves.length} moves.`;
 
     let detail = trailingSummary;
-    if (latest.type === "advancement" && latest.days === maxAdvanceDays) {
+    if (latest.isUnavailable) {
+      detail = `${cat.label} India FAD is unavailable in the latest bulletin. Forecasts hold FAD movement until the FY2027 recovery window before resuming simulations from the recovery anchor.`;
+    } else if (
+      latest.type === "advancement" &&
+      latest.days === maxAdvanceDays
+    ) {
       detail = `Largest single-month ${cat.label} India advancement in this tracker. ${trailingSummary}`;
     } else if (latest.type === "advancement") {
       detail = `Latest bulletin advanced by ${Math.abs(Math.round(latest.months))} PD-months. ${trailingSummary}`;
@@ -536,7 +585,7 @@ export function useForecastData({
     }
 
     return { headline, detail };
-  }, [cat.label, fadKey]);
+  }, [cat.label, selectedCategory]);
 
   const demandDensityData = useMemo(() => {
     const i485 = I485_INDIA_PENDING[selectedCategory] ?? {};
@@ -584,14 +633,20 @@ export function useForecastData({
       EB1: {
         fad: EB_CATEGORIES.EB1.currentFAD,
         dof: EB_CATEGORIES.EB1.currentDoF,
+        fadStatus: EB_CATEGORIES.EB1.currentFADStatus,
+        dofStatus: EB_CATEGORIES.EB1.currentDoFStatus,
       },
       EB2: {
         fad: EB_CATEGORIES.EB2.currentFAD,
         dof: EB_CATEGORIES.EB2.currentDoF,
+        fadStatus: EB_CATEGORIES.EB2.currentFADStatus,
+        dofStatus: EB_CATEGORIES.EB2.currentDoFStatus,
       },
       EB3: {
         fad: EB_CATEGORIES.EB3.currentFAD,
         dof: EB_CATEGORIES.EB3.currentDoF,
+        fadStatus: EB_CATEGORIES.EB3.currentFADStatus,
+        dofStatus: EB_CATEGORIES.EB3.currentDoFStatus,
       },
     }),
     []
@@ -610,6 +665,7 @@ export function useForecastData({
   );
 
   const categoryComparisonRows: CategoryComparisonRow[] = useMemo(() => {
+    const latestRow = HISTORICAL_BULLETINS[0];
     const prevRow = HISTORICAL_BULLETINS[1];
     const prevBulletinLabel = prevRow?.month ?? "prior";
 
@@ -617,18 +673,30 @@ export function useForecastData({
       category => {
         const comparisonCat = EB_CATEGORIES[category];
         const keys = historicalCategoryKeys(category);
+        const comparisonFadUnavailable =
+          comparisonCat.currentFADStatus === "unavailable";
+        const comparisonUnavailabilityHoldMonths = fiscalYearRecoveryHoldMonths(
+          forecastStartMonthIndex,
+          comparisonFadUnavailable
+        );
 
-        const fadMove = prevRow
-          ? movementLabel(prevRow[keys.fadKey], comparisonCat.currentFAD)
-          : { label: "—", type: "stable" as const, days: 0 };
-        const dofMove = prevRow
-          ? movementLabel(prevRow[keys.dofKey], comparisonCat.currentDoF)
-          : { label: "—", type: "stable" as const, days: 0 };
+        const fadMove =
+          prevRow && latestRow
+            ? rowCutoffMovement(prevRow, latestRow, category, "fad")
+            : null;
+        const dofMove =
+          prevRow && latestRow
+            ? rowCutoffMovement(prevRow, latestRow, category, "dof")
+            : null;
 
         const bulletins = [...HISTORICAL_BULLETINS].reverse().map(row => ({
           month: row.month,
           fad: row[keys.fadKey],
           dof: row[keys.dofKey],
+          fadUnavailable:
+            rowCutoffStatus(row, category, "fad") === "unavailable",
+          dofUnavailable:
+            rowCutoffStatus(row, category, "dof") === "unavailable",
         }));
         const context = createForecastContext({
           bulletins,
@@ -654,6 +722,8 @@ export function useForecastData({
           today: TODAY,
           currentFad: comparisonCat.currentFAD,
           currentDof: comparisonCat.currentDoF,
+          currentFadUnavailable: comparisonFadUnavailable,
+          currentUnavailabilityHoldMonths: comparisonUnavailabilityHoldMonths,
           targetDate,
           baseFadRate: rates.base,
           gcLagMonths: comparisonCat.gcLagMonths,
@@ -672,12 +742,22 @@ export function useForecastData({
           category,
           label: comparisonCat.label,
           name: comparisonCat.name,
-          currentFadLabel: fmtDateStr(comparisonCat.currentFAD),
-          currentDofLabel: fmtDateStr(comparisonCat.currentDoF),
+          currentFadLabel: cutoffDateLabel(
+            comparisonCat.currentFAD,
+            comparisonCat.currentFADStatus
+          ),
+          currentDofLabel: cutoffDateLabel(
+            comparisonCat.currentDoF,
+            comparisonCat.currentDoFStatus
+          ),
           fadMove,
           dofMove,
           prevBulletinLabel,
-          gapLabel: gap > 0 ? fmtDuration(gap) : "Current",
+          gapLabel: comparisonFadUnavailable
+            ? "Unavailable"
+            : gap > 0
+              ? fmtDuration(gap)
+              : "Current",
           fadEstLabel: projection.isAlreadyCurrent
             ? "Current"
             : fmtProjectionDate(
@@ -796,6 +876,8 @@ export function useForecastData({
           today: TODAY,
           currentFad: cat.currentFAD,
           currentDof: cat.currentDoF,
+          currentFadUnavailable,
+          currentUnavailabilityHoldMonths,
           targetDate,
           baseFadRate: rates.base,
           gcLagMonths: cat.gcLagMonths,
@@ -825,6 +907,8 @@ export function useForecastData({
     banContinues,
     cat.currentDoF,
     cat.currentFAD,
+    currentFadUnavailable,
+    currentUnavailabilityHoldMonths,
     cat.gcLagMonths,
     cat.rates,
     forecastContext,

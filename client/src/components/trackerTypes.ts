@@ -36,8 +36,8 @@ export type CategoryComparisonRow = {
   name: string;
   currentFadLabel: string;
   currentDofLabel: string;
-  fadMove: MovementInfo;
-  dofMove: MovementInfo;
+  fadMove: MovementInfo | null;
+  dofMove: MovementInfo | null;
   prevBulletinLabel: string;
   gapLabel: string;
   fadEstLabel: string; // base-case FAD estimate

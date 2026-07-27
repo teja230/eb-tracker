@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 
 import {
   ARCHIVED_BULLETIN_TRACKER_HISTORY,
@@ -12,88 +12,142 @@ import {
   SCENARIOS,
   TRACKER_SOURCE_LINKS,
   type HistoricalBulletinRow,
-} from './trackerData';
-import { areConsecutiveBulletinMonths, bulletinMonthDiffInMonths, parseBulletinMonth, parseDateStr } from '@/lib/trackerUtils';
+} from "./trackerData";
+import {
+  areConsecutiveBulletinMonths,
+  bulletinMonthDiffInMonths,
+  parseBulletinMonth,
+  parseDateStr,
+} from "@/lib/trackerUtils";
 
-const DATE_KEYS: Array<keyof HistoricalBulletinRow> = ['eb1_fad', 'eb1_dof', 'eb2_fad', 'eb2_dof', 'eb3_fad', 'eb3_dof'];
+const DATE_KEYS: Array<keyof HistoricalBulletinRow> = [
+  "eb1_fad",
+  "eb1_dof",
+  "eb2_fad",
+  "eb2_dof",
+  "eb3_fad",
+  "eb3_dof",
+];
 
 function expectDofNotBeforeFad(history: HistoricalBulletinRow[]) {
   history.forEach(row => {
-    expect(parseDateStr(row.eb1_dof).getTime()).toBeGreaterThanOrEqual(parseDateStr(row.eb1_fad).getTime());
-    expect(parseDateStr(row.eb2_dof).getTime()).toBeGreaterThanOrEqual(parseDateStr(row.eb2_fad).getTime());
-    expect(parseDateStr(row.eb3_dof).getTime()).toBeGreaterThanOrEqual(parseDateStr(row.eb3_fad).getTime());
+    expect(parseDateStr(row.eb1_dof).getTime()).toBeGreaterThanOrEqual(
+      parseDateStr(row.eb1_fad).getTime()
+    );
+    expect(parseDateStr(row.eb2_dof).getTime()).toBeGreaterThanOrEqual(
+      parseDateStr(row.eb2_fad).getTime()
+    );
+    expect(parseDateStr(row.eb3_dof).getTime()).toBeGreaterThanOrEqual(
+      parseDateStr(row.eb3_fad).getTime()
+    );
   });
 }
 
-describe('tracker bulletin data', () => {
-  it('keeps the model history aligned with CURRENT_BULLETIN', () => {
+describe("tracker bulletin data", () => {
+  it("keeps the model history aligned with CURRENT_BULLETIN", () => {
     expect(HISTORICAL_BULLETINS[0]).toEqual({
-      month: 'June 2026',
+      month: "August 2026",
       eb1_fad: CURRENT_BULLETIN.eb1.fad,
       eb1_dof: CURRENT_BULLETIN.eb1.dof,
       eb2_fad: CURRENT_BULLETIN.eb2.fad,
+      eb2_fad_status: CURRENT_BULLETIN.eb2.fadStatus,
       eb2_dof: CURRENT_BULLETIN.eb2.dof,
       eb3_fad: CURRENT_BULLETIN.eb3.fad,
       eb3_dof: CURRENT_BULLETIN.eb3.dof,
     });
+    expect(HISTORICAL_BULLETINS.slice(0, 3).map(row => row.month)).toEqual([
+      "August 2026",
+      "July 2026",
+      "June 2026",
+    ]);
   });
 
-  it('preserves a contiguous month-by-month model history for the forecast engine', () => {
+  it("preserves a contiguous month-by-month model history for the forecast engine", () => {
     for (let i = 0; i < HISTORICAL_BULLETINS.length - 1; i++) {
-      expect(bulletinMonthDiffInMonths(HISTORICAL_BULLETINS[i].month, HISTORICAL_BULLETINS[i + 1].month)).toBe(1);
+      expect(
+        bulletinMonthDiffInMonths(
+          HISTORICAL_BULLETINS[i].month,
+          HISTORICAL_BULLETINS[i + 1].month
+        )
+      ).toBe(1);
     }
   });
 
-  it('stores valid FAD/DoF ordering across both model and tracker archive histories', () => {
+  it("stores valid FAD/DoF ordering across both model and tracker archive histories", () => {
     expectDofNotBeforeFad(HISTORICAL_BULLETINS);
     expectDofNotBeforeFad(BULLETIN_TRACKER_HISTORY);
   });
 
-  it('adds a unique descending FY2020-FY2022 archive with full tracker continuity', () => {
+  it("adds a unique descending FY2020-FY2022 archive with full tracker continuity", () => {
     expect(ARCHIVED_BULLETIN_TRACKER_HISTORY).toHaveLength(36);
-    expect(ARCHIVED_BULLETIN_TRACKER_HISTORY[0].month).toBe('Sep 2022');
-    expect(ARCHIVED_BULLETIN_TRACKER_HISTORY[ARCHIVED_BULLETIN_TRACKER_HISTORY.length - 1].month).toBe('Oct 2019');
+    expect(ARCHIVED_BULLETIN_TRACKER_HISTORY[0].month).toBe("Sep 2022");
+    expect(
+      ARCHIVED_BULLETIN_TRACKER_HISTORY[
+        ARCHIVED_BULLETIN_TRACKER_HISTORY.length - 1
+      ].month
+    ).toBe("Oct 2019");
 
     const months = BULLETIN_TRACKER_HISTORY.map(row => row.month);
     expect(new Set(months).size).toBe(months.length);
 
     for (let i = 0; i < BULLETIN_TRACKER_HISTORY.length - 1; i++) {
-      expect(parseBulletinMonth(BULLETIN_TRACKER_HISTORY[i].month).getTime()).toBeGreaterThan(parseBulletinMonth(BULLETIN_TRACKER_HISTORY[i + 1].month).getTime());
-      expect(bulletinMonthDiffInMonths(BULLETIN_TRACKER_HISTORY[i].month, BULLETIN_TRACKER_HISTORY[i + 1].month)).toBe(1);
+      expect(
+        parseBulletinMonth(BULLETIN_TRACKER_HISTORY[i].month).getTime()
+      ).toBeGreaterThan(
+        parseBulletinMonth(BULLETIN_TRACKER_HISTORY[i + 1].month).getTime()
+      );
+      expect(
+        bulletinMonthDiffInMonths(
+          BULLETIN_TRACKER_HISTORY[i].month,
+          BULLETIN_TRACKER_HISTORY[i + 1].month
+        )
+      ).toBe(1);
     }
 
-    expect(areConsecutiveBulletinMonths('Oct 2022', 'Sep 2022')).toBe(true);
+    expect(areConsecutiveBulletinMonths("Oct 2022", "Sep 2022")).toBe(true);
   });
 
-  it('keeps the Current-to-date encoding for FY2021 EB-1 archive rows explicit', () => {
-    const mar2021 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(row => row.month === 'Mar 2021');
-    const apr2021 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(row => row.month === 'Apr 2021');
-    const sep2021 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(row => row.month === 'Sep 2021');
-    const oct2021 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(row => row.month === 'Oct 2021');
-    const sep2022 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(row => row.month === 'Sep 2022');
+  it("keeps the Current-to-date encoding for FY2021 EB-1 archive rows explicit", () => {
+    const mar2021 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(
+      row => row.month === "Mar 2021"
+    );
+    const apr2021 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(
+      row => row.month === "Apr 2021"
+    );
+    const sep2021 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(
+      row => row.month === "Sep 2021"
+    );
+    const oct2021 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(
+      row => row.month === "Oct 2021"
+    );
+    const sep2022 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(
+      row => row.month === "Sep 2022"
+    );
 
-    expect(mar2021?.eb1_dof).toBe('2021-03-01');
-    expect(apr2021?.eb1_fad).toBe('2021-04-01');
-    expect(apr2021?.eb1_dof).toBe('2021-04-01');
-    expect(sep2021?.eb1_fad).toBe('2021-09-01');
-    expect(sep2021?.eb1_dof).toBe('2021-09-01');
-    expect(oct2021?.eb1_fad).toBe('2021-10-01');
-    expect(oct2021?.eb1_dof).toBe('2021-10-01');
-    expect(sep2022?.eb1_fad).toBe('2022-09-01');
-    expect(sep2022?.eb1_dof).toBe('2022-09-01');
+    expect(mar2021?.eb1_dof).toBe("2021-03-01");
+    expect(apr2021?.eb1_fad).toBe("2021-04-01");
+    expect(apr2021?.eb1_dof).toBe("2021-04-01");
+    expect(sep2021?.eb1_fad).toBe("2021-09-01");
+    expect(sep2021?.eb1_dof).toBe("2021-09-01");
+    expect(oct2021?.eb1_fad).toBe("2021-10-01");
+    expect(oct2021?.eb1_dof).toBe("2021-10-01");
+    expect(sep2022?.eb1_fad).toBe("2022-09-01");
+    expect(sep2022?.eb1_dof).toBe("2022-09-01");
   });
 
-  it('keeps corrected historical spot-check rows aligned with official DOS bulletins', () => {
-    const apr2023 = HISTORICAL_BULLETINS.find(row => row.month === 'Apr 2023');
-    const jul2023 = HISTORICAL_BULLETINS.find(row => row.month === 'Jul 2023');
-    const jun2022 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(row => row.month === 'Jun 2022');
+  it("keeps corrected historical spot-check rows aligned with official DOS bulletins", () => {
+    const apr2023 = HISTORICAL_BULLETINS.find(row => row.month === "Apr 2023");
+    const jul2023 = HISTORICAL_BULLETINS.find(row => row.month === "Jul 2023");
+    const jun2022 = ARCHIVED_BULLETIN_TRACKER_HISTORY.find(
+      row => row.month === "Jun 2022"
+    );
 
-    expect(apr2023?.eb1_fad).toBe('2022-02-01');
-    expect(jul2023?.eb1_fad).toBe('2022-02-01');
-    expect(jun2022?.eb2_fad).toBe('2014-09-01');
+    expect(apr2023?.eb1_fad).toBe("2022-02-01");
+    expect(jul2023?.eb1_fad).toBe("2022-02-01");
+    expect(jun2022?.eb2_fad).toBe("2014-09-01");
   });
 
-  it('keeps every stored cutoff string in ISO date format', () => {
+  it("keeps every stored cutoff string in ISO date format", () => {
     const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
     BULLETIN_TRACKER_HISTORY.forEach(row => {
@@ -103,29 +157,34 @@ describe('tracker bulletin data', () => {
     });
   });
 
-  it('keeps category metadata aligned with current bulletin values', () => {
+  it("keeps category metadata aligned with current bulletin values", () => {
     expect(EB_CATEGORIES.EB1.currentFAD).toBe(CURRENT_BULLETIN.eb1.fad);
     expect(EB_CATEGORIES.EB1.currentDoF).toBe(CURRENT_BULLETIN.eb1.dof);
     expect(EB_CATEGORIES.EB2.currentFAD).toBe(CURRENT_BULLETIN.eb2.fad);
     expect(EB_CATEGORIES.EB2.currentDoF).toBe(CURRENT_BULLETIN.eb2.dof);
+    expect(EB_CATEGORIES.EB2.currentFADStatus).toBe("unavailable");
     expect(EB_CATEGORIES.EB3.currentFAD).toBe(CURRENT_BULLETIN.eb3.fad);
     expect(EB_CATEGORIES.EB3.currentDoF).toBe(CURRENT_BULLETIN.eb3.dof);
   });
 
-  it('keeps demand inputs positive with at least one I-485/I-140 overlap per category', () => {
-    (Object.keys(EB_CATEGORIES) as Array<keyof typeof EB_CATEGORIES>).forEach(category => {
-      const i485 = I485_INDIA_PENDING[category];
-      const i140 = I140_INDIA_APPROVALS[category];
+  it("keeps demand inputs positive with at least one I-485/I-140 overlap per category", () => {
+    (Object.keys(EB_CATEGORIES) as Array<keyof typeof EB_CATEGORIES>).forEach(
+      category => {
+        const i485 = I485_INDIA_PENDING[category];
+        const i140 = I140_INDIA_APPROVALS[category];
 
-      expect(Object.values(i485).every(value => value > 0)).toBe(true);
-      expect(Object.values(i140).every(value => value > 0)).toBe(true);
+        expect(Object.values(i485).every(value => value > 0)).toBe(true);
+        expect(Object.values(i140).every(value => value > 0)).toBe(true);
 
-      const overlapYears = Object.keys(i485).filter(year => i140[Number(year)] !== undefined);
-      expect(overlapYears.length).toBeGreaterThan(0);
-    });
+        const overlapYears = Object.keys(i485).filter(
+          year => i140[Number(year)] !== undefined
+        );
+        expect(overlapYears.length).toBeGreaterThan(0);
+      }
+    );
   });
 
-  it('keeps scenario metadata and source metadata populated for public trust surfaces', () => {
+  it("keeps scenario metadata and source metadata populated for public trust surfaces", () => {
     Object.values(SCENARIOS).forEach(scenario => {
       expect(scenario.label).toBeTruthy();
       expect(scenario.probability).toMatch(/\d/);

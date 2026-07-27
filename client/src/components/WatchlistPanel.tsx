@@ -3,7 +3,7 @@ import type { ChangeEvent } from "react";
 
 import { Bell, BookmarkPlus, Download, Trash2, Upload } from "lucide-react";
 
-import type { TrackerCategoryKey } from "@/data/trackerData";
+import type { CutoffStatus, TrackerCategoryKey } from "@/data/trackerData";
 import { Card } from "@/components/ui/card";
 import type { ForecastProjection } from "@/lib/forecast";
 import { fmtDate, fmtDateStr, parseDateStr } from "@/lib/trackerUtils";
@@ -84,7 +84,15 @@ export function WatchlistPanel({
   targetDate: string;
   assumptionsSummary: string;
   projection: ForecastProjection;
-  currentCutoffs: Record<TrackerCategoryKey, { fad: string; dof: string }>;
+  currentCutoffs: Record<
+    TrackerCategoryKey,
+    {
+      fad: string;
+      dof: string;
+      fadStatus?: CutoffStatus;
+      dofStatus?: CutoffStatus;
+    }
+  >;
   shareUrl: string;
 }) {
   const [items, setItems] = useState<WatchItem[]>([]);
@@ -154,13 +162,19 @@ export function WatchlistPanel({
 
   const statusFor = (item: WatchItem) => {
     const cutoffs = currentCutoffs[item.category];
-    if (isOnOrPast(cutoffs.fad, item.targetDate))
+    if (
+      cutoffs.fadStatus !== "unavailable" &&
+      isOnOrPast(cutoffs.fad, item.targetDate)
+    )
       return {
         label: "Current",
         tone: "emerald",
         detail: "FAD has reached this priority date.",
       };
-    if (isOnOrPast(cutoffs.dof, item.targetDate))
+    if (
+      cutoffs.dofStatus !== "unavailable" &&
+      isOnOrPast(cutoffs.dof, item.targetDate)
+    )
       return {
         label: "Fileable",
         tone: "blue",

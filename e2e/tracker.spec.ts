@@ -40,8 +40,13 @@ test.describe("EB Tracker — core flows", () => {
     await eb3Button.click();
     await expect(eb3Button).toHaveAttribute("aria-pressed", "true");
 
-    // Content should update — "EB-3" should appear in the overview
-    await expect(page.getByText(/EB-3/i).first()).toBeVisible();
+    // Content should update — "EB-3" should appear in the visible overview.
+    await expect(
+      page
+        .locator("main")
+        .getByText(/EB-3 India/i)
+        .first()
+    ).toBeVisible();
   });
 
   test("tab navigation works", async ({ page }) => {

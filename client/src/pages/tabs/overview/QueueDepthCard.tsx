@@ -116,7 +116,8 @@ export function QueueDepthCard({
               strokeDasharray="4 2"
               strokeWidth={1.5}
               label={{
-                value: "FAD",
+                value:
+                  cat.currentFADStatus === "unavailable" ? "FAD anchor" : "FAD",
                 position: "top",
                 fill: "#10b981",
                 fontSize: 9,
