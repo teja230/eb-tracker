@@ -24,8 +24,8 @@ export type HistoricalBulletinRow = {
   eb3_dof_status?: CutoffStatus;
 };
 
-// August 2026 Visa Bulletin data (most recent)
-// EB-2 India is "U" in July/August 2026; the stored FAD remains a FY2027
+// September 2026 Visa Bulletin data (most recent)
+// EB-2 India is "U" in July–September 2026; the stored FAD remains a FY2027
 // recovery anchor from the May 2026 bulletin so forecast math stays parseable.
 export const CURRENT_BULLETIN: {
   month: string;
@@ -33,7 +33,7 @@ export const CURRENT_BULLETIN: {
   eb2: CurrentBulletinCategory;
   eb3: CurrentBulletinCategory;
 } = {
-  month: "August 2026",
+  month: "September 2026",
   eb1: { fad: "2022-10-15", dof: "2023-12-01" },
   eb2: { fad: "2014-07-15", dof: "2015-01-15", fadStatus: "unavailable" },
   eb3: { fad: "2014-01-01", dof: "2015-01-15" },
@@ -41,11 +41,11 @@ export const CURRENT_BULLETIN: {
 
 export const DATA_FRESHNESS = {
   modelVersion: "v9",
-  lastVerified: "July 27, 2026",
-  currentBulletinPublished: "July 15, 2026",
-  nextExpectedUpdate: "mid-August 2026",
+  lastVerified: "August 25, 2026",
+  currentBulletinPublished: "August 10, 2026",
+  nextExpectedUpdate: "mid-September 2026",
   adjustmentChartNote:
-    "Verify USCIS chart selection before filing I-485; EB-2 India is unavailable in the August DOS bulletin.",
+    "Verify USCIS chart selection before filing I-485; EB-2 India is unavailable in the September DOS bulletin.",
 };
 
 export const TRACKER_SOURCE_LINKS = [
@@ -175,7 +175,7 @@ export const EB_CATEGORIES = {
     currentFADStatus: CURRENT_BULLETIN.eb1.fadStatus ?? "available",
     currentDoFStatus: CURRENT_BULLETIN.eb1.dofStatus ?? "available",
     notes:
-      "EB-1 India has ~14.3k pending I-485s. August FAD is Oct 15, 2022 after July retrogression; DOS warns EB-1 India may become unavailable before FY2026 closes. Massive spike at PD-2022 (10,953 cases).",
+      "EB-1 India has ~14.3k pending I-485s. September FAD remains Oct 15, 2022 after July retrogression; DOS warns EB-1 India may become unavailable before FY2026 closes. Massive spike at PD-2022 (10,953 cases).",
   },
   EB2: {
     label: "EB-2",
@@ -195,7 +195,7 @@ export const EB_CATEGORIES = {
     currentFADStatus: CURRENT_BULLETIN.eb2.fadStatus ?? "available",
     currentDoFStatus: CURRENT_BULLETIN.eb2.dofStatus ?? "available",
     notes:
-      "EB-2 India is unavailable in the July and August DOS bulletins after FY2026 demand exhaustion. The model keeps May 2026 FAD (Jul 15, 2014) as the FY2027 recovery anchor while displaying the live FAD as Unavailable.",
+      "EB-2 India is unavailable in the July through September DOS bulletins after FY2026 demand exhaustion. The model keeps May 2026 FAD (Jul 15, 2014) as the FY2027 recovery anchor while displaying the live FAD as Unavailable.",
   },
   EB3: {
     label: "EB-3",
@@ -215,7 +215,7 @@ export const EB_CATEGORIES = {
     currentFADStatus: CURRENT_BULLETIN.eb3.fadStatus ?? "available",
     currentDoFStatus: CURRENT_BULLETIN.eb3.dofStatus ?? "available",
     notes:
-      "EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014. August FAD is Jan 1, 2014 while DoF remains Jan 15, 2015.",
+      "EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014. September FAD is Jan 1, 2014 while DoF remains Jan 15, 2015.",
   },
 };
 
@@ -259,9 +259,19 @@ export const SCENARIOS = {
 };
 
 // Forecast-model history (most recent first)
-// ALL values verified against official travel.state.gov bulletins (Oct 2022 – August 2026)
+// ALL values verified against official travel.state.gov bulletins (Oct 2022 – September 2026)
 // EB-1 India "C" (Current) in Oct–Dec 2022 represented using bulletin month date.
 export const HISTORICAL_BULLETINS: HistoricalBulletinRow[] = [
+  {
+    month: "September 2026",
+    eb1_fad: "2022-10-15",
+    eb1_dof: "2023-12-01",
+    eb2_fad: "2014-07-15",
+    eb2_fad_status: "unavailable",
+    eb2_dof: "2015-01-15",
+    eb3_fad: "2014-01-01",
+    eb3_dof: "2015-01-15",
+  },
   {
     month: "August 2026",
     eb1_fad: "2022-10-15",
