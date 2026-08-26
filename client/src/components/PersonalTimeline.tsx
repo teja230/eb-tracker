@@ -1,6 +1,8 @@
+// Design: turn a user’s date into four calm, action-oriented milestones.
 import { CheckCircle2, ListChecks } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import type { CutoffStatus } from "@/data/trackerData";
 import type { ForecastProjection } from "@/lib/forecast";
 import {
   fmtDate,
@@ -25,17 +27,23 @@ export function PersonalTimeline({
   categoryLabel,
   targetDate,
   currentFad,
+  currentFadStatus = "available",
   currentDof,
+  currentDofStatus = "available",
   projection,
   gcLagMonths,
 }: {
   categoryLabel: string;
   targetDate: string;
   currentFad: string;
+  currentFadStatus?: CutoffStatus;
   currentDof: string;
+  currentDofStatus?: CutoffStatus;
   projection: ForecastProjection;
   gcLagMonths: number;
 }) {
+  const dofUnavailable = currentDofStatus === "unavailable";
+  const fadUnavailable = currentFadStatus === "unavailable";
   const steps = [
     {
       label: "Priority date set",
@@ -45,26 +53,33 @@ export function PersonalTimeline({
     },
     {
       label: "DoF reaches your PD",
-      date: isOnOrPast(currentDof, targetDate)
+      date: dofUnavailable
+        ? "Unavailable now"
+        : isOnOrPast(currentDof, targetDate)
         ? "Already fileable"
         : projectionDateLabel(
             projection.dofDate,
             projection.horizon.dofP50Capped
           ),
-      done: isOnOrPast(currentDof, targetDate),
-      detail:
-        "Earliest filing chart milestone, subject to USCIS chart selection.",
+      done: !dofUnavailable && isOnOrPast(currentDof, targetDate),
+      detail: dofUnavailable
+        ? "The filing chart is unavailable in the current bulletin; revisit the official guidance with the next update."
+        : "Earliest filing chart milestone, subject to USCIS chart selection.",
     },
     {
       label: "FAD reaches your PD",
-      date: isOnOrPast(currentFad, targetDate)
+      date: fadUnavailable
+        ? "Unavailable now"
+        : isOnOrPast(currentFad, targetDate)
         ? "Already current"
         : projectionDateLabel(
             projection.fadDate,
             projection.horizon.fadP50Capped
           ),
-      done: isOnOrPast(currentFad, targetDate),
-      detail: "Visa availability milestone used by the estimate.",
+      done: !fadUnavailable && isOnOrPast(currentFad, targetDate),
+      detail: fadUnavailable
+        ? "No visa numbers are currently available in this category. The forecast resumes only after availability returns."
+        : "Visa availability milestone used by the estimate.",
     },
     {
       label: "Green card receipt estimate",

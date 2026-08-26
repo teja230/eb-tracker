@@ -1,7 +1,9 @@
+// Design: layer personal next steps beneath the high-confidence projection, then supporting analysis.
 import type { Dispatch, SetStateAction } from "react";
 
 import {
   CategoryComparison,
+  PersonalTimeline,
   WatchlistPanel,
 } from "@/components/TrackerEnhancements";
 import { CURRENT_BULLETIN, type TrackerCategoryKey } from "@/data/trackerData";
@@ -114,6 +116,16 @@ export function OverviewTab({
         overviewAssumptionSummary={overviewAssumptionSummary}
         onCompare={onCompareDate}
         onAdjustAssumptions={onAdjustAssumptions}
+      />
+      <PersonalTimeline
+        categoryLabel={cat.label}
+        targetDate={targetDate}
+        currentFad={cat.currentFAD}
+        currentFadStatus={cat.currentFADStatus}
+        currentDof={cat.currentDoF}
+        currentDofStatus={cat.currentDoFStatus}
+        projection={overviewProjection}
+        gcLagMonths={cat.gcLagMonths}
       />
       <CategoryComparison
         rows={categoryComparisonRows}

@@ -1,6 +1,7 @@
+// Design: keep official-source provenance compact while making filing context visible.
 import { Fragment } from "react";
 
-import { Database, ExternalLink } from "lucide-react";
+import { Database, ExternalLink, Info } from "lucide-react";
 
 import type { SourceLink } from "./trackerTypes";
 
@@ -11,6 +12,9 @@ export function DataFreshnessPanel({
   lastVerified,
   currentBulletinPublished,
   nextExpectedUpdate,
+  adjustmentChartNote,
+  modelHistoryCount,
+  trackerHistoryCount,
   sourceLinks,
 }: {
   currentMonth: string;
@@ -42,7 +46,19 @@ export function DataFreshnessPanel({
         <span>Model {modelVersion}</span>
       </div>
 
-      {/* Row 2: links */}
+      {/* Row 2: filing context and data coverage */}
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-slate-200/80 pt-1.5 text-slate-600">
+        <Info className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+        <span className="font-medium text-slate-700">Filing reminder</span>
+        {dot}
+        <span>{adjustmentChartNote}</span>
+        {dot}
+        <span>
+          {modelHistoryCount} model months · {trackerHistoryCount} tracked bulletins
+        </span>
+      </div>
+
+      {/* Row 3: links */}
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
         <a
           href={currentBulletinUrl}

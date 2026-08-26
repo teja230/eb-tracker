@@ -1,3 +1,4 @@
+// Design: a civic-data dashboard foregrounds the current bulletin status before forecast detail.
 import {
   useState,
   useCallback,
@@ -507,12 +508,28 @@ export default function Home() {
       >
         <h1 className="sr-only">EB India Priority Date Tracker and Forecast</h1>
         {activeTab !== "compare" && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+          <div
+            className={`overflow-hidden rounded-lg border shadow-sm ${
+              currentFadUnavailable
+                ? "border-amber-300 shadow-amber-950/[0.04]"
+                : "border-slate-300"
+            }`}
+          >
             <div className="flex flex-col md:flex-row md:items-stretch">
               <div className="flex-1 px-5 py-4">
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Your Priority Date
-                </label>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    Your Priority Date
+                  </label>
+                  <span className="border-l border-slate-300 pl-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                    {CURRENT_BULLETIN.month} bulletin
+                  </span>
+                  {currentFadUnavailable && (
+                    <span className="rounded-sm border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-800">
+                      FAD unavailable
+                    </span>
+                  )}
+                </div>
                 <PriorityDatePicker
                   value={targetDate}
                   onChange={handleDateChange}
@@ -522,7 +539,13 @@ export default function Home() {
                 </p>
               </div>
               <div
-                className={`grid grid-cols-3 md:flex md:items-stretch md:divide-x divide-slate-200 border-t md:border-t-0 md:border-l transition-all duration-300 ${dateFlash ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-slate-50"}`}
+                className={`grid grid-cols-3 md:flex md:items-stretch md:divide-x border-t md:border-t-0 md:border-l transition-all duration-300 ${
+                  currentFadUnavailable
+                    ? "divide-amber-200 border-amber-200 bg-amber-50/70"
+                    : dateFlash
+                      ? "divide-blue-200 border-blue-300 bg-blue-50"
+                      : "divide-slate-200 border-slate-200 bg-slate-50"
+                }`}
               >
                 {[
                   {
@@ -564,7 +587,14 @@ export default function Home() {
                         i
                       </span>
                     </p>
-                    <p className="font-mono font-bold text-slate-800 text-sm md:text-sm whitespace-nowrap">
+                    <p
+                      className={`font-mono text-sm font-bold whitespace-nowrap md:text-sm ${
+                        currentFadUnavailable &&
+                        (label === "Current FAD" || label === "Gap")
+                          ? "text-amber-800"
+                          : "text-slate-800"
+                      }`}
+                    >
                       {value}
                     </p>
                   </div>

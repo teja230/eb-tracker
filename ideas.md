@@ -99,3 +99,9 @@ The civic tech / policy dashboard approach best serves this content. It communic
 **Chosen palette**: Slate blue primary, teal for positive, amber for caution, red for retrogression
 **Chosen fonts**: DM Sans + DM Mono
 **Layout**: Sticky header with current status → KPI cards → interactive timeline → scenario projections → methodology
+
+## Style Decisions
+
+- Use flatter, slate-framed record cards and disciplined section rules to emphasize an official civic-data surface rather than a generic SaaS dashboard.
+- Give the current bulletin status first-read priority; reserve teal for positive movement, amber for uncertainty or unavailable states, and red for retrogression or material risk.
+- Treat charts as the evidence layer with strong axes, explicit user-priority-date annotations, and compact source-linked controls.

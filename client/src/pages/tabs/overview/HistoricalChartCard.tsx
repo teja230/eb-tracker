@@ -1,3 +1,4 @@
+// Design: present historical movement as an official evidence record, not a decorative SaaS chart.
 import type { Dispatch, SetStateAction } from "react";
 
 import { Card } from "@/components/ui/card";
@@ -86,8 +87,8 @@ export function HistoricalChartCard({
   targetDate,
 }: HistoricalChartCardProps) {
   return (
-    <Card className="overflow-hidden gap-0 border-slate-200 bg-white p-0 shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-slate-200/80 px-5 py-4 md:flex-row md:items-start md:justify-between md:px-6">
+    <Card className="overflow-hidden gap-0 rounded-lg border-slate-300 bg-white p-0 shadow-none">
+      <div className="flex flex-col gap-3 border-b border-slate-300 border-l-4 border-l-slate-700 px-5 py-4 md:flex-row md:items-start md:justify-between md:px-6">
         <div>
           <h3 className="text-sm font-semibold text-slate-900 md:text-base">
             {cat.label} India priority date movement
@@ -108,15 +109,15 @@ export function HistoricalChartCard({
         </div>
 
         <div className="flex flex-wrap gap-2 md:justify-end">
-          <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
+          <span className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700">
             <span className="inline-block h-0.5 w-5 rounded-full bg-blue-700" />
             Final Action Date
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
+          <span className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700">
             <span className="inline-block w-5 border-b-2 border-dashed border-cyan-500" />
             Dates for Filing
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
+          <span className="inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-900">
             <span className="inline-block w-5 border-b-2 border-dashed border-amber-500" />
             PD {fmtCompactMonthYear(targetDate)}
           </span>
@@ -131,7 +132,7 @@ export function HistoricalChartCard({
       </div>
 
       <div className="p-3 md:p-4">
-        <div className="mb-3 flex flex-col gap-2 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 md:flex-row md:items-center md:justify-between">
+        <div className="mb-3 flex flex-col gap-2 rounded-lg border border-slate-300 bg-slate-50 p-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
               History Range
@@ -184,7 +185,7 @@ export function HistoricalChartCard({
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200/80 bg-white p-2 md:p-3">
+        <div className="rounded-lg border border-slate-300 bg-white p-2 md:p-3">
           <div
             className="h-[330px] md:h-[390px]"
             role="img"
@@ -228,7 +229,7 @@ export function HistoricalChartCard({
                     <stop offset="100%" stopColor="#1e3a8a" stopOpacity={1} />
                   </linearGradient>
                   <linearGradient id="fadAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.18} />
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.24} />
                     <stop
                       offset="100%"
                       stopColor="#3b82f6"
@@ -239,8 +240,8 @@ export function HistoricalChartCard({
 
                 <CartesianGrid
                   vertical={false}
-                  stroke="#e2e8f0"
-                  strokeDasharray="4 4"
+                  stroke="#cbd5e1"
+                  strokeDasharray="3 4"
                 />
 
                 {accelZone && (
@@ -311,6 +312,13 @@ export function HistoricalChartCard({
                   strokeDasharray="6 5"
                   strokeWidth={isMobile ? 1.25 : 1.5}
                   strokeOpacity={0.85}
+                  label={{
+                    value: "Your PD",
+                    position: "insideTopRight",
+                    fill: "#b45309",
+                    fontSize: 11,
+                    fontWeight: 700,
+                  }}
                 />
 
                 <Area
@@ -348,7 +356,7 @@ export function HistoricalChartCard({
                   dataKey="dof"
                   name="dof"
                   stroke="#06b6d4"
-                  strokeWidth={2.25}
+                  strokeWidth={2.5}
                   strokeDasharray="7 5"
                   strokeOpacity={0.92}
                   dot={false}
@@ -365,7 +373,7 @@ export function HistoricalChartCard({
                   dataKey="fad"
                   name="fad"
                   stroke="url(#fadGrad)"
-                  strokeWidth={3}
+                  strokeWidth={3.25}
                   dot={({ cx, cy, index }: any) => {
                     if (index !== historicalChartData.length - 1)
                       return <g key={index} />;
