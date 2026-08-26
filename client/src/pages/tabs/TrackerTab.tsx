@@ -1,9 +1,11 @@
+// Design: lead the detailed tables with a source-backed, plain-language monthly briefing.
 import type { RefObject } from "react";
 
 import {
   BulletinTable,
   TrackerPaceSummary,
 } from "@/components/BulletinTrackerTables";
+import { BulletinBriefing } from "@/components/BulletinBriefing";
 import { DataFreshnessPanel } from "@/components/TrackerEnhancements";
 import {
   BULLETIN_TRACKER_HISTORY,
@@ -49,6 +51,13 @@ export function TrackerTab({
         category={selectedCategory}
         categoryLabel={cat.label}
         rows={HISTORICAL_BULLETINS}
+      />
+
+      <BulletinBriefing
+        category={selectedCategory}
+        categoryLabel={cat.label}
+        rows={HISTORICAL_BULLETINS}
+        bulletinUrl={bulletinUrl(CURRENT_BULLETIN.month)}
       />
 
       <BulletinTable

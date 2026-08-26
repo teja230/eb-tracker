@@ -58,7 +58,12 @@ export default function Home() {
   const isMobile = useIsMobile();
   const { theme, toggleTheme } = useTheme();
   const [isForecastPending, startForecastTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    return ["overview", "scenarios", "tracker", "compare"].includes(tab ?? "")
+      ? tab!
+      : "overview";
+  });
   const [selectedCategory, setSelectedCategory] =
     useState<TrackerCategoryKey>("EB2");
   const [targetDate, setTargetDate] = useState("2016-08-01");

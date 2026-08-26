@@ -18,3 +18,10 @@
 - [x] Select static-compatible features that add new user value without duplication.
 - [x] Implement the selected features and their tests.
 - [x] Validate the updated site on desktop and mobile, then save a checkpoint.
+
+## Monthly briefing
+
+- [x] Review current and prior bulletin movement data for selected categories.
+- [x] Add a concise, status-aware “What changed this month?” briefing section.
+- [x] Test the briefing across standard and unavailable-cutoff states.
+- [x] Validate desktop/mobile presentation and save a checkpoint.
