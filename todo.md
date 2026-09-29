@@ -25,3 +25,12 @@
 - [x] Add a concise, status-aware “What changed this month?” briefing section.
 - [x] Test the briefing across standard and unavailable-cutoff states.
 - [x] Validate desktop/mobile presentation and save a checkpoint.
+
+## October 2026 bulletin update
+
+- [x] Verify October 2026 Visa Bulletin values from the official U.S. Department of State source.
+- [x] Inspect current tracker data, briefing, projections, and tests before editing.
+- [x] Archive September 2026 and set October 2026 as the current bulletin without overwriting upstream changes.
+- [x] Refresh category notes, briefing context, forecast assumptions, and validation tests using verified data.
+- [x] Run typecheck, unit tests, build, and production preview checks.
+- [ ] Save a project checkpoint and confirm the deployed tracker reflects October 2026.

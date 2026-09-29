@@ -170,7 +170,7 @@ describe("forecast engine", () => {
     expect(result.fadMonths.p50).toBeGreaterThanOrEqual(2);
   });
 
-  it("uses current-bulletin unavailability as a near-term hold, not repeated backward movement", () => {
+  it("supports an explicit unavailable bulletin as a near-term hold, not repeated backward movement", () => {
     const category = EB_CATEGORIES.EB2;
     const bulletins = [...HISTORICAL_BULLETINS].reverse().map(row => ({
       month: row.month,
@@ -191,7 +191,7 @@ describe("forecast engine", () => {
       today: new Date(2026, 5, 1),
       currentFad: category.currentFAD,
       currentDof: category.currentDoF,
-      currentFadUnavailable: category.currentFADStatus === "unavailable",
+      currentFadUnavailable: true,
       currentUnavailabilityHoldMonths: 1,
       targetDate: "2016-08-01",
       baseFadRate: category.rates.base,
@@ -199,7 +199,7 @@ describe("forecast engine", () => {
       seasonalityStartMonth: 6,
       paths: 120,
       maxMonths: 240,
-      seed: "august-2026-eb2-unavailable",
+      seed: "explicit-eb2-unavailable",
     });
 
     expect(result.isAlreadyCurrent).toBe(false);

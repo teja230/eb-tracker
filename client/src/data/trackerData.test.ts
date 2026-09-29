@@ -46,16 +46,16 @@ function expectDofNotBeforeFad(history: HistoricalBulletinRow[]) {
 describe("tracker bulletin data", () => {
   it("keeps the model history aligned with CURRENT_BULLETIN", () => {
     expect(HISTORICAL_BULLETINS[0]).toEqual({
-      month: "September 2026",
+      month: "October 2026",
       eb1_fad: CURRENT_BULLETIN.eb1.fad,
       eb1_dof: CURRENT_BULLETIN.eb1.dof,
       eb2_fad: CURRENT_BULLETIN.eb2.fad,
-      eb2_fad_status: CURRENT_BULLETIN.eb2.fadStatus,
       eb2_dof: CURRENT_BULLETIN.eb2.dof,
       eb3_fad: CURRENT_BULLETIN.eb3.fad,
       eb3_dof: CURRENT_BULLETIN.eb3.dof,
     });
-    expect(HISTORICAL_BULLETINS.slice(0, 3).map(row => row.month)).toEqual([
+    expect(HISTORICAL_BULLETINS.slice(0, 4).map(row => row.month)).toEqual([
+      "October 2026",
       "September 2026",
       "August 2026",
       "July 2026",
@@ -162,7 +162,7 @@ describe("tracker bulletin data", () => {
     expect(EB_CATEGORIES.EB1.currentDoF).toBe(CURRENT_BULLETIN.eb1.dof);
     expect(EB_CATEGORIES.EB2.currentFAD).toBe(CURRENT_BULLETIN.eb2.fad);
     expect(EB_CATEGORIES.EB2.currentDoF).toBe(CURRENT_BULLETIN.eb2.dof);
-    expect(EB_CATEGORIES.EB2.currentFADStatus).toBe("unavailable");
+    expect(EB_CATEGORIES.EB2.currentFADStatus).toBe("available");
     expect(EB_CATEGORIES.EB3.currentFAD).toBe(CURRENT_BULLETIN.eb3.fad);
     expect(EB_CATEGORIES.EB3.currentDoF).toBe(CURRENT_BULLETIN.eb3.dof);
   });

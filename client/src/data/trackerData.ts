@@ -24,28 +24,28 @@ export type HistoricalBulletinRow = {
   eb3_dof_status?: CutoffStatus;
 };
 
-// September 2026 Visa Bulletin data (most recent)
-// EB-2 India is "U" in July–September 2026; the stored FAD remains a FY2027
-// recovery anchor from the May 2026 bulletin so forecast math stays parseable.
+// October 2026 Visa Bulletin data (most recent)
+// October marks the FY2027 reset: EB-2 India is available again after being
+// unavailable in the July–September 2026 bulletins.
 export const CURRENT_BULLETIN: {
   month: string;
   eb1: CurrentBulletinCategory;
   eb2: CurrentBulletinCategory;
   eb3: CurrentBulletinCategory;
 } = {
-  month: "September 2026",
-  eb1: { fad: "2022-10-15", dof: "2023-12-01" },
-  eb2: { fad: "2014-07-15", dof: "2015-01-15", fadStatus: "unavailable" },
+  month: "October 2026",
+  eb1: { fad: "2023-02-01", dof: "2024-07-01" },
+  eb2: { fad: "2013-11-01", dof: "2015-01-15" },
   eb3: { fad: "2014-01-01", dof: "2015-01-15" },
 };
 
 export const DATA_FRESHNESS = {
   modelVersion: "v9",
-  lastVerified: "August 25, 2026",
-  currentBulletinPublished: "August 10, 2026",
-  nextExpectedUpdate: "mid-September 2026",
+  lastVerified: "September 29, 2026",
+  currentBulletinPublished: "September 4, 2026",
+  nextExpectedUpdate: "mid-November 2026",
   adjustmentChartNote:
-    "Verify USCIS chart selection before filing I-485; EB-2 India is unavailable in the September DOS bulletin.",
+    "Verify USCIS chart selection before filing I-485; the October DOS bulletin provides the published Final Action and Dates for Filing cutoffs.",
 };
 
 export const TRACKER_SOURCE_LINKS = [
@@ -175,7 +175,7 @@ export const EB_CATEGORIES = {
     currentFADStatus: CURRENT_BULLETIN.eb1.fadStatus ?? "available",
     currentDoFStatus: CURRENT_BULLETIN.eb1.dofStatus ?? "available",
     notes:
-      "EB-1 India has ~14.3k pending I-485s. September FAD remains Oct 15, 2022 after July retrogression; DOS warns EB-1 India may become unavailable before FY2026 closes. Massive spike at PD-2022 (10,953 cases).",
+      "EB-1 India has ~14.3k pending I-485s. October FAD advances to Feb 1, 2023 as FY2027 numbers become available. Massive spike at PD-2022 (10,953 cases) remains the primary demand constraint.",
   },
   EB2: {
     label: "EB-2",
@@ -195,7 +195,7 @@ export const EB_CATEGORIES = {
     currentFADStatus: CURRENT_BULLETIN.eb2.fadStatus ?? "available",
     currentDoFStatus: CURRENT_BULLETIN.eb2.dofStatus ?? "available",
     notes:
-      "EB-2 India is unavailable in the July through September DOS bulletins after FY2026 demand exhaustion. The model keeps May 2026 FAD (Jul 15, 2014) as the FY2027 recovery anchor while displaying the live FAD as Unavailable.",
+      "EB-2 India is available again in October after the July–September unavailability. The FY2027 reset publishes a Nov 1, 2013 Final Action Date and Jan 15, 2015 Dates for Filing cutoff; forecast dates now use the live October FAD.",
   },
   EB3: {
     label: "EB-3",
@@ -215,7 +215,7 @@ export const EB_CATEGORIES = {
     currentFADStatus: CURRENT_BULLETIN.eb3.fadStatus ?? "available",
     currentDoFStatus: CURRENT_BULLETIN.eb3.dofStatus ?? "available",
     notes:
-      "EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014. September FAD is Jan 1, 2014 while DoF remains Jan 15, 2015.",
+      "EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014. October FAD holds at Jan 1, 2014 while DoF remains Jan 15, 2015.",
   },
 };
 
@@ -254,14 +254,23 @@ export const SCENARIOS = {
     tailwindColor: "red",
     spillover: "Stagnation / retrogression",
     description:
-      "DOS continues retrogression or keeps categories unavailable through the FY2026 close. Ban reversed, demand surge from pent-up I-485 filings. Pace drops below pre-FY2026 levels.",
+      "DOS continues retrogression or reopens unavailability during FY2027. Ban reversed, demand surge from pent-up I-485 filings. Pace drops below the pre-FY2026 baseline.",
   },
 };
 
 // Forecast-model history (most recent first)
-// ALL values verified against official travel.state.gov bulletins (Oct 2022 – September 2026)
+// ALL values verified against official travel.state.gov bulletins (Oct 2022 – October 2026)
 // EB-1 India "C" (Current) in Oct–Dec 2022 represented using bulletin month date.
 export const HISTORICAL_BULLETINS: HistoricalBulletinRow[] = [
+  {
+    month: "October 2026",
+    eb1_fad: "2023-02-01",
+    eb1_dof: "2024-07-01",
+    eb2_fad: "2013-11-01",
+    eb2_dof: "2015-01-15",
+    eb3_fad: "2014-01-01",
+    eb3_dof: "2015-01-15",
+  },
   {
     month: "September 2026",
     eb1_fad: "2022-10-15",
