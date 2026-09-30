@@ -33,4 +33,4 @@
 - [x] Archive September 2026 and set October 2026 as the current bulletin without overwriting upstream changes.
 - [x] Refresh category notes, briefing context, forecast assumptions, and validation tests using verified data.
 - [x] Run typecheck, unit tests, build, and production preview checks.
-- [ ] Save a project checkpoint and confirm the deployed tracker reflects October 2026.
+- [x] Save a project checkpoint and confirm the deployed tracker reflects October 2026.

@@ -6,6 +6,7 @@ import {
   EB_CATEGORIES,
   HISTORICAL_BULLETINS,
   I140_INDIA_APPROVALS,
+  I485_PERFORMANCE,
   I485_INDIA_PENDING,
   SCENARIOS,
   TRACKER_SOURCE_LINKS,
@@ -77,6 +78,7 @@ export type UseForecastDataParams = {
 
 export type UseForecastDataResult = {
   adjustedRates: Record<ScenarioKey, number>;
+  operationalGcLagMonths: number;
   fadKey: BulletinFadKey;
   dofKey: BulletinDofKey;
   categoryBulletins: Array<{
@@ -155,6 +157,10 @@ export function useForecastData({
   dofKey,
 }: UseForecastDataParams): UseForecastDataResult {
   const cat = EB_CATEGORIES[selectedCategory];
+  const operationalGcLagMonths = Math.max(
+    cat.gcLagMonths,
+    I485_PERFORMANCE.derivedProcessingLagMonths
+  );
 
   const adjustedRates = useMemo(() => {
     return applyAssumptionRates(cat.rates, {
@@ -246,7 +252,7 @@ export function useForecastData({
         currentUnavailabilityHoldMonths,
         targetDate,
         baseFadRate: adjustedRates[key],
-        gcLagMonths: cat.gcLagMonths,
+        gcLagMonths: operationalGcLagMonths,
         seasonalityStartMonth: forecastStartMonthIndex,
         policy: forecastPolicies[key],
         paths: 500,
@@ -264,7 +270,7 @@ export function useForecastData({
         bulletins: categoryBulletins,
         demand: demandInputs,
         baseFadRate: cat.rates.base,
-        gcLagMonths: cat.gcLagMonths,
+        gcLagMonths: operationalGcLagMonths,
         horizonMonths: 6,
         paths: 200,
         seed: `${selectedCategory}:backtest`,
@@ -332,7 +338,7 @@ export function useForecastData({
       currentFadUnavailable,
       currentUnavailabilityHoldMonths,
       targetDate,
-      gcLagMonths: cat.gcLagMonths,
+      gcLagMonths: operationalGcLagMonths,
       forecastStartMonthIndex,
       adjustedRates,
       forecastPolicies,
@@ -347,7 +353,7 @@ export function useForecastData({
     cat.currentFAD,
     currentFadUnavailable,
     currentUnavailabilityHoldMonths,
-    cat.gcLagMonths,
+    operationalGcLagMonths,
     deferredBan,
     deferredSpillover,
     deferredWastage,
@@ -370,12 +376,12 @@ export function useForecastData({
       bulletins: categoryBulletins,
       demand: demandInputs,
       baseRate: cat.rates.base,
-      gcLagMonths: cat.gcLagMonths,
+      gcLagMonths: operationalGcLagMonths,
       selectedCategory,
     });
   }, [
     categoryBulletins,
-    cat.gcLagMonths,
+    operationalGcLagMonths,
     cat.rates.base,
     demandInputs,
     selectedCategory,
@@ -726,7 +732,10 @@ export function useForecastData({
           currentUnavailabilityHoldMonths: comparisonUnavailabilityHoldMonths,
           targetDate,
           baseFadRate: rates.base,
-          gcLagMonths: comparisonCat.gcLagMonths,
+          gcLagMonths: Math.max(
+            comparisonCat.gcLagMonths,
+            I485_PERFORMANCE.derivedProcessingLagMonths
+          ),
           seasonalityStartMonth: forecastStartMonthIndex,
           policy,
           paths: 200,
@@ -880,7 +889,7 @@ export function useForecastData({
           currentUnavailabilityHoldMonths,
           targetDate,
           baseFadRate: rates.base,
-          gcLagMonths: cat.gcLagMonths,
+          gcLagMonths: operationalGcLagMonths,
           seasonalityStartMonth: forecastStartMonthIndex,
           policy,
           paths: 220,
@@ -909,7 +918,7 @@ export function useForecastData({
     cat.currentFAD,
     currentFadUnavailable,
     currentUnavailabilityHoldMonths,
-    cat.gcLagMonths,
+    operationalGcLagMonths,
     cat.rates,
     forecastContext,
     forecastStartMonthIndex,
@@ -928,6 +937,7 @@ export function useForecastData({
 
   return {
     adjustedRates,
+    operationalGcLagMonths,
     fadKey,
     dofKey,
     categoryBulletins,

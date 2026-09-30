@@ -8,6 +8,7 @@ import {
   EB_CATEGORIES,
   HISTORICAL_BULLETINS,
   I140_INDIA_APPROVALS,
+  I485_PERFORMANCE,
   I485_INDIA_PENDING,
   SCENARIOS,
   TRACKER_SOURCE_LINKS,
@@ -44,6 +45,15 @@ function expectDofNotBeforeFad(history: HistoricalBulletinRow[]) {
 }
 
 describe("tracker bulletin data", () => {
+  it("records the latest USCIS I-485 performance calibration separately from India inventory", () => {
+    expect(I485_PERFORMANCE.period).toBe("FY2026 Q3 (Apr–Jun 2026)");
+    expect(I485_PERFORMANCE.received).toBe(97501);
+    expect(I485_PERFORMANCE.approved + I485_PERFORMANCE.denied).toBe(45236);
+    expect(I485_PERFORMANCE.pending).toBe(268408);
+    expect(I485_PERFORMANCE.derivedProcessingLagMonths).toBe(18);
+    expect(TRACKER_SOURCE_LINKS.some(link => link.label === "USCIS I-485 Performance")).toBe(true);
+  });
+
   it("keeps the model history aligned with CURRENT_BULLETIN", () => {
     expect(HISTORICAL_BULLETINS[0]).toEqual({
       month: "October 2026",

@@ -41,12 +41,28 @@ export const CURRENT_BULLETIN: {
 
 export const DATA_FRESHNESS = {
   modelVersion: "v9",
-  lastVerified: "September 29, 2026",
+  lastVerified: "September 30, 2026",
   currentBulletinPublished: "September 4, 2026",
   nextExpectedUpdate: "mid-November 2026",
   adjustmentChartNote:
-    "Verify USCIS chart selection before filing I-485; the October DOS bulletin provides the published Final Action and Dates for Filing cutoffs.",
+    "Verify USCIS chart selection before filing I-485; the October DOS bulletin provides the published Final Action and Dates for Filing cutoffs. Forecast receipt lag is calibrated to USCIS FY2026 Q3 I-485 performance.",
 };
+
+// USCIS FY2026 Q3 I-485 performance data (Apr–Jun 2026). This is a national
+// service-center operations signal, not an India priority-date inventory. The
+// derived lag is used as a floor for the modeled receipt timeline.
+export const I485_PERFORMANCE = {
+  period: "FY2026 Q3 (Apr–Jun 2026)",
+  sourceUrl:
+    "https://www.uscis.gov/tools/reports-and-studies/immigration-and-citizenship-data",
+  received: 97501,
+  approved: 42076,
+  denied: 3160,
+  pending: 268408,
+  completed: 45236,
+  pendingToCompletedQuarters: 5.932,
+  derivedProcessingLagMonths: 18,
+} as const;
 
 export const TRACKER_SOURCE_LINKS = [
   {
@@ -71,6 +87,12 @@ export const TRACKER_SOURCE_LINKS = [
     href: "https://www.uscis.gov/tools/reports-and-studies/immigration-and-citizenship-data",
     detail:
       "I-140 approval data used as a proxy for future demand beyond filed inventory.",
+  },
+  {
+    label: "USCIS I-485 Performance",
+    href: "https://www.uscis.gov/tools/reports-and-studies/immigration-and-citizenship-data",
+    detail:
+      "FY2026 Q3 national I-485 receipts, approvals, denials, and pending workload used to calibrate operational receipt lag.",
   },
 ];
 

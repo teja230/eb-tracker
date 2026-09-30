@@ -44,6 +44,7 @@ type OverviewTabProps = Pick<
   | "isRecentHistoryWindow"
   | "overviewAssumptionSummary"
   | "overviewProjection"
+  | "operationalGcLagMonths"
   | "pendingInventoryTotal"
   | "projections"
   | "recentPaceInsight"
@@ -93,6 +94,7 @@ export function OverviewTab({
   isRecentHistoryWindow,
   overviewAssumptionSummary,
   overviewProjection,
+  operationalGcLagMonths,
   pendingInventoryTotal,
   projections,
   recentPaceInsight,
@@ -125,7 +127,7 @@ export function OverviewTab({
         currentDof={cat.currentDoF}
         currentDofStatus={cat.currentDoFStatus}
         projection={overviewProjection}
-        gcLagMonths={cat.gcLagMonths}
+        gcLagMonths={operationalGcLagMonths}
       />
       <CategoryComparison
         rows={categoryComparisonRows}

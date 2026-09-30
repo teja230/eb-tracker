@@ -121,6 +121,7 @@ export default function Home() {
     isRecentHistoryWindow,
     overviewAssumptionSummary,
     overviewProjection,
+    operationalGcLagMonths,
     pendingInventoryTotal,
     projections,
     recentPaceInsight,
@@ -652,6 +653,7 @@ export default function Home() {
                 isRecentHistoryWindow={isRecentHistoryWindow}
                 overviewAssumptionSummary={overviewAssumptionSummary}
                 overviewProjection={overviewProjection}
+                operationalGcLagMonths={operationalGcLagMonths}
                 pendingInventoryTotal={pendingInventoryTotal}
                 projections={projections}
                 recentPaceInsight={recentPaceInsight}

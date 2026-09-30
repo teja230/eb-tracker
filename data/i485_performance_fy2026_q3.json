@@ -1,0 +1,15 @@
+{
+  "source": "USCIS",
+  "report": "Application for Adjustment of Status (Form I-485) Quarterly Report",
+  "period": "FY2026 Q3 (April 1, 2026 - June 30, 2026)",
+  "workbook": "i485_performance_data_fy2026_q3_v1.xlsx",
+  "scope": "Employment-based applications received at service centers; national operational signal, not India priority-date inventory",
+  "received": 97501,
+  "approved": 42076,
+  "denied": 3160,
+  "pending": 268408,
+  "completed": 45236,
+  "pending_to_completed_quarters": 5.932,
+  "derived_processing_lag_months": 18,
+  "derived_processing_lag_method": "ceil(pending / (approved + denied) * 3 months), used as a floor for modeled GC receipt lag"
+}
