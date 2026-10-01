@@ -1,3 +1,7 @@
+import inventory from "../../../data/i485_india_august_2026.json";
+import quarterlyReceipts from "../../../data/i140_india_quarterly_receipts.json";
+import approvals from "../../../data/i140_india_fy2026_q3.json";
+
 export type TrackerCategoryKey = "EB1" | "EB2" | "EB3";
 export type CutoffStatus = "available" | "unavailable";
 
@@ -43,7 +47,7 @@ export const DATA_FRESHNESS = {
   modelVersion: "v9",
   lastVerified: "October 1, 2026",
   currentBulletinPublished: "September 4, 2026",
-  nextExpectedUpdate: "mid-November 2026",
+  nextExpectedUpdate: "mid-October 2026",
   adjustmentChartNote:
     "Verify USCIS chart selection before filing I-485; the October DOS bulletin provides the published Final Action and Dates for Filing cutoffs. Forecast receipt lag is calibrated to USCIS FY2026 Q3 I-485 performance.",
 };
@@ -64,15 +68,12 @@ export const I485_PERFORMANCE = {
   derivedProcessingLagMonths: 18,
 } as const;
 
-export const I140_Q3_RECEIPTS_INDIA = {
-  period: "FY2026 Q3",
-  eb1: 3699,
-  eb2: 12231,
-  eb3: 3619,
-  total: 19549,
-  sourceUrl:
-    "https://www.uscis.gov/tools/reports-and-studies/immigration-and-citizenship-data",
-} as const;
+// Quarterly petitions received, not applicants waiting by priority date.
+// EB3 includes skilled workers/professionals; EW3 is reported separately.
+export const I140_QUARTERLY_RECEIPTS_INDIA = quarterlyReceipts;
+export const I140_Q3_RECEIPTS_INDIA =
+  quarterlyReceipts[quarterlyReceipts.length - 1];
+export const I485_INVENTORY = inventory;
 
 export const TRACKER_SOURCE_LINKS = [
   {
@@ -88,21 +89,27 @@ export const TRACKER_SOURCE_LINKS = [
   },
   {
     label: "USCIS Pending Inventory",
-    href: "https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates",
+    href: I485_INVENTORY.sourceUrl,
     detail:
-      "Employment-based pending I-485 inventory source used for demand density.",
+      "August 5, 2026 India I-485 inventory by priority date; suppressed counts remain undisclosed and partially filed years need a demand proxy.",
   },
   {
     label: "USCIS I-140 Data",
-    href: "https://www.uscis.gov/tools/reports-and-studies/immigration-and-citizenship-data",
+    href: "https://www.uscis.gov/sites/default/files/document/data/i140_rec_by_class_country_fy2026_q3_v1.xlsx",
     detail:
       "FY2026 Q3 India I-140 approvals by fiscal year and preference, used as a proxy for future demand beyond filed inventory.",
   },
   {
     label: "USCIS I-485 Performance",
-    href: "https://www.uscis.gov/tools/reports-and-studies/immigration-and-citizenship-data",
+    href: "https://www.uscis.gov/sites/default/files/document/data/i485_performance_data_fy2026_q3_v1.xlsx",
     detail:
       "FY2026 Q3 national I-485 receipts, approvals, denials, and pending workload used to calibrate operational receipt lag.",
+  },
+  {
+    label: "USCIS I-140 Receipts",
+    href: I140_Q3_RECEIPTS_INDIA.sourceUrl,
+    detail:
+      "FY2026 Q3 India receipt flow; quarterly history is shown separately from the priority-date queue.",
   },
 ];
 
@@ -110,10 +117,10 @@ export const TRACKER_SOURCE_LINKS = [
 //
 // Two data sources, used in a hybrid model:
 //
-// 1. I-485 Pending Inventory (USCIS, as of October 2, 2025)
-//    Source: eb_inventory_october_2025.xlsx from uscis.gov
-//    The actual queue depth at each priority date year — the direct measure of
-//    how many applicants the FAD must clear through. Only available for PD years
+// 1. I-485 Pending Inventory (USCIS, as of August 5, 2026)
+//    Source: eb_inventory_august_2026_v1.0.xlsx from uscis.gov
+//    Filed applications at each priority date year, including cases still being
+//    processed with available visas. Only available for PD years
 //    where applicants have been able to file (i.e., PD before the DoF cutoff).
 //
 // 2. I-140 Approval Counts (USCIS Form I-140 Receipts and Current Status,
@@ -122,7 +129,7 @@ export const TRACKER_SOURCE_LINKS = [
 //    a flow signal but are not added to queue depth because receipts do not carry
 //    the priority-date distribution needed for a direct inventory estimate.
 //    Proxy for future demand in PD years beyond I-485 coverage. Not a direct
-//    measure of queue depth (approval year ≠ PD year), but the best available
+//    measure of queue depth (receipt fiscal year ≠ PD year), but an available
 //    signal for years where no one has been able to file I-485 yet.
 //
 // Hybrid logic: Use I-485 inventory where it exists (most accurate for near-term
@@ -131,69 +138,35 @@ export const TRACKER_SOURCE_LINKS = [
 export const I485_INDIA_PENDING: Record<
   TrackerCategoryKey,
   Record<number, number>
-> = {
-  EB1: {
-    2016: 563,
-    2017: 574,
-    2018: 552,
-    2019: 531,
-    2020: 526,
-    2021: 616,
-    2022: 10953,
-  },
-  EB2: { 2010: 25, 2011: 123, 2012: 553, 2013: 10287, 2014: 17092 },
-  EB3: { 2012: 214, 2013: 4364, 2014: 10346 },
-};
+> = Object.fromEntries(
+  Object.entries(inventory.categories).map(([category, data]) => [
+    category,
+    Object.fromEntries(
+      Object.entries(data.years)
+        .filter(
+          ([year, value]) => year !== "Prior Years" && value.disclosed > 0
+        )
+        .map(([year, value]) => [Number(year), value.disclosed])
+    ),
+  ])
+) as Record<TrackerCategoryKey, Record<number, number>>;
+
+export function categoryDemandInputs(category: TrackerCategoryKey) {
+  return {
+    i485: I485_INDIA_PENDING[category],
+    i140: I140_INDIA_APPROVALS[category],
+    partialInventoryYears:
+      inventory.categories[category].partialPriorityDateYears,
+  };
+}
 
 export const I140_INDIA_APPROVALS: Record<
   TrackerCategoryKey,
   Record<number, number>
 > = {
-  EB1: {
-    2014: 6372,
-    2015: 6126,
-    2016: 7734,
-    2017: 8496,
-    2018: 7574,
-    2019: 6877,
-    2020: 6193,
-    2021: 7233,
-    2022: 8095,
-    2023: 11004,
-    2024: 9725,
-    2025: 8655,
-    2026: 4085,
-  },
-  EB2: {
-    2014: 24393,
-    2015: 30798,
-    2016: 46748,
-    2017: 40163,
-    2018: 38330,
-    2019: 42408,
-    2020: 33713,
-    2021: 36259,
-    2022: 43876,
-    2023: 37032,
-    2024: 35276,
-    2025: 33933,
-    2026: 23032,
-  },
-  EB3: {
-    2014: 3827,
-    2015: 6248,
-    2016: 9941,
-    2017: 8594,
-    2018: 8047,
-    2019: 11162,
-    2020: 9020,
-    2021: 47962,
-    2022: 16492,
-    2023: 12479,
-    2024: 10147,
-    2025: 10000,
-    2026: 8170,
-  },
+  EB1: approvals.eb1_approval_series,
+  EB2: approvals.eb2_approval_series,
+  EB3: approvals.eb3_approval_series,
 };
 
 // EB Category metadata — order determines tab display order (EB-1, EB-2, EB-3)
@@ -216,7 +189,7 @@ export const EB_CATEGORIES = {
     currentFADStatus: CURRENT_BULLETIN.eb1.fadStatus ?? "available",
     currentDoFStatus: CURRENT_BULLETIN.eb1.dofStatus ?? "available",
     notes:
-      "EB-1 India has ~14.3k pending I-485s. October FAD advances to Feb 1, 2023 as FY2027 numbers become available. Massive spike at PD-2022 (10,953 cases) remains the primary demand constraint.",
+      "The August 2026 inventory reports 19,261 EB-1 India I-485s, including 11,805 in PD-2023. October FAD advances to Feb 1, 2023 as FY2027 numbers become available.",
   },
   EB2: {
     label: "EB-2",
@@ -256,7 +229,7 @@ export const EB_CATEGORIES = {
     currentFADStatus: CURRENT_BULLETIN.eb3.fadStatus ?? "available",
     currentDoFStatus: CURRENT_BULLETIN.eb3.dofStatus ?? "available",
     notes:
-      "EB-3 India has ~14.9k pending I-485s. 98% concentrated in PD-2013/2014. October FAD holds at Jan 1, 2014 while DoF remains Jan 15, 2015.",
+      "The August 2026 inventory discloses at least 15,843 EB-3 India I-485s, including 13,240 in PD-2014. October FAD holds at Jan 1, 2014 while DoF remains Jan 15, 2015.",
   },
 };
 

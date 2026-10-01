@@ -1,0 +1,170 @@
+{
+  "asOf": "August 5, 2026",
+  "published": "August 25, 2026",
+  "verified": "October 1, 2026",
+  "sourceUrl": "https://www.uscis.gov/sites/default/files/document/data/eb_inventory_august_2026_v1.0.xlsx",
+  "workbook": "eb_inventory_august_2026_v1.0.xlsx",
+  "sha256": "8a54e053d8823e6668089ff0768958a553460473a1f60b36da92450f7bc16f7d",
+  "method": "Sum monthly Available and Awaiting Availability rows for each preference. D is undisclosed, never zero. Disclosed counts are lower bounds where D occurs. Prior Years is kept separate from individual years. EW3 is excluded from EB3.",
+  "categories": {
+    "EB1": {
+      "sheet": "India (EB1 EW3 EB4 CRW EB5)",
+      "range": "E5:O28",
+      "years": {
+        "Prior Years": {
+          "disclosed": 1299,
+          "suppressedCells": 0
+        },
+        "2017": {
+          "disclosed": 501,
+          "suppressedCells": 0
+        },
+        "2018": {
+          "disclosed": 429,
+          "suppressedCells": 0
+        },
+        "2019": {
+          "disclosed": 412,
+          "suppressedCells": 0
+        },
+        "2020": {
+          "disclosed": 479,
+          "suppressedCells": 0
+        },
+        "2021": {
+          "disclosed": 431,
+          "suppressedCells": 0
+        },
+        "2022": {
+          "disclosed": 3905,
+          "suppressedCells": 0
+        },
+        "2023": {
+          "disclosed": 11805,
+          "suppressedCells": 0
+        },
+        "2024": {
+          "disclosed": 0,
+          "suppressedCells": 0
+        },
+        "2025": {
+          "disclosed": 0,
+          "suppressedCells": 0
+        },
+        "2026": {
+          "disclosed": 0,
+          "suppressedCells": 0
+        }
+      },
+      "disclosedTotal": 19261,
+      "suppressedCells": 0,
+      "partialPriorityDateYears": [2023]
+    },
+    "EB2": {
+      "sheet": "India (EB2 EB3)",
+      "range": "E5:O16",
+      "years": {
+        "Prior Years": {
+          "disclosed": 13,
+          "suppressedCells": 10
+        },
+        "2006": {
+          "disclosed": 0,
+          "suppressedCells": 6
+        },
+        "2007": {
+          "disclosed": 0,
+          "suppressedCells": 5
+        },
+        "2008": {
+          "disclosed": 0,
+          "suppressedCells": 4
+        },
+        "2009": {
+          "disclosed": 0,
+          "suppressedCells": 6
+        },
+        "2010": {
+          "disclosed": 16,
+          "suppressedCells": 10
+        },
+        "2011": {
+          "disclosed": 73,
+          "suppressedCells": 7
+        },
+        "2012": {
+          "disclosed": 290,
+          "suppressedCells": 1
+        },
+        "2013": {
+          "disclosed": 5532,
+          "suppressedCells": 0
+        },
+        "2014": {
+          "disclosed": 20813,
+          "suppressedCells": 0
+        },
+        "2015": {
+          "disclosed": 999,
+          "suppressedCells": 0
+        }
+      },
+      "disclosedTotal": 27736,
+      "suppressedCells": 49,
+      "partialPriorityDateYears": [2015]
+    },
+    "EB3": {
+      "sheet": "India (EB2 EB3)",
+      "range": "E17:O40",
+      "years": {
+        "Prior Years": {
+          "disclosed": 57,
+          "suppressedCells": 8
+        },
+        "2006": {
+          "disclosed": 0,
+          "suppressedCells": 8
+        },
+        "2007": {
+          "disclosed": 0,
+          "suppressedCells": 6
+        },
+        "2008": {
+          "disclosed": 0,
+          "suppressedCells": 8
+        },
+        "2009": {
+          "disclosed": 0,
+          "suppressedCells": 5
+        },
+        "2010": {
+          "disclosed": 0,
+          "suppressedCells": 6
+        },
+        "2011": {
+          "disclosed": 0,
+          "suppressedCells": 9
+        },
+        "2012": {
+          "disclosed": 70,
+          "suppressedCells": 8
+        },
+        "2013": {
+          "disclosed": 2321,
+          "suppressedCells": 0
+        },
+        "2014": {
+          "disclosed": 13240,
+          "suppressedCells": 0
+        },
+        "2015": {
+          "disclosed": 155,
+          "suppressedCells": 0
+        }
+      },
+      "disclosedTotal": 15843,
+      "suppressedCells": 58,
+      "partialPriorityDateYears": [2015]
+    }
+  }
+}

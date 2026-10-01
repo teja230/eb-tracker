@@ -17,6 +17,7 @@ export type ForecastBulletin = {
 export type DemandInputs = {
   i485: Record<number, number>;
   i140: Record<number, number>;
+  partialInventoryYears?: number[];
 };
 
 export type DemandCurve = {
@@ -397,11 +398,20 @@ function drawMonthlyAdvance(
   };
 }
 
-export function buildDemandCurve({ i485, i140 }: DemandInputs): DemandCurve {
+export function buildDemandCurve({
+  i485,
+  i140,
+  partialInventoryYears = [],
+}: DemandInputs): DemandCurve {
+  const partialYears = new Set(partialInventoryYears);
   const overlapYears = Object.keys(i485)
     .map(Number)
     .filter(
-      year => i485[year] > 0 && i140[year] !== undefined && i140[year] > 0
+      year =>
+        !partialYears.has(year) &&
+        i485[year] > 0 &&
+        i140[year] !== undefined &&
+        i140[year] > 0
     );
   const overlapRatios = overlapYears
     .map(year => i485[year] / i140[year])
@@ -417,7 +427,11 @@ export function buildDemandCurve({ i485, i140 }: DemandInputs): DemandCurve {
     .sort((a, b) => a - b)
     .forEach(year => {
       if (i485[year] !== undefined && i485[year] > 0) {
-        byYear[year] = i485[year];
+        // A partly fileable year cannot calibrate full-year demand. Retain its
+        // observed applications and use the scaled proxy for any larger demand.
+        byYear[year] = partialYears.has(year)
+          ? Math.max(i485[year], (i140[year] ?? 0) * scaleFactor)
+          : i485[year];
       } else if (i140[year] !== undefined) {
         byYear[year] = i140[year] * scaleFactor;
       }

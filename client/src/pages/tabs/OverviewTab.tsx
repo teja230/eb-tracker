@@ -19,6 +19,7 @@ import { InsightTiles } from "./overview/InsightTiles";
 import { MethodologySection } from "./overview/MethodologySection";
 import { ProjectionHeroCard } from "./overview/ProjectionHeroCard";
 import { QueueDepthCard } from "./overview/QueueDepthCard";
+import { ReceiptTrendsCard } from "./overview/ReceiptTrendsCard";
 
 type OverviewTabProps = Pick<
   UseForecastDataResult,
@@ -164,6 +165,7 @@ export function OverviewTab({
         setHistoryWindow={setHistoryWindow}
         targetDate={targetDate}
       />
+      <ReceiptTrendsCard category={selectedCategory} />
       <QueueDepthCard
         cat={cat}
         targetDate={targetDate}

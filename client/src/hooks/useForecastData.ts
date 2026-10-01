@@ -8,6 +8,8 @@ import {
   I140_INDIA_APPROVALS,
   I485_PERFORMANCE,
   I485_INDIA_PENDING,
+  I485_INVENTORY,
+  categoryDemandInputs,
   SCENARIOS,
   TRACKER_SOURCE_LINKS,
   type CutoffStatus,
@@ -33,7 +35,6 @@ import {
   monthsBetween,
   parseBulletinMonth,
   parseDateStr,
-  sumRecordValues,
 } from "@/lib/trackerUtils";
 import type {
   CategoryComparisonRow,
@@ -91,6 +92,7 @@ export type UseForecastDataResult = {
   demandInputs: {
     i485: Record<number, number>;
     i140: Record<number, number>;
+    partialInventoryYears?: number[];
   };
   forecastContext: ReturnType<typeof createForecastContext>;
   forecastStartMonthIndex: number;
@@ -122,6 +124,7 @@ export type UseForecastDataResult = {
   demandDensityData: Array<{
     year: string;
     pending: number;
+    estimated: number;
     source: string;
     isTarget: boolean;
     isCurrent: boolean;
@@ -185,10 +188,7 @@ export function useForecastData({
   );
 
   const demandInputs = useMemo(
-    () => ({
-      i485: I485_INDIA_PENDING[selectedCategory] ?? {},
-      i140: I140_INDIA_APPROVALS[selectedCategory] ?? {},
-    }),
+    () => categoryDemandInputs(selectedCategory),
     [selectedCategory]
   );
 
@@ -216,8 +216,8 @@ export function useForecastData({
   );
 
   const pendingInventoryTotal = useMemo(
-    () => sumRecordValues(demandInputs.i485),
-    [demandInputs]
+    () => I485_INVENTORY.categories[selectedCategory].disclosedTotal,
+    [selectedCategory]
   );
 
   const forecastPolicies = useMemo(() => {
@@ -596,7 +596,9 @@ export function useForecastData({
   const demandDensityData = useMemo(() => {
     const i485 = I485_INDIA_PENDING[selectedCategory] ?? {};
     const i140 = I140_INDIA_APPROVALS[selectedCategory] ?? {};
-    const demandCurve = buildDemandCurve({ i485, i140 });
+    const demandCurve = buildDemandCurve(
+      categoryDemandInputs(selectedCategory)
+    );
     const scaleFactor = demandCurve.scaleFactor;
 
     const fadYear = parseDateStr(cat.currentFAD).getFullYear();
@@ -613,18 +615,21 @@ export function useForecastData({
       const i485Val = i485[y];
       const i140Val = i140[y];
       let pending = 0;
+      let estimated = 0;
       let source = "none";
       if (i485Val !== undefined && i485Val > 0) {
         pending = i485Val;
         source = "I-485";
+        estimated = Math.max(0, Math.round(demandCurve.byYear[y]) - pending);
       } else if (i140Val !== undefined) {
-        pending = Math.round(i140Val * scaleFactor);
+        estimated = Math.round(i140Val * scaleFactor);
         source = "I-140 (scaled)";
       }
-      if (pending > 0) {
+      if (pending + estimated > 0) {
         bars.push({
           year: String(y),
           pending,
+          estimated,
           source,
           isTarget: y === targetYear,
           isCurrent: y === fadYear,
@@ -706,10 +711,7 @@ export function useForecastData({
         }));
         const context = createForecastContext({
           bulletins,
-          demand: {
-            i485: I485_INDIA_PENDING[category] ?? {},
-            i140: I140_INDIA_APPROVALS[category] ?? {},
-          },
+          demand: categoryDemandInputs(category),
         });
         const rates = applyAssumptionRates(comparisonCat.rates, {
           spilloverLevel: deferredSpillover,

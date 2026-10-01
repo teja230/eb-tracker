@@ -3,9 +3,57 @@
   "report": "Form I-140, Receipts and Current Status by Preference and Country",
   "period": "FY2014-FY2026 Q3 (queried July 2026)",
   "workbook": "i140_rec_by_class_country_fy2026_q3_v1.xlsx",
-  "country": "India",
-  "scope": "Approvals by employment preference and fiscal year received; approval year is used as a future-demand proxy, not as priority-date inventory",
-  "eb1_approval_series": {"2014":6372,"2015":6126,"2016":7734,"2017":8496,"2018":7574,"2019":6877,"2020":6193,"2021":7233,"2022":8095,"2023":11004,"2024":9725,"2025":8655,"2026":4085},
-  "eb2_approval_series": {"2014":24393,"2015":30798,"2016":46748,"2017":40163,"2018":38330,"2019":42408,"2020":33713,"2021":36259,"2022":43876,"2023":37032,"2024":35276,"2025":33933,"2026":23032},
-  "eb3_approval_series": {"2014":3823,"2015":6248,"2016":9941,"2017":8594,"2018":8047,"2019":11162,"2020":9020,"2021":47962,"2022":16492,"2023":12479,"2024":10147,"2025":10000,"2026":8170}
+  "sourceUrl": "https://www.uscis.gov/sites/default/files/document/data/i140_rec_by_class_country_fy2026_q3_v1.xlsx",
+  "sheet": "India FY26",
+  "scope": "Approved petitions grouped by fiscal year received, not priority date. EB2 includes NIW. EB3 includes E31 and E32 only; EW3 is excluded.",
+  "ranges": {
+    "EB1": "B11:N11",
+    "EB2": "B20:N20",
+    "EB3": "B32:N33"
+  },
+  "eb1_approval_series": {
+    "2014": 6372,
+    "2015": 6126,
+    "2016": 7734,
+    "2017": 8496,
+    "2018": 7574,
+    "2019": 6877,
+    "2020": 6193,
+    "2021": 7233,
+    "2022": 8095,
+    "2023": 11004,
+    "2024": 9725,
+    "2025": 8655,
+    "2026": 4085
+  },
+  "eb2_approval_series": {
+    "2014": 24969,
+    "2015": 31514,
+    "2016": 47399,
+    "2017": 40826,
+    "2018": 38939,
+    "2019": 43202,
+    "2020": 34850,
+    "2021": 37391,
+    "2022": 44992,
+    "2023": 39087,
+    "2024": 39287,
+    "2025": 36219,
+    "2026": 23664
+  },
+  "eb3_approval_series": {
+    "2014": 3816,
+    "2015": 6239,
+    "2016": 9914,
+    "2017": 8576,
+    "2018": 8023,
+    "2019": 11111,
+    "2020": 8999,
+    "2021": 47924,
+    "2022": 16461,
+    "2023": 12460,
+    "2024": 10124,
+    "2025": 9971,
+    "2026": 8155
+  }
 }
