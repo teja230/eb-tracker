@@ -64,6 +64,16 @@ export const I485_PERFORMANCE = {
   derivedProcessingLagMonths: 18,
 } as const;
 
+export const I140_Q3_RECEIPTS_INDIA = {
+  period: "FY2026 Q3",
+  eb1: 3699,
+  eb2: 12231,
+  eb3: 3619,
+  total: 19549,
+  sourceUrl:
+    "https://www.uscis.gov/tools/reports-and-studies/immigration-and-citizenship-data",
+} as const;
+
 export const TRACKER_SOURCE_LINKS = [
   {
     label: "DOS Visa Bulletin",
@@ -107,7 +117,10 @@ export const TRACKER_SOURCE_LINKS = [
 //    where applicants have been able to file (i.e., PD before the DoF cutoff).
 //
 // 2. I-140 Approval Counts (USCIS Form I-140 Receipts and Current Status,
-//    FY2026 Q3; queried July 2026)
+//    FY2026 Q3; queried July 2026). The companion quarterly performance report
+//    records 19,549 India receipts in FY2026 Q3; those receipts are retained as
+//    a flow signal but are not added to queue depth because receipts do not carry
+//    the priority-date distribution needed for a direct inventory estimate.
 //    Proxy for future demand in PD years beyond I-485 coverage. Not a direct
 //    measure of queue depth (approval year ≠ PD year), but the best available
 //    signal for years where no one has been able to file I-485 yet.

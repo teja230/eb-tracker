@@ -7,6 +7,7 @@ import {
   DATA_FRESHNESS,
   EB_CATEGORIES,
   HISTORICAL_BULLETINS,
+  I140_Q3_RECEIPTS_INDIA,
   I140_INDIA_APPROVALS,
   I485_PERFORMANCE,
   I485_INDIA_PENDING,
@@ -59,6 +60,16 @@ describe("tracker bulletin data", () => {
     expect(I140_INDIA_APPROVALS.EB2[2016]).toBe(46748);
     expect(I140_INDIA_APPROVALS.EB2[2026]).toBe(23032);
     expect(I140_INDIA_APPROVALS.EB3[2025]).toBe(10000);
+  });
+
+  it("records the complementary FY2026 Q3 India I-140 receipt flow", () => {
+    expect(I140_Q3_RECEIPTS_INDIA).toMatchObject({
+      period: "FY2026 Q3",
+      eb1: 3699,
+      eb2: 12231,
+      eb3: 3619,
+      total: 19549,
+    });
   });
 
   it("keeps the model history aligned with CURRENT_BULLETIN", () => {
