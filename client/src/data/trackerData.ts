@@ -41,7 +41,7 @@ export const CURRENT_BULLETIN: {
 
 export const DATA_FRESHNESS = {
   modelVersion: "v9",
-  lastVerified: "September 30, 2026",
+  lastVerified: "October 1, 2026",
   currentBulletinPublished: "September 4, 2026",
   nextExpectedUpdate: "mid-November 2026",
   adjustmentChartNote:
@@ -86,7 +86,7 @@ export const TRACKER_SOURCE_LINKS = [
     label: "USCIS I-140 Data",
     href: "https://www.uscis.gov/tools/reports-and-studies/immigration-and-citizenship-data",
     detail:
-      "I-140 approval data used as a proxy for future demand beyond filed inventory.",
+      "FY2026 Q3 India I-140 approvals by fiscal year and preference, used as a proxy for future demand beyond filed inventory.",
   },
   {
     label: "USCIS I-485 Performance",
@@ -106,8 +106,8 @@ export const TRACKER_SOURCE_LINKS = [
 //    how many applicants the FAD must clear through. Only available for PD years
 //    where applicants have been able to file (i.e., PD before the DoF cutoff).
 //
-// 2. I-140 Approval Counts (USCIS Form I-140 Performance Data, FY2025 Q3)
-//    Source: Published Oct 8, 2025 | Query ref: CLAIMS3/ELIS, queried 7/2025
+// 2. I-140 Approval Counts (USCIS Form I-140 Receipts and Current Status,
+//    FY2026 Q3; queried July 2026)
 //    Proxy for future demand in PD years beyond I-485 coverage. Not a direct
 //    measure of queue depth (approval year ≠ PD year), but the best available
 //    signal for years where no one has been able to file I-485 yet.
@@ -137,43 +137,49 @@ export const I140_INDIA_APPROVALS: Record<
   Record<number, number>
 > = {
   EB1: {
-    2014: 6371,
-    2015: 6127,
-    2016: 7737,
+    2014: 6372,
+    2015: 6126,
+    2016: 7734,
     2017: 8496,
-    2018: 7575,
-    2019: 6879,
-    2020: 6194,
-    2021: 7243,
-    2022: 8123,
-    2023: 10995,
-    2024: 8780,
+    2018: 7574,
+    2019: 6877,
+    2020: 6193,
+    2021: 7233,
+    2022: 8095,
+    2023: 11004,
+    2024: 9725,
+    2025: 8655,
+    2026: 4085,
   },
   EB2: {
-    2014: 25010,
-    2015: 31546,
-    2016: 47462,
-    2017: 40898,
-    2018: 39047,
-    2019: 43306,
-    2020: 34976,
-    2021: 37586,
-    2022: 45299,
-    2023: 39269,
-    2024: 38842,
+    2014: 24393,
+    2015: 30798,
+    2016: 46748,
+    2017: 40163,
+    2018: 38330,
+    2019: 42408,
+    2020: 33713,
+    2021: 36259,
+    2022: 43876,
+    2023: 37032,
+    2024: 35276,
+    2025: 33933,
+    2026: 23032,
   },
   EB3: {
     2014: 3827,
-    2015: 6251,
-    2016: 9946,
-    2017: 8610,
-    2018: 8064,
-    2019: 11182,
-    2020: 9041,
-    2021: 48036,
-    2022: 16574,
-    2023: 12549,
-    2024: 10113,
+    2015: 6248,
+    2016: 9941,
+    2017: 8594,
+    2018: 8047,
+    2019: 11162,
+    2020: 9020,
+    2021: 47962,
+    2022: 16492,
+    2023: 12479,
+    2024: 10147,
+    2025: 10000,
+    2026: 8170,
   },
 };
 

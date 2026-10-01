@@ -54,6 +54,13 @@ describe("tracker bulletin data", () => {
     expect(TRACKER_SOURCE_LINKS.some(link => link.label === "USCIS I-485 Performance")).toBe(true);
   });
 
+  it("uses the FY2026 Q3 India I-140 approval series for future demand", () => {
+    expect(I140_INDIA_APPROVALS.EB1[2024]).toBe(9725);
+    expect(I140_INDIA_APPROVALS.EB2[2016]).toBe(46748);
+    expect(I140_INDIA_APPROVALS.EB2[2026]).toBe(23032);
+    expect(I140_INDIA_APPROVALS.EB3[2025]).toBe(10000);
+  });
+
   it("keeps the model history aligned with CURRENT_BULLETIN", () => {
     expect(HISTORICAL_BULLETINS[0]).toEqual({
       month: "October 2026",

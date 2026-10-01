@@ -142,7 +142,7 @@ export function QueueDepthCard({
       </div>
       <p className="text-[10px] text-slate-400 text-center mt-1">
         Sources: USCIS I-485 Pending Inventory (Oct 2025) · I-485 Performance
-        (FY2026 Q3) · I-140 Performance (FY2025 Q3)
+        (FY2026 Q3) · I-140 Performance (FY2026 Q3)
       </p>
     </Card>
   );
