@@ -495,7 +495,7 @@ export function generateResponse(
         `**${projDate(scenProj.fadDate, scenProj.horizon.fadP50Capped)}** (P50 median). ` +
         `For comparison — Optimistic: ${projDate(opt.fadDate, opt.horizon.fadP50Capped)}, ` +
         `Conservative: ${projDate(cons.fadDate, cons.horizon.fadP50Capped)}.\n\n` +
-        `October 2026 marks the FY2027 reset: EB-2 India is available again with a Nov 1, 2013 Final Action Date, while EB-1 India advances to Feb 1, 2023 and EB-3 India holds at Jan 1, 2014.`;
+        `November 2026 holds EB-1 India at Feb 1, 2023 and EB-2 India at Nov 1, 2013, while EB-3 India advances three weeks to Jan 22, 2014.`;
       break;
     }
 
@@ -549,7 +549,7 @@ export function generateResponse(
       const retroRisk = Math.round(opt.retrogressionRisk * 100);
       text =
         `**Retrogression** means DOS sets the FAD *earlier* than the prior month — moving the cutoff backward, forcing applicants to wait again.\n\n` +
-        `The July–September 2026 bulletins showed EB-2 India as **unavailable**, but the October FY2027 reset published a live Nov 1, 2013 FAD. The model now treats October as an available cutoff while retaining the prior unavailability in historical risk analysis.\n\n` +
+        `The July–September 2026 bulletins showed EB-2 India as **unavailable**, but the October FY2027 reset restored a live Nov 1, 2013 FAD. November holds that EB-2 cutoff while advancing EB-3 India to Jan 22, 2014; the model retains the prior unavailability in historical risk analysis.\n\n` +
         `Modeled risk (Optimistic scenario, most exposed): near-term risk **${nearRisk}%**, retro shock risk **${retroRisk}%**.` +
         (bt.predictions > 0
           ? ` Backtest 6-month FAD MAE: **${bt.mae.toFixed(1)} months** over ${bt.predictions} windows.`

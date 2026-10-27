@@ -28,28 +28,28 @@ export type HistoricalBulletinRow = {
   eb3_dof_status?: CutoffStatus;
 };
 
-// October 2026 Visa Bulletin data (most recent)
-// October marks the FY2027 reset: EB-2 India is available again after being
-// unavailable in the July–September 2026 bulletins.
+// November 2026 Visa Bulletin data (most recent)
+// November holds EB-1 and EB-2 India while advancing EB-3 India FAD to
+// January 22, 2014; all India Dates for Filing remain unchanged.
 export const CURRENT_BULLETIN: {
   month: string;
   eb1: CurrentBulletinCategory;
   eb2: CurrentBulletinCategory;
   eb3: CurrentBulletinCategory;
 } = {
-  month: "October 2026",
+  month: "November 2026",
   eb1: { fad: "2023-02-01", dof: "2024-07-01" },
   eb2: { fad: "2013-11-01", dof: "2015-01-15" },
-  eb3: { fad: "2014-01-01", dof: "2015-01-15" },
+  eb3: { fad: "2014-01-22", dof: "2015-01-15" },
 };
 
 export const DATA_FRESHNESS = {
   modelVersion: "v9",
-  lastVerified: "October 1, 2026",
-  currentBulletinPublished: "September 4, 2026",
-  nextExpectedUpdate: "mid-October 2026",
+  lastVerified: "October 26, 2026",
+  currentBulletinPublished: "October 22, 2026",
+  nextExpectedUpdate: "mid-November 2026",
   adjustmentChartNote:
-    "Verify USCIS chart selection before filing I-485; the October DOS bulletin provides the published Final Action and Dates for Filing cutoffs. Forecast receipt lag is calibrated to USCIS FY2026 Q3 I-485 performance.",
+    "Verify USCIS chart selection before filing I-485; the November DOS bulletin provides the published Final Action and Dates for Filing cutoffs. Forecast receipt lag is calibrated to USCIS FY2026 Q3 I-485 performance.",
 };
 
 // USCIS FY2026 Q3 I-485 performance data (Apr–Jun 2026). This is a national
@@ -189,7 +189,7 @@ export const EB_CATEGORIES = {
     currentFADStatus: CURRENT_BULLETIN.eb1.fadStatus ?? "available",
     currentDoFStatus: CURRENT_BULLETIN.eb1.dofStatus ?? "available",
     notes:
-      "The August 2026 inventory reports 19,261 EB-1 India I-485s, including 11,805 in PD-2023. October FAD advances to Feb 1, 2023 as FY2027 numbers become available.",
+      "The August 2026 inventory reports 19,261 EB-1 India I-485s, including 11,805 in PD-2023. November holds the October FAD at Feb 1, 2023 as FY2027 numbers remain available.",
   },
   EB2: {
     label: "EB-2",
@@ -209,7 +209,7 @@ export const EB_CATEGORIES = {
     currentFADStatus: CURRENT_BULLETIN.eb2.fadStatus ?? "available",
     currentDoFStatus: CURRENT_BULLETIN.eb2.dofStatus ?? "available",
     notes:
-      "EB-2 India is available again in October after the July–September unavailability. The FY2027 reset publishes a Nov 1, 2013 Final Action Date and Jan 15, 2015 Dates for Filing cutoff; forecast dates now use the live October FAD.",
+      "EB-2 India held at a Nov 1, 2013 Final Action Date and Jan 15, 2015 Dates for Filing cutoff in November; the October FY2027 reset remains the current availability anchor.",
   },
   EB3: {
     label: "EB-3",
@@ -229,7 +229,7 @@ export const EB_CATEGORIES = {
     currentFADStatus: CURRENT_BULLETIN.eb3.fadStatus ?? "available",
     currentDoFStatus: CURRENT_BULLETIN.eb3.dofStatus ?? "available",
     notes:
-      "The August 2026 inventory discloses at least 15,843 EB-3 India I-485s, including 13,240 in PD-2014. October FAD holds at Jan 1, 2014 while DoF remains Jan 15, 2015.",
+      "The August 2026 inventory discloses at least 15,843 EB-3 India I-485s, including 13,240 in PD-2014. November advances FAD three weeks to Jan 22, 2014 while DoF remains Jan 15, 2015.",
   },
 };
 
@@ -273,9 +273,18 @@ export const SCENARIOS = {
 };
 
 // Forecast-model history (most recent first)
-// ALL values verified against official travel.state.gov bulletins (Oct 2022 – October 2026)
+// ALL values verified against official travel.state.gov bulletins (Oct 2022 – November 2026)
 // EB-1 India "C" (Current) in Oct–Dec 2022 represented using bulletin month date.
 export const HISTORICAL_BULLETINS: HistoricalBulletinRow[] = [
+  {
+    month: "November 2026",
+    eb1_fad: "2023-02-01",
+    eb1_dof: "2024-07-01",
+    eb2_fad: "2013-11-01",
+    eb2_dof: "2015-01-15",
+    eb3_fad: "2014-01-22",
+    eb3_dof: "2015-01-15",
+  },
   {
     month: "October 2026",
     eb1_fad: "2023-02-01",

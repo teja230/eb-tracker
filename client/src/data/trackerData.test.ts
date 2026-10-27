@@ -121,7 +121,7 @@ describe("tracker bulletin data", () => {
 
   it("keeps the model history aligned with CURRENT_BULLETIN", () => {
     expect(HISTORICAL_BULLETINS[0]).toEqual({
-      month: "October 2026",
+      month: "November 2026",
       eb1_fad: CURRENT_BULLETIN.eb1.fad,
       eb1_dof: CURRENT_BULLETIN.eb1.dof,
       eb2_fad: CURRENT_BULLETIN.eb2.fad,
@@ -130,10 +130,10 @@ describe("tracker bulletin data", () => {
       eb3_dof: CURRENT_BULLETIN.eb3.dof,
     });
     expect(HISTORICAL_BULLETINS.slice(0, 4).map(row => row.month)).toEqual([
+      "November 2026",
       "October 2026",
       "September 2026",
       "August 2026",
-      "July 2026",
     ]);
   });
 

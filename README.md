@@ -74,7 +74,7 @@ delta = baseRate × clamp(seasonality + residualSample, -2.25, 3.25) / √clamp(
 | Conservative | 0.45               | 35%         | No spillover, reversion to pre-FY2026 pace   |
 | Pessimistic  | 0.275              | 15–20%      | Ban reversed, stagnation / retrogression     |
 
-The model uses 49 months of bulletin history (Oct 2022–October 2026). The Bulletin Tracker tab also includes FY2020-FY2022 archival rows, but those older rows are kept out of the forecast model so seasonality and backtests stay anchored to the contiguous recent series. Backtesting uses rolling 6-month windows to compute MAE and 80% interval coverage.
+The model uses 50 months of bulletin history (Oct 2022–November 2026). The Bulletin Tracker tab also includes FY2020-FY2022 archival rows, but those older rows are kept out of the forecast model so seasonality and backtests stay anchored to the contiguous recent series. Backtesting uses rolling 6-month windows to compute MAE and 80% interval coverage.
 
 ### Simulator Multipliers
 
@@ -96,7 +96,7 @@ adjustedRate = baseRate × spilloverMultiplier × banMultiplier × wastageMultip
 
 | Source                                                                                                                                                                                                        | Usage                                                    |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| [U.S. Department of State Visa Bulletins](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html)                                                                                      | Monthly FAD and DoF data (October 2026 is tracked)          |
+| [U.S. Department of State Visa Bulletins](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html)                                                                                      | Monthly FAD and DoF data (November 2026 is tracked)         |
 | [USCIS I-485 Pending Inventory (August 2026)](https://www.uscis.gov/sites/default/files/document/data/eb_inventory_august_2026_v1.0.xlsx)                                                             | Pending application counts by category and priority date |
 | [Cato Institute — GC Wastage Analysis](https://www.cato.org/blog/agencies-wasted-1/4-employment-green-cards-2021)                                                                                             | FY2021 wastage rates by category                         |
 | [CLINIC v. Rubio Lawsuit](https://www.nilc.org/resources/questions-and-answers-about-the-75-country-visa-ban-lawsuit/)                                                                                        | Legal status of 75-country visa ban                      |
@@ -105,15 +105,15 @@ adjustedRate = baseRate × spilloverMultiplier × banMultiplier × wastageMultip
 
 ---
 
-## Current Bulletin Data (October 2026)
+## Current Bulletin Data (November 2026)
 
-`Current bulletin` means the latest tracked DOS bulletin. The repository tracks **October 2026**, published September 4, 2026.
+`Current bulletin` means the latest tracked DOS bulletin. The repository tracks **November 2026**, published October 22, 2026.
 
 | Category   | Final Action Date | Dates for Filing |
 | ---------- | ----------------- | ---------------- |
 | EB-1 India | Feb 1, 2023      | Jul 1, 2024      |
 | EB-2 India | **Nov 1, 2013**   | Jan 15, 2015     |
-| EB-3 India | Jan 1, 2014      | Jan 15, 2015     |
+| EB-3 India | Jan 22, 2014     | Jan 15, 2015     |
 
 > **Note:** EB-1 ROW and EB-2 ROW being CURRENT does not itself create extra visas. It means ROW demand is not absorbing otherwise-available employment-based numbers. Separately, unused family-based numbers can spill into employment-based visas under INA §201(d). When both conditions hold, more of the expanded EB supply can reach backlogged countries such as India and China.
 
@@ -141,7 +141,7 @@ Presidential Proclamations 10949 & 10998 (January 2026) indefinitely paused immi
 
 ## Example: August 2016 Priority Date (EB-2 India)
 
-As of October 2026, the EB-2 India FAD is **Nov 1, 2013** — about 33 priority-date months away from Aug 2016. The simulator generates 500 paths per scenario; displayed dates are P50 medians with 80% intervals (P10–P90). See [the October data comparison](docs/forecast-data-update-2026-10-01.md) for controlled before/after estimates using the same calculation date and assumptions.
+As of November 2026, the EB-2 India FAD is **Nov 1, 2013** — about 33 priority-date months away from Aug 2016. The simulator generates 500 paths per scenario; displayed dates are P50 medians with 80% intervals (P10–P90). See [the October data comparison](docs/forecast-data-update-2026-10-01.md) for controlled before/after estimates using the same calculation date and assumptions.
 
 ---
 
