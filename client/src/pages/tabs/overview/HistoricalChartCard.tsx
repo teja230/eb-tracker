@@ -2,7 +2,12 @@
 import type { Dispatch, SetStateAction } from "react";
 
 import { Card } from "@/components/ui/card";
-import { CURRENT_BULLETIN } from "@/data/trackerData";
+import {
+  CURRENT_BULLETIN,
+  I140_Q3_RECEIPTS_INDIA,
+  I140_QUARTERLY_RECEIPTS,
+  type TrackerCategoryKey,
+} from "@/data/trackerData";
 import {
   fmtBulletinMonthLabel,
   fmtCompactMonthYear,
@@ -25,12 +30,16 @@ import {
   ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
+  Bar,
+  BarChart,
+  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 
 type HistoricalChartCardProps = {
   cat: TrackerCategory;
+  selectedCategory: TrackerCategoryKey;
   isMobile: boolean;
   accelZone: { x1: string; x2: string } | null | undefined;
   fyBoundaries: string[];
@@ -68,6 +77,7 @@ type HistoricalChartCardProps = {
 
 export function HistoricalChartCard({
   cat,
+  selectedCategory,
   isMobile,
   accelZone,
   fyBoundaries,
@@ -463,6 +473,36 @@ export function HistoricalChartCard({
               </div>
             </div>
           )}
+
+          <div className="mt-4 rounded-lg border border-cyan-200 bg-cyan-50/50 p-3">
+            <div className="mb-2 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-700">
+                  Quarterly I-140 receipt flow
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  National receipts for {cat.label}; India Q3: {I140_Q3_RECEIPTS_INDIA[selectedCategory.toLowerCase() as "eb1" | "eb2" | "eb3"].toLocaleString()}
+                </p>
+              </div>
+              <span className="w-fit rounded-full bg-cyan-100 px-2 py-1 text-[10px] font-semibold text-cyan-800">
+                USCIS FY2026 Q1–Q3
+              </span>
+            </div>
+            <div className="h-[180px]" role="img" aria-label={`${cat.label} quarterly I-140 receipt flow`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={[...I140_QUARTERLY_RECEIPTS]} margin={{ top: 4, right: 8, left: -14, bottom: 0 }}>
+                  <CartesianGrid vertical={false} stroke="#bae6fd" strokeDasharray="3 4" />
+                  <XAxis dataKey="quarter" tick={{ fontSize: 10, fill: "#0e7490" }} axisLine={{ stroke: "#a5f3fc" }} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: "#0e7490" }} axisLine={false} tickLine={false} tickFormatter={(value: number) => `${Math.round(value / 1000)}k`} width={32} />
+                  <Tooltip formatter={(value: number) => [`${value.toLocaleString()} receipts`, cat.label]} contentStyle={{ borderRadius: 8, border: "1px solid #a5f3fc", fontSize: 11 }} />
+                  <Bar dataKey={selectedCategory} fill="#0891b2" radius={[3, 3, 0, 0]} maxBarSize={52} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="mt-1 text-[10px] text-slate-400">
+              Receipt flow is a leading-demand signal, not a replacement for the India priority-date inventory.
+            </p>
+          </div>
         </div>
       </div>
     </Card>

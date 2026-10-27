@@ -146,6 +146,7 @@ export function OverviewTab({
       />
       <HistoricalChartCard
         cat={cat}
+        selectedCategory={selectedCategory}
         isMobile={isMobile}
         accelZone={accelZone}
         fyBoundaries={fyBoundaries}

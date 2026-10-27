@@ -2,7 +2,10 @@ import type { Dispatch, SetStateAction } from "react";
 
 import { TrustAndLimitationsPanel } from "@/components/TrackerEnhancements";
 import type { SourceLink } from "@/components/trackerTypes";
-import { HISTORICAL_BULLETINS } from "@/data/trackerData";
+import {
+  HISTORICAL_BULLETINS,
+  I140_Q3_RECEIPTS_INDIA,
+} from "@/data/trackerData";
 import { ChevronDown, ChevronUp, Info } from "lucide-react";
 
 type MethodologySectionProps = {
@@ -51,10 +54,25 @@ export function MethodologySection({
             <strong>Demand curve:</strong> Uses{" "}
             <strong>USCIS I-485 pending inventory</strong> (Oct 2025) where
             available and falls back to <strong>I-140 approval counts</strong>{" "}
-            (FY2025 Q3) beyond inventory coverage. The fallback is scaled using
+            (FY2026 Q3) beyond inventory coverage. The fallback is scaled using
             the <strong>median overlap ratio</strong>, and demand ratios are
             clipped before applying the square-root slowdown.
           </p>
+          <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-3 text-cyan-950">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-700">
+              Latest I-140 receipt flow · {I140_Q3_RECEIPTS_INDIA.period}
+            </p>
+            <p className="mt-1 text-sm font-semibold">
+              India received {I140_Q3_RECEIPTS_INDIA.total.toLocaleString()} petitions
+            </p>
+            <p className="mt-1 text-[11px] text-cyan-900/80">
+              EB-1 {I140_Q3_RECEIPTS_INDIA.eb1.toLocaleString()} · EB-2{" "}
+              {I140_Q3_RECEIPTS_INDIA.eb2.toLocaleString()} · EB-3{" "}
+              {I140_Q3_RECEIPTS_INDIA.eb3.toLocaleString()}. Receipt flow is
+              shown for context; approvals by fiscal year remain the forecast
+              proxy because receipts do not include priority-date distribution.
+            </p>
+          </div>
           <p>
             <strong>Seasonality and volatility:</strong> Derived from{" "}
             {HISTORICAL_BULLETINS.length} months of verified bulletin data. Each
