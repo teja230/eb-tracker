@@ -21,6 +21,8 @@ import { fmtDate, fmtDateStr, fmtDuration, parseDateStr } from "./trackerUtils";
 import {
   HISTORICAL_BULLETINS,
   I485_INDIA_PENDING,
+  I485_INVENTORY,
+  I485_PERFORMANCE,
   SCENARIOS,
   EB_CATEGORIES,
 } from "@/data/trackerData";
@@ -403,7 +405,7 @@ export function generateResponse(
 
   // Queue stats
   const i485Data = I485_INDIA_PENDING[catKey];
-  const i485Total = Object.values(i485Data).reduce((a, b) => a + b, 0);
+  const i485Total = I485_INVENTORY.categories[catKey].disclosedTotal;
   const topYears = Object.entries(i485Data)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 3)
@@ -498,7 +500,10 @@ export function generateResponse(
     }
 
     case "green_card": {
-      const gcLag = catMeta.gcLagMonths;
+      const gcLag = Math.max(
+        catMeta.gcLagMonths,
+        I485_PERFORMANCE.derivedProcessingLagMonths
+      );
       text =
         `Green card receipt follows the FAD by roughly **${gcLag} months** for ${catLbl} India (I-485 adjudication, biometrics, possible interview, and card production).\n\n` +
         `Estimates for priority date ${targetLbl}:\n` +
@@ -512,8 +517,8 @@ export function generateResponse(
     case "queue": {
       text =
         `The demand model for **${catLbl} India** draws from two data sources:\n\n` +
-        `**I-485 Pending Inventory (USCIS, Oct 2025):** **${i485Total.toLocaleString()} total** pending applications — actual filed cases waiting for a visa number. Heaviest concentration: ${topYears}.\n\n` +
-        `**I-140 Approvals (FY2025 Q3):** Proxy for demand in PD years where no one has yet been able to file I-485 — the "future queue" beyond inventory coverage.\n\n` +
+        `**I-485 Pending Inventory (USCIS, ${I485_INVENTORY.asOf}):** **${i485Total.toLocaleString()} disclosed** pending applications, including prior years. Suppressed counts are unknown, so affected totals are lower bounds. Heaviest concentration: ${topYears}.\n\n` +
+        `**I-140 Approvals (FY2026 Q3):** Receipt-fiscal-year proxy for demand beyond filed inventory. Partly filed PD years use the larger of inventory and the full-year proxy and are excluded from overlap calibration. Quarterly receipts are context only and are not added to the queue.\n\n` +
         `Dense PD-years apply a square-root slowdown to FAD advancement. PD-2013 and PD-2014 dominate the density calculation for EB-2 and EB-3, which is why movement in those bands is much slower.`;
       break;
     }
@@ -556,11 +561,8 @@ export function generateResponse(
     case "comparison": {
       const allCats = (["EB1", "EB2", "EB3"] as TrackerCategoryKey[]).map(k => {
         const m = EB_CATEGORIES[k];
-        const total = Object.values(I485_INDIA_PENDING[k]).reduce(
-          (a, b) => a + b,
-          0
-        );
-        return `• **${m.label}** — FAD: ${cutoffDateLabel(m.currentFAD, m.currentFADStatus)}, DoF: ${cutoffDateLabel(m.currentDoF, m.currentDoFStatus)}, ~${total.toLocaleString()} pending I-485s`;
+        const total = I485_INVENTORY.categories[k].disclosedTotal;
+        return `• **${m.label}** — FAD: ${cutoffDateLabel(m.currentFAD, m.currentFADStatus)}, DoF: ${cutoffDateLabel(m.currentDoF, m.currentDoFStatus)}, ${total.toLocaleString()} disclosed pending I-485s`;
       });
       text =
         `Current EB India priority dates (${bulletin}):\n\n` +

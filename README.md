@@ -34,7 +34,7 @@ The tracker is updated monthly when new visa bulletins are released by the U.S. 
 
 ---
 
-## Projection Algorithm (v8)
+## Projection Algorithm (v9)
 
 ### Probabilistic Dual-Cutoff Simulator
 
@@ -53,26 +53,28 @@ delta = baseRate × clamp(seasonality + residualSample, -2.25, 3.25) / √clamp(
 
 **Demand curve (hybrid model):**
 
-- **Primary**: USCIS I-485 Pending Inventory (Oct 2025) — actual queue depth by PD year
-- **Fallback**: USCIS I-140 Approval Data (FY2025 Q3) — scaled to I-485 magnitude using median overlap ratio
+- **Primary**: USCIS I-485 Pending Inventory (August 5, 2026) — disclosed filed applications by PD year; suppressed counts remain unknown and prior-year aggregates stay separate.
+- **Fallback**: USCIS I-140 approved petitions by receipt fiscal year (FY2026 Q3) — scaled using the median overlap ratio. EB-2 includes NIW; EB-3 excludes EW3. Receipt fiscal year only approximates PD year.
+- **Partly filed years**: EB-1 PD-2023 and EB-2/EB-3 PD-2015 cannot calibrate full-year demand. They use the larger of filed inventory and the scaled full-year proxy.
+- **Receipt trends**: FY2026 Q1–Q3 India I-140 receipts appear beside bulletin history and in the methodology panel. Quarterly receipts provide context and are not added to the queue.
 
 **Output per scenario:**
 
 - **P10 / P50 / P90** quantile dates for DoF, FAD, and GC receipt
 - **Retrogression risk** — % of paths where at least one negative month occurred
 - **DoF** modeled independently of its own historical series (not FAD minus fixed offset)
-- **GC Receipt** = FAD + category-specific lag (EB-2: ~15 months)
+- **GC Receipt** = FAD + the larger of the category lag and the 18-month national FY2026 Q3 workload floor. This ratio is a modeling assumption, not an observed India processing time.
 
 ### Scenario Rates (EB-2 India)
 
 | Scenario     | Rate (PD-mo/month) | Probability | Condition                                    |
 | ------------ | ------------------ | ----------- | -------------------------------------------- |
-| Optimistic   | 1.625              | 15–20%      | 60k+ extra EB visas (large FY2027 spillover) |
-| Base Case    | 0.975              | 40%         | 30–40k extra EB visas (moderate spillover)   |
-| Conservative | 0.45               | 30%         | No spillover, reversion to pre-FY2026 pace   |
-| Pessimistic  | 0.275              | 10–15%      | Ban reversed, stagnation / retrogression     |
+| Optimistic   | 1.625              | 10–15%      | 60k+ extra EB visas (large FY2027 spillover) |
+| Base Case    | 0.85               | 35%         | 30–40k extra EB visas (moderate spillover)   |
+| Conservative | 0.45               | 35%         | No spillover, reversion to pre-FY2026 pace   |
+| Pessimistic  | 0.275              | 15–20%      | Ban reversed, stagnation / retrogression     |
 
-Rates are calibrated from 46 months of verified visa bulletin data (Oct 2022–June 2026). The Bulletin Tracker tab also includes FY2020-FY2022 archival rows, but those older rows are kept out of the forecast model so seasonality and backtests stay anchored to the contiguous recent series. Backtesting uses rolling 6-month windows to compute MAE and 80% interval coverage.
+The model uses 49 months of bulletin history (Oct 2022–October 2026). The Bulletin Tracker tab also includes FY2020-FY2022 archival rows, but those older rows are kept out of the forecast model so seasonality and backtests stay anchored to the contiguous recent series. Backtesting uses rolling 6-month windows to compute MAE and 80% interval coverage.
 
 ### Simulator Multipliers
 
@@ -94,8 +96,8 @@ adjustedRate = baseRate × spilloverMultiplier × banMultiplier × wastageMultip
 
 | Source                                                                                                                                                                                                        | Usage                                                    |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| [U.S. Department of State Visa Bulletins](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html)                                                                                      | Monthly FAD and DoF data (June 2026 is current)          |
-| [USCIS I-485 Pending Inventory (Oct 2025)](https://www.uscis.gov/green-card/green-card-processes-and-procedures/visa-availability-priority-dates)                                                             | Pending application counts by category and priority date |
+| [U.S. Department of State Visa Bulletins](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html)                                                                                      | Monthly FAD and DoF data (October 2026 is tracked)          |
+| [USCIS I-485 Pending Inventory (August 2026)](https://www.uscis.gov/sites/default/files/document/data/eb_inventory_august_2026_v1.0.xlsx)                                                             | Pending application counts by category and priority date |
 | [Cato Institute — GC Wastage Analysis](https://www.cato.org/blog/agencies-wasted-1/4-employment-green-cards-2021)                                                                                             | FY2021 wastage rates by category                         |
 | [CLINIC v. Rubio Lawsuit](https://www.nilc.org/resources/questions-and-answers-about-the-75-country-visa-ban-lawsuit/)                                                                                        | Legal status of 75-country visa ban                      |
 | [VisaHQ — 75-Country Ban Spillover Analysis](https://www.visahq.com/news/2026-01-24/in/us-pause-on-immigrant-visas-for-75-countries-could-add-50000-employment-green-cards-big-win-for-indian-professionals/) | Estimated 50k–70k spillover range                        |
@@ -103,18 +105,15 @@ adjustedRate = baseRate × spilloverMultiplier × banMultiplier × wastageMultip
 
 ---
 
-## Current Bulletin Data (June 2026)
+## Current Bulletin Data (October 2026)
 
-`Current bulletin` in this README means the **latest released U.S. Department of State Visa Bulletin**, not the calendar month on today's date. As of **May 16, 2026**, the latest released bulletin is **June 2026**, published by DOS on **May 4, 2026**.
+`Current bulletin` means the latest tracked DOS bulletin. The repository tracks **October 2026**, published September 4, 2026.
 
 | Category   | Final Action Date | Dates for Filing |
 | ---------- | ----------------- | ---------------- |
-| EB-1 India | Dec 15, 2022      | Dec 1, 2023      |
-| EB-2 India | **Sep 1, 2013**   | Jan 15, 2015     |
-| EB-3 India | Dec 15, 2013      | Jan 15, 2015     |
-| EB-1 ROW   | CURRENT           | CURRENT          |
-| EB-2 ROW   | CURRENT           | CURRENT          |
-| EB-3 ROW   | CURRENT           | CURRENT          |
+| EB-1 India | Feb 1, 2023      | Jul 1, 2024      |
+| EB-2 India | **Nov 1, 2013**   | Jan 15, 2015     |
+| EB-3 India | Jan 1, 2014      | Jan 15, 2015     |
 
 > **Note:** EB-1 ROW and EB-2 ROW being CURRENT does not itself create extra visas. It means ROW demand is not absorbing otherwise-available employment-based numbers. Separately, unused family-based numbers can spill into employment-based visas under INA §201(d). When both conditions hold, more of the expanded EB supply can reach backlogged countries such as India and China.
 
@@ -142,7 +141,7 @@ Presidential Proclamations 10949 & 10998 (January 2026) indefinitely paused immi
 
 ## Example: August 2016 Priority Date (EB-2 India)
 
-As of June 2026, the EB-2 India FAD is **Sep 1, 2013** — about 35 priority-date months away from Aug 2016. The simulator generates 500 paths per scenario; displayed dates are P50 medians with 80% intervals (P10–P90). Actual ranges are dynamically computed — see the live app for current output.
+As of October 2026, the EB-2 India FAD is **Nov 1, 2013** — about 33 priority-date months away from Aug 2016. The simulator generates 500 paths per scenario; displayed dates are P50 medians with 80% intervals (P10–P90). See [the October data comparison](docs/forecast-data-update-2026-10-01.md) for controlled before/after estimates using the same calculation date and assumptions.
 
 ---
 
@@ -199,7 +198,7 @@ eb-tracker/
 │   │   │   └── Home.tsx             ← Main tracker component (UI + derived view models)
 │   │   ├── lib/
 │   │   │   ├── ebChatEngine.ts      ← Local Ask EBTracker Q&A engine
-│   │   │   ├── forecast.ts          ← v8 probabilistic forecast engine
+│   │   │   ├── forecast.ts          ← v9 probabilistic forecast engine
 │   │   │   ├── forecast.test.ts     ← Forecast-engine unit tests
 │   │   │   └── trackerUtils.ts      ← Shared date and formatting helpers
 │   │   ├── components/

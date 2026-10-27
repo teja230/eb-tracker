@@ -67,6 +67,23 @@ describe("forecast engine", () => {
     expect(context.bulletins).toHaveLength(18);
   });
 
+  it("does not interpret a partly filed priority-date year as low full-year demand", () => {
+    const curve = buildDemandCurve({
+      i485: { 2014: 20000, 2015: 1000 },
+      i140: { 2014: 25000, 2015: 30000, 2016: 45000 },
+      partialInventoryYears: [2015],
+    });
+    expect(curve.scaleFactor).toBe(0.8);
+    expect(curve.byYear[2015]).toBe(24000);
+    expect(curve.byYear[2016]).toBe(36000);
+    const largerInventory = buildDemandCurve({
+      i485: { 2014: 20000, 2015: 26000 },
+      i140: { 2014: 25000, 2015: 30000 },
+      partialInventoryYears: [2015],
+    });
+    expect(largerInventory.byYear[2015]).toBe(26000);
+  });
+
   it("forecastScenario is reproducible for a fixed seed", () => {
     const context = createForecastContext({
       bulletins: buildLinearBulletins(18),

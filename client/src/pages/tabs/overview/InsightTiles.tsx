@@ -1,7 +1,7 @@
 import { AlertTriangle, Calendar, TrendingUp } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
-import { CURRENT_BULLETIN } from "@/data/trackerData";
+import { I485_INVENTORY } from "@/data/trackerData";
 
 type InsightTilesProps = {
   recentPaceInsight: { headline: string; detail: string } | null | undefined;
@@ -39,12 +39,11 @@ export function InsightTiles({
               Pending Inventory
             </p>
             <p className="text-sm font-bold text-slate-900">
-              {pendingInventoryTotal.toLocaleString()} I-485s
+              {pendingInventoryTotal.toLocaleString()} disclosed I-485s
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              USCIS Oct 2025 filed I-485 inventory used by the demand model.
-              This does not include future demand that has not yet reached the
-              filing stage.
+              USCIS {I485_INVENTORY.asOf} filed inventory, including prior
+              years. Suppressed counts and future unfiled demand are excluded.
             </p>
           </div>
         </div>
@@ -60,8 +59,8 @@ export function InsightTiles({
               Retrogression / U risk
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              {CURRENT_BULLETIN.month} bulletin notes that retrogression or
-              unavailable status may be needed to stay within FY2026 limits.
+              Future bulletins may retrogress or become unavailable when demand
+              exceeds the annual visa supply.
             </p>
           </div>
         </div>

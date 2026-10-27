@@ -1,0 +1,41 @@
+[
+  {
+    "period": "FY2026 Q1",
+    "eb1": 3684,
+    "eb2": 9018,
+    "eb3": 3027,
+    "ew3": 10,
+    "total": 15739,
+    "sourceUrl": "https://www.uscis.gov/sites/default/files/document/reports/i140_fy2026_q1_v1.xlsx",
+    "workbook": "i140_fy2026_q1_v1.xlsx",
+    "sheet": "Rec-COB",
+    "range": "A7:J7",
+    "sha256": "d440c6ebf2c7c6172fb2b456c29cc5d1e0fadefc4346d7748c9bfc3bb9e43e30"
+  },
+  {
+    "period": "FY2026 Q2",
+    "eb1": 3625,
+    "eb2": 9043,
+    "eb3": 2793,
+    "ew3": 6,
+    "total": 15467,
+    "sourceUrl": "https://www.uscis.gov/sites/default/files/document/data/i140_fy2026_q2_v1.xlsx",
+    "workbook": "i140_fy2026_q2_v1.xlsx",
+    "sheet": "Rec-COB",
+    "range": "A7:J7",
+    "sha256": "05c92c557c27dcca50ab7d72b54a41b01c7c9a9e723490861e20d74058118c12"
+  },
+  {
+    "period": "FY2026 Q3",
+    "eb1": 3699,
+    "eb2": 12231,
+    "eb3": 3617,
+    "ew3": 2,
+    "total": 19549,
+    "sourceUrl": "https://www.uscis.gov/sites/default/files/document/data/i140_fy2026_q3_v1.xlsx",
+    "workbook": "i140_performance_fy2026_q3_v1.xlsx",
+    "sheet": "Rec-COB",
+    "range": "A7:J7",
+    "sha256": "1e00c61a69bcf0550a4c94dd9e0598582bf03a473a1be1dce577dcd8f73e6975"
+  }
+]

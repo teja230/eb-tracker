@@ -8,6 +8,9 @@ import {
   EB_CATEGORIES,
   HISTORICAL_BULLETINS,
   I140_Q3_RECEIPTS_INDIA,
+  I140_QUARTERLY_RECEIPTS_INDIA,
+  I485_INVENTORY,
+  categoryDemandInputs,
   I140_INDIA_APPROVALS,
   I485_PERFORMANCE,
   I485_INDIA_PENDING,
@@ -52,14 +55,19 @@ describe("tracker bulletin data", () => {
     expect(I485_PERFORMANCE.approved + I485_PERFORMANCE.denied).toBe(45236);
     expect(I485_PERFORMANCE.pending).toBe(268408);
     expect(I485_PERFORMANCE.derivedProcessingLagMonths).toBe(18);
-    expect(TRACKER_SOURCE_LINKS.some(link => link.label === "USCIS I-485 Performance")).toBe(true);
+    expect(
+      TRACKER_SOURCE_LINKS.some(
+        link => link.label === "USCIS I-485 Performance"
+      )
+    ).toBe(true);
   });
 
   it("uses the FY2026 Q3 India I-140 approval series for future demand", () => {
     expect(I140_INDIA_APPROVALS.EB1[2024]).toBe(9725);
-    expect(I140_INDIA_APPROVALS.EB2[2016]).toBe(46748);
-    expect(I140_INDIA_APPROVALS.EB2[2026]).toBe(23032);
-    expect(I140_INDIA_APPROVALS.EB3[2025]).toBe(10000);
+    // EB2 includes both E21 and NIW; EB3 excludes EW3 other workers.
+    expect(I140_INDIA_APPROVALS.EB2[2016]).toBe(46748 + 651);
+    expect(I140_INDIA_APPROVALS.EB2[2026]).toBe(23032 + 632);
+    expect(I140_INDIA_APPROVALS.EB3[2025]).toBe(2050 + 7921);
   });
 
   it("records the complementary FY2026 Q3 India I-140 receipt flow", () => {
@@ -67,9 +75,48 @@ describe("tracker bulletin data", () => {
       period: "FY2026 Q3",
       eb1: 3699,
       eb2: 12231,
-      eb3: 3619,
+      eb3: 3617,
+      ew3: 2,
       total: 19549,
     });
+  });
+
+  it("keeps quarterly India receipts separate from the forecast demand inputs", () => {
+    expect(I140_QUARTERLY_RECEIPTS_INDIA.map(row => row.eb2)).toEqual([
+      9018, 9043, 12231,
+    ]);
+    for (const row of I140_QUARTERLY_RECEIPTS_INDIA) {
+      expect(row.eb1 + row.eb2 + row.eb3 + row.ew3).toBe(row.total);
+    }
+    expect(categoryDemandInputs("EB2")).toEqual({
+      i485: I485_INDIA_PENDING.EB2,
+      i140: I140_INDIA_APPROVALS.EB2,
+      partialInventoryYears: [2015],
+    });
+  });
+
+  it("uses August inventory without assigning prior years or suppressed cells to exact year counts", () => {
+    expect(I485_INVENTORY.asOf).toBe("August 5, 2026");
+    expect(I485_INDIA_PENDING.EB1[2022]).toBe(3905);
+    expect(I485_INDIA_PENDING.EB1[2023]).toBe(11805);
+    expect(I485_INDIA_PENDING.EB2[2014]).toBe(20813);
+    expect(I485_INDIA_PENDING.EB2[2015]).toBe(999);
+    expect(I485_INDIA_PENDING.EB3[2014]).toBe(13240);
+    expect(I485_INVENTORY.categories.EB2.years[2012]).toEqual({
+      disclosed: 290,
+      suppressedCells: 1,
+    });
+    expect(I485_INDIA_PENDING.EB2[2006]).toBeUndefined();
+    expect(I485_INDIA_PENDING.EB1[2016]).toBeUndefined();
+    expect(I485_INVENTORY.categories.EB1.years["Prior Years"].disclosed).toBe(
+      1299
+    );
+    expect(I485_INVENTORY.categories.EB2.disclosedTotal).toBe(27736);
+    for (const data of Object.values(I485_INVENTORY.categories)) {
+      expect(
+        Object.values(data.years).reduce((sum, year) => sum + year.disclosed, 0)
+      ).toBe(data.disclosedTotal);
+    }
   });
 
   it("keeps the model history aligned with CURRENT_BULLETIN", () => {

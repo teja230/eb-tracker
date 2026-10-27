@@ -2,11 +2,13 @@
   "source": "USCIS",
   "report": "Form I-140 by Fiscal Year, Quarter and Case Status",
   "period": "FY2026 Q3 (April-June 2026)",
-  "workbook": "i140_fy2026_q3_v1.xlsx",
+  "workbook": "i140_performance_fy2026_q3_v1.xlsx",
+  "sourceUrl": "https://www.uscis.gov/sites/default/files/document/data/i140_fy2026_q3_v1.xlsx",
   "india_q3_receipts_by_preference": {
     "EB1": 3699,
     "EB2": 12231,
-    "EB3": 3619,
+    "EB3": 3617,
+    "EW3": 2,
     "total": 19549
   },
   "scope": "Quarterly receipts by beneficiary country and preference; useful as a current-demand flow signal, but not an India priority-date inventory",
