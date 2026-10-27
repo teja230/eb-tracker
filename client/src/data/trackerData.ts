@@ -75,12 +75,6 @@ export const I140_Q3_RECEIPTS_INDIA =
   quarterlyReceipts[quarterlyReceipts.length - 1];
 export const I485_INVENTORY = inventory;
 
-export const I140_QUARTERLY_RECEIPTS = [
-  { quarter: "FY26 Q1", EB1: 13110, EB2: 24838, EB3: 21423 },
-  { quarter: "FY26 Q2", EB1: 11628, EB2: 23571, EB3: 15944 },
-  { quarter: "FY26 Q3", EB1: 10918, EB2: 29307, EB3: 22707 },
-] as const;
-
 export const TRACKER_SOURCE_LINKS = [
   {
     label: "DOS Visa Bulletin",
